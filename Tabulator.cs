@@ -13,6 +13,12 @@ namespace TabulateSmarterTestContentPackage
     {
         static readonly UTF8Encoding sUtf8NoBomEncoding = new UTF8Encoding(false, true);
 
+        // Filenames
+        const string cSummaryReportFn = "SummaryReport.txt";
+        const string cTextGlossaryReportFn = "TextGlossaryReport.csv";
+        const string cAudioGlossaryReportFn = "AudioGlossaryReport.csv";
+        const string cErrorReportFn = "ErrorReport.txt";
+
         string mRootPath;
         int mErrorCount = 0;
         int mItemCount = 0;
@@ -42,9 +48,13 @@ namespace TabulateSmarterTestContentPackage
 
             try
             {
-                mTextGlossaryReport = new StreamWriter(Path.Combine(mRootPath, "TextGlossaryReport.csv"), false, sUtf8NoBomEncoding);
+                {
+                    string errorReportPath = Path.Combine(mRootPath, cErrorReportFn);
+                    if (File.Exists(errorReportPath)) File.Delete(errorReportPath);
+                }
+                mTextGlossaryReport = new StreamWriter(Path.Combine(mRootPath, cTextGlossaryReportFn), false, sUtf8NoBomEncoding);
                 mTextGlossaryReport.WriteLine("WIT_ID,Index,Term,Language,Length");
-                mAudioGlossaryReport = new StreamWriter(Path.Combine(mRootPath, "AudioGlossaryReport.csv"));
+                mAudioGlossaryReport = new StreamWriter(Path.Combine(mRootPath, cAudioGlossaryReportFn));
                 mAudioGlossaryReport.WriteLine("WIT_ID,Index,Term,Language,Encoding,Size");
 
                 DirectoryInfo diItems = new DirectoryInfo(Path.Combine(mRootPath, "Items"));
@@ -57,33 +67,19 @@ namespace TabulateSmarterTestContentPackage
                     catch (Exception err)
                     {
                         Console.WriteLine();
-                        Console.WriteLine(err.ToString());
+                        Console.WriteLine(err.Message);
                         Console.WriteLine();
-                        ++mErrorCount;
+                        ReportError(diItem, err.ToString());
                     }
                 }
 
+                using (StreamWriter summaryReport = new StreamWriter(Path.Combine(mRootPath, cSummaryReportFn), false, sUtf8NoBomEncoding))
+                {
+                    SummaryReport(summaryReport);
+                }
+
                 // Report aggregate results to the console
-                Console.WriteLine();
-                if (mErrorCount != 0) Console.WriteLine("Errors: {0}", mErrorCount);
-                Console.WriteLine("Items: {0}", mItemCount);
-                Console.WriteLine("Word Lists: {0}", mWordlistCount);
-                Console.WriteLine("Glossary Terms: {0}", mGlossaryTermCount);
-                Console.WriteLine("Unique Glossary Terms: {0}", mTermCounts.Count);
-                Console.WriteLine("Glossary m4a Audio: {0}", mGlossaryM4aCount);
-                Console.WriteLine("Glossary ogg Audio: {0}", mGlossaryOggCount);
-                Console.WriteLine();
-                Console.WriteLine("Item Type Counts:");
-                mTypeCounts.Dump();
-                Console.WriteLine();
-                Console.WriteLine("Translation Counts:");
-                mTranslationCounts.Dump();
-                Console.WriteLine();
-                Console.WriteLine("M4a Translation Counts:");
-                mM4aTranslationCounts.Dump();
-                Console.WriteLine();
-                Console.WriteLine("Ogg Translation Counts:");
-                mOggTranslationCounts.Dump();
+                SummaryReport(Console.Out);
                 Console.WriteLine();
 
                 /*
@@ -183,10 +179,12 @@ namespace TabulateSmarterTestContentPackage
                         if (string.Equals(extension, "m4a", StringComparison.Ordinal))
                         {
                             mM4aTranslationCounts.Increment(language);
+                            ++mGlossaryM4aCount;
                         }
                         else
                         {
                             mOggTranslationCounts.Increment(language);
+                            ++mGlossaryOggCount;
                         }
 
                         // WIT_ID,Index,Term,Language,Encoding,Size
@@ -196,15 +194,40 @@ namespace TabulateSmarterTestContentPackage
             }
         }
 
+        void SummaryReport(TextWriter writer)
+        {
+            if (mErrorCount != 0) writer.WriteLine("Errors: {0}", mErrorCount);
+            writer.WriteLine("Items: {0}", mItemCount);
+            writer.WriteLine("Word Lists: {0}", mWordlistCount);
+            writer.WriteLine("Glossary Terms: {0}", mGlossaryTermCount);
+            writer.WriteLine("Unique Glossary Terms: {0}", mTermCounts.Count);
+            writer.WriteLine("Glossary m4a Audio: {0}", mGlossaryM4aCount);
+            writer.WriteLine("Glossary ogg Audio: {0}", mGlossaryOggCount);
+            writer.WriteLine();
+            writer.WriteLine("Item Type Counts:");
+            mTypeCounts.Dump(writer);
+            writer.WriteLine();
+            writer.WriteLine("Translation Counts:");
+            mTranslationCounts.Dump(writer);
+            writer.WriteLine();
+            writer.WriteLine("M4a Translation Counts:");
+            mM4aTranslationCounts.Dump(writer);
+            writer.WriteLine();
+            writer.WriteLine("Ogg Translation Counts:");
+            mOggTranslationCounts.Dump(writer);
+            writer.WriteLine();
+        }
+
         void ReportError(string msg)
         {
             if (mErrorReport == null)
             {
-                mErrorReport = new StreamWriter(Path.Combine(mRootPath, "ErrorReport.txt"), false, sUtf8NoBomEncoding);
-                mErrorReport.Write(msg);
-                if (msg[msg.Length - 1] != '\n') mErrorReport.WriteLine();
-                mErrorReport.WriteLine();
+                mErrorReport = new StreamWriter(Path.Combine(mRootPath, cErrorReportFn), false, sUtf8NoBomEncoding);
             }
+            mErrorReport.Write(msg);
+            if (msg[msg.Length - 1] != '\n') mErrorReport.WriteLine();
+            mErrorReport.WriteLine();
+            ++mErrorCount;
         }
 
         void ReportError(DirectoryInfo diItem, string msg)
@@ -243,11 +266,11 @@ namespace TabulateSmarterTestContentPackage
             dict[key] = count + 1;
         }
 
-        public static void Dump(this Dictionary<string, int> dict)
+        public static void Dump(this Dictionary<string, int> dict, TextWriter writer)
         {
             foreach (var pair in dict)
             {
-                Console.WriteLine("  {0}: {1}", pair.Key, pair.Value);
+                writer.WriteLine("  {0}: {1}", pair.Key, pair.Value);
             }
         }
     }
