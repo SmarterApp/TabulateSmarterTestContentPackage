@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.IO;
 using System.Xml;
 using System.Text.RegularExpressions;
+using System.Diagnostics;
 
 namespace TabulateSmarterTestContentPackage
 {
@@ -129,10 +130,12 @@ namespace TabulateSmarterTestContentPackage
             }
         }
 
-        static readonly Regex sRxParseAudiofile = new Regex(@"Item_(\d+)_v(\d)_(\d+)_(\d+)([a-zA-Z]+)_glossary_", RegexOptions.Compiled|RegexOptions.CultureInvariant);
+        static readonly Regex sRxParseAudiofile = new Regex(@"Item_(\d+)_v(\d)_(\d+)_(\d+)([a-zA-Z]+)_glossary_", RegexOptions.Compiled|RegexOptions.CultureInvariant|RegexOptions.IgnoreCase);
 
         private void TabulateWordList(DirectoryInfo diItem, XmlDocument xml, string itemId)
         {
+            if (itemId == "31578") Debugger.Break(); 
+
             List<string> terms = new List<string>();
             ++mWordlistCount;
             foreach (XmlNode kwNode in xml.SelectNodes("itemrelease/item/keywordList/keyword"))
@@ -189,6 +192,10 @@ namespace TabulateSmarterTestContentPackage
 
                         // WIT_ID,Index,Term,Language,Encoding,Size
                         mAudioGlossaryReport.WriteLine("{0},{1},{2},{3},{4},{5}", CsvEncode(itemId), index, CsvEncode(term), CsvEncode(language), CsvEncode(extension), fi.Length);
+                    }
+                    else
+                    {
+                        ReportError(diItem, "Audio Glossary Filename in unrecognized format: ", fi.Name);
                     }
                 }
             }
