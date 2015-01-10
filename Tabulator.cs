@@ -134,8 +134,6 @@ namespace TabulateSmarterTestContentPackage
 
         private void TabulateWordList(DirectoryInfo diItem, XmlDocument xml, string itemId)
         {
-            if (itemId == "31578") Debugger.Break(); 
-
             List<string> terms = new List<string>();
             ++mWordlistCount;
             foreach (XmlNode kwNode in xml.SelectNodes("itemrelease/item/keywordList/keyword"))
