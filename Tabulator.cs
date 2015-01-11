@@ -70,7 +70,7 @@ namespace TabulateSmarterTestContentPackage
                 mAudioGlossaryReport = new StreamWriter(Path.Combine(mRootPath, cAudioGlossaryReportFn));
                 mAudioGlossaryReport.WriteLine("Folder,WIT_ID,Index,Term,Language,Encoding,Size");
                 mItemReport = new StreamWriter(Path.Combine(mRootPath, cItemReportFn));
-                mItemReport.WriteLine("Folder,ItemId,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,ASL,BrailleEmbedded,BrailleFile,Translation");
+                mItemReport.WriteLine("Folder,ItemId,ItemType,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,ASL,BrailleEmbedded,BrailleFile,Translation");
 
                 DirectoryInfo diItems = new DirectoryInfo(Path.Combine(mRootPath, "Items"));
                 foreach (DirectoryInfo diItem in diItems.EnumerateDirectories())
@@ -162,7 +162,7 @@ namespace TabulateSmarterTestContentPackage
                 case "SIM":         // Simulation
                 case "ti":          // Table Interaction
                 case "wer":         // Writing Extended Response
-                    TabulateInteraction(diItem, xml, itemId);
+                    TabulateInteraction(diItem, xml, itemId, itemType);
                     break;
 
                 case "wordList":    // Word List (Glossary)
@@ -184,7 +184,7 @@ namespace TabulateSmarterTestContentPackage
             }
         }
 
-        void TabulateInteraction(DirectoryInfo diItem, XmlDocument xml, string itemId)
+        void TabulateInteraction(DirectoryInfo diItem, XmlDocument xml, string itemId, string itemType)
         {
             string metadataPath = Path.Combine(diItem.FullName, "metadata.xml");
             if (!File.Exists(metadataPath)) throw new InvalidDataException("Metadata file not found: " + metadataPath);
@@ -203,22 +203,23 @@ namespace TabulateSmarterTestContentPackage
             // Rubric
             string rubric = string.Empty;
             {
-                // Look for answer key attribute
-                XmlElement xmlEle = xml.SelectSingleNode("itemrelease/item/attriblist/attrib[/@attid='itm_att_Answer Key']") as XmlElement;
-                if (xmlEle != null)
-                {
-                    rubric = "AnswerKeyProperty";
-                }
                 // Look for machineRubric element
-                else
+                string machineFilename = xml.XpEval("itemrelease/item/MachineRubric/@filename");
+                if (machineFilename != null)
                 {
-                    string machineFilename = xml.XpEval("itemrelease/item/MachineRubric/@filename");
-                    if (machineFilename != null)
-                    {
-                        rubric = Path.GetExtension(machineFilename).ToLower();
-                        if (rubric.Length > 0) rubric = rubric.Substring(1);
+                    rubric = Path.GetExtension(machineFilename).ToLower();
+                    if (rubric.Length > 0) rubric = rubric.Substring(1);
 
-                        if (!File.Exists(Path.Combine(diItem.FullName, machineFilename))) ReportError(diItem, "Item specifies machine rubric '{0}' but file was not found.");
+                    if (!File.Exists(Path.Combine(diItem.FullName, machineFilename))) ReportError(diItem, "Item specifies machine rubric '{0}' but file was not found.");
+                }
+
+                // Try answer key element
+                if (string.IsNullOrEmpty(rubric))
+                {
+                    XmlElement xmlEle = xml.SelectSingleNode("itemrelease/item/attriblist/attrib[@attid='itm_att_Answer Key']") as XmlElement;
+                    if (xmlEle != null)
+                    {
+                        rubric = "AnswerKeyProperty";
                     }
                 }
 
@@ -327,8 +328,8 @@ namespace TabulateSmarterTestContentPackage
                 }
             }
 
-            // Folder,ItemId,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,ASL,BrailleEmbedded,BrailleFile,Translation
-            mItemReport.WriteLine(string.Join(",", CsvEncode(folder), CsvEncode(itemId), CsvEncode(subject), CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), CsvEncode(asl), CsvEncode(brailleEmbedded), CsvEncode(brailleFile), CsvEncode(translation)));
+            // Folder,ItemId,ItemType,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,ASL,BrailleEmbedded,BrailleFile,Translation
+            mItemReport.WriteLine(string.Join(",", CsvEncode(folder), CsvEncode(itemId), CsvEncode(itemType), CsvEncode(subject), CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), CsvEncode(asl), CsvEncode(brailleEmbedded), CsvEncode(brailleFile), CsvEncode(translation)));
         }
 
         bool CheckForAttachment(DirectoryInfo diItem, XmlDocument xml, string attachType, string expectedExtension)
@@ -426,7 +427,7 @@ namespace TabulateSmarterTestContentPackage
             target = string.Empty;
         }
 
-        static readonly Regex sRxParseAudiofile = new Regex(@"Item_(\d+)_v(\d)_(\d+)_(\d+)([a-zA-Z]+)_glossary_", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+        static readonly Regex sRxParseAudiofile = new Regex(@"Item_(\d+)_v(\d+)_(\d+)_(\d+)([a-zA-Z]+)_glossary_", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
         private void TabulateWordList(DirectoryInfo diItem, XmlDocument xml, string itemId)
         {
