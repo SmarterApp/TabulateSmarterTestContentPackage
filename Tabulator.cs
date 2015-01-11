@@ -196,9 +196,9 @@ namespace TabulateSmarterTestContentPackage
             string folder = diItem.FullName.Substring(mRootPath.Length);
 
             // Subject
-            string subject = xmlMetadata.XpEvalE("metadata/smarterAppMetadata/Subject");
+            string subject = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:Subject", sXmlNs);
             // Grade
-            string grade = xmlMetadata.XpEvalE("metadata/smarterAppMetadata/IntendedGrade");
+            string grade = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:IntendedGrade", sXmlNs);
             
             // Rubric
             string rubric = string.Empty;
