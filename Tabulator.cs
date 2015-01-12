@@ -268,11 +268,36 @@ namespace TabulateSmarterTestContentPackage
             string folder = diItem.FullName.Substring(mRootPath.Length);
 
             // Subject
-            string subject = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:Subject", sXmlNs);
+            string subject = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='itm_item_subject']/val");
+            string metaSubject = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:Subject", sXmlNs);
+            if (string.IsNullOrEmpty(subject))
+            {
+                ReportError(diItem, itemId, itemType, "Missing subject in item attributes (itm_att_Grade).");
+                subject = metaSubject;
+                if (string.IsNullOrEmpty(subject))
+                    ReportError(diItem, itemId, itemType, "Missing subject in item metadata.");
+            }
+            else
+            {
+                if (!string.Equals(subject, metaSubject, StringComparison.Ordinal))
+                    ReportError(diItem, itemId, itemType, "Item indicates subject '{0} but metadata indicates subject '{1}'.", subject, metaSubject);
+            }
 
             // Grade
-            string grade = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:IntendedGrade", sXmlNs);
-            // TODO: Compare grade from metadata with itemrelease/item/attriblist/attrib[@attid='itm_att_Grade']
+            string grade = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='itm_att_Grade']/val");
+            string metaGrade = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:IntendedGrade", sXmlNs);
+            if (string.IsNullOrEmpty(grade))
+            {
+                ReportError(diItem, itemId, itemType, "Missing grade in item attributes (itm_att_Grade).");
+                grade = metaGrade;
+                if (string.IsNullOrEmpty(grade))
+                    ReportError(diItem, itemId, itemType, "Missing grade in item metadata.");
+            }
+            else
+            {
+                if (!string.Equals(grade, metaGrade, StringComparison.Ordinal))
+                    ReportError(diItem, itemId, itemType, "Item indicates grade '{0} but metadata indicates grade '{1}'.", grade, metaGrade);
+            }
             
             // Rubric
             string rubric = string.Empty;
@@ -375,11 +400,7 @@ namespace TabulateSmarterTestContentPackage
                     if (machineRubricFilename == null || !string.Equals(fi.Name, machineRubricFilename, StringComparison.OrdinalIgnoreCase))
                         ReportError(diItem, itemId, itemType, "Machine rubric file found but not referenced in <MachineRubric> element: {0}", fi.Name);
                 }
-
-                // Todo: Check the metadata value for ScoringEngine and tabulate permutation
-                // match with what we've done so far. Then add validation code.
             }
-            //mRubricCounts.Increment(rubric);
 
             // AssessmentType (PT or CAT)
             string assessmentType = string.Equals(xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:PerformanceTaskComponentItem", sXmlNs), "Y", StringComparison.OrdinalIgnoreCase) ? "PT" : "CAT";
