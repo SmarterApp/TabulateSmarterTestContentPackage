@@ -47,52 +47,104 @@ namespace TabulateSmarterTestContentPackage
         TextWriter mTextGlossaryReport;
         TextWriter mAudioGlossaryReport;
         TextWriter mItemReport;
+        string mErrorReportPath;
         TextWriter mErrorReport;
+        string mSummaryReportPath;
 
         public Tabulator(string rootPath)
         {
-            mRootPath = rootPath;
+            mRootPath = Path.GetFullPath(rootPath);
         }
 
-        public void Tabulate()
+        // Tabulate a package in the specified directory
+        public void TabulateOne()
         {
-            if (!File.Exists(Path.Combine(mRootPath, "imsmanifest.xml"))) throw new ArgumentException("Not a valid content package path. File imsmanifest.xml not found!");
-            Console.WriteLine("Tabulating " + mRootPath);
-
             try
             {
-                {
-                    string errorReportPath = Path.Combine(mRootPath, cErrorReportFn);
-                    if (File.Exists(errorReportPath)) File.Delete(errorReportPath);
-                }
-                mTextGlossaryReport = new StreamWriter(Path.Combine(mRootPath, cTextGlossaryReportFn), false, sUtf8NoBomEncoding);
-                mTextGlossaryReport.WriteLine("Folder,WIT_ID,Index,Term,Language,Length");
-                mAudioGlossaryReport = new StreamWriter(Path.Combine(mRootPath, cAudioGlossaryReportFn));
-                mAudioGlossaryReport.WriteLine("Folder,WIT_ID,Index,Term,Language,Encoding,Size");
-                mItemReport = new StreamWriter(Path.Combine(mRootPath, cItemReportFn));
-                mItemReport.WriteLine("Folder,ItemId,ItemType,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,ASL,BrailleEmbedded,BrailleFile,Translation");
+                Initialize(mRootPath);
+                TabulatePackage(mRootPath);
+            }
+            finally
+            {
+                Conclude();
+            }
+        }
 
-                DirectoryInfo diItems = new DirectoryInfo(Path.Combine(mRootPath, "Items"));
-                foreach (DirectoryInfo diItem in diItems.EnumerateDirectories())
+        // Individually tabulate each package in subdirectories
+        public void TabulateEach()
+        {
+            DirectoryInfo diRoot = new DirectoryInfo(mRootPath);
+
+            foreach(DirectoryInfo diPackageFolder in diRoot.GetDirectories())
+            {
+                if (File.Exists(Path.Combine(diPackageFolder.FullName, "imsmanifest.xml")))
                 {
                     try
                     {
-                        TabulateItem(diItem);
+                        Initialize(diPackageFolder.FullName);
+                        TabulatePackage(diPackageFolder.FullName);
                     }
-                    catch (Exception err)
+                    finally
                     {
-                        Console.WriteLine();
-#if DEBUG
-                        Console.WriteLine(err.ToString());
-#else
-                        Console.WriteLine(err.Message);
-#endif
-                        Console.WriteLine();
-                        ReportError(diItem, err.ToString());
+                        Conclude();
                     }
                 }
+            }
+        }
 
-                using (StreamWriter summaryReport = new StreamWriter(Path.Combine(mRootPath, cSummaryReportFn), false, sUtf8NoBomEncoding))
+        // Tabulate packages in subdirectories and aggregate the results
+        public void TabulateAggregate()
+        {
+            DirectoryInfo diRoot = new DirectoryInfo(mRootPath);
+            try
+            {
+                Initialize(mRootPath);
+
+                foreach (DirectoryInfo diPackageFolder in diRoot.GetDirectories())
+                {
+                    if (File.Exists(Path.Combine(diPackageFolder.FullName, "imsmanifest.xml")))
+                    {
+                        TabulatePackage(diPackageFolder.FullName);
+                    }
+                }
+            }
+            finally
+            {
+                Conclude();
+            }
+        }
+
+        // Initialize all files and collections for a tabulation run
+        private void Initialize(string reportFolderPath)
+        {
+            mErrorReportPath = Path.Combine(reportFolderPath, cErrorReportFn);
+            if (File.Exists(mErrorReportPath)) File.Delete(mErrorReportPath);
+
+            mSummaryReportPath = Path.Combine(reportFolderPath, cSummaryReportFn);
+            if (File.Exists(mSummaryReportPath)) File.Delete(mSummaryReportPath);
+
+            mTextGlossaryReport = new StreamWriter(Path.Combine(reportFolderPath, cTextGlossaryReportFn), false, sUtf8NoBomEncoding);
+            mTextGlossaryReport.WriteLine("Folder,WIT_ID,Index,Term,Language,Length");
+
+            mAudioGlossaryReport = new StreamWriter(Path.Combine(reportFolderPath, cAudioGlossaryReportFn));
+            mAudioGlossaryReport.WriteLine("Folder,WIT_ID,Index,Term,Language,Encoding,Size");
+
+            mItemReport = new StreamWriter(Path.Combine(reportFolderPath, cItemReportFn));
+            mItemReport.WriteLine("Folder,ItemId,ItemType,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,ASL,BrailleEmbedded,BrailleFile,Translation");
+
+            mTypeCounts.Clear();
+            mTermCounts.Clear();
+            mTranslationCounts.Clear();
+            mM4aTranslationCounts.Clear();
+            mOggTranslationCounts.Clear();
+            mRubricCounts.Clear();
+        }
+
+        private void Conclude()
+        {
+            try
+            {
+                using (StreamWriter summaryReport = new StreamWriter(mSummaryReportPath, false, sUtf8NoBomEncoding))
                 {
                     SummaryReport(summaryReport);
                 }
@@ -100,12 +152,6 @@ namespace TabulateSmarterTestContentPackage
                 // Report aggregate results to the console
                 SummaryReport(Console.Out);
                 Console.WriteLine();
-
-                /*
-                Console.WriteLine("Glossary Term Counts:");
-                mTermCounts.Dump();
-                Console.WriteLine();
-                */
             }
             finally
             {
@@ -128,6 +174,32 @@ namespace TabulateSmarterTestContentPackage
                 {
                     mErrorReport.Dispose();
                     mErrorReport = null;
+                }
+            }
+        }
+
+        public void TabulatePackage(string packageFolderPath)
+        {
+            if (!File.Exists(Path.Combine(packageFolderPath, "imsmanifest.xml"))) throw new ArgumentException("Not a valid content package path. File imsmanifest.xml not found!");
+            Console.WriteLine("Tabulating " + packageFolderPath);
+
+            DirectoryInfo diItems = new DirectoryInfo(Path.Combine(packageFolderPath, "Items"));
+            foreach (DirectoryInfo diItem in diItems.EnumerateDirectories())
+            {
+                try
+                {
+                    TabulateItem(diItem);
+                }
+                catch (Exception err)
+                {
+                    Console.WriteLine();
+#if DEBUG
+                    Console.WriteLine(err.ToString());
+#else
+                    Console.WriteLine(err.Message);
+#endif
+                    Console.WriteLine();
+                    ReportError(diItem, err.ToString());
                 }
             }
         }
@@ -157,7 +229,7 @@ namespace TabulateSmarterTestContentPackage
                 case "mc":          // Multiple Choice
                 case "mi":          // Match Interaction
                 case "ms":          // Multi-Select
-                case "nl":          // Natural Language
+                //case "nl":          // Natural Language
                 case "sa":          // Short Answer
                 case "SIM":         // Simulation
                 case "ti":          // Table Interaction
@@ -197,41 +269,117 @@ namespace TabulateSmarterTestContentPackage
 
             // Subject
             string subject = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:Subject", sXmlNs);
+
             // Grade
             string grade = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:IntendedGrade", sXmlNs);
+            // TODO: Compare grade from metadata with itemrelease/item/attriblist/attrib[@attid='itm_att_Grade']
             
             // Rubric
             string rubric = string.Empty;
             {
-                // Look for machineRubric element
-                string machineFilename = xml.XpEval("itemrelease/item/MachineRubric/@filename");
-                if (machineFilename != null)
+                string answerKeyValue = string.Empty;
+                XmlElement xmlEle = xml.SelectSingleNode("itemrelease/item/attriblist/attrib[@attid='itm_att_Answer Key']") as XmlElement;
+                if (xmlEle != null)
                 {
-                    rubric = Path.GetExtension(machineFilename).ToLower();
-                    if (rubric.Length > 0) rubric = rubric.Substring(1);
-
-                    if (!File.Exists(Path.Combine(diItem.FullName, machineFilename))) ReportError(diItem, "Item specifies machine rubric '{0}' but file was not found.");
+                    answerKeyValue = xmlEle.XpEvalE("val");
                 }
 
-                // Try answer key element
-                if (string.IsNullOrEmpty(rubric))
+                string machineRubricType = string.Empty;
+                string machineRubricFilename = xml.XpEval("itemrelease/item/MachineRubric/@filename");
+                if (machineRubricFilename != null)
                 {
-                    XmlElement xmlEle = xml.SelectSingleNode("itemrelease/item/attriblist/attrib[@attid='itm_att_Answer Key']") as XmlElement;
-                    if (xmlEle != null)
-                    {
-                        rubric = "AnswerKeyProperty";
-                    }
+                    machineRubricType = Path.GetExtension(machineRubricFilename).ToLower();
+                    if (machineRubricType.Length > 0) machineRubricType = machineRubricType.Substring(1);
+                    if (!File.Exists(Path.Combine(diItem.FullName, machineRubricFilename))) ReportError(diItem, "Item specifies machine rubric '{0}' but file was not found.");
+                }
+
+                string metadataScoringEngine = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:ScoringEngine", sXmlNs);
+
+                // Count the rubric types
+                mRubricCounts.Increment(string.Concat(itemType, " '", xmlEle.XpEvalE("val"), "' ", machineRubricType ));
+
+                // Rubric type is dictated by item type
+                bool usesMachineRubric = false;
+                string metadataExpected = null;
+                switch (itemType)
+                {
+                    case "mc":      // Multiple Choice
+                        rubric = "Embedded";
+                        metadataExpected = "Automatic with Key";
+                        if (answerKeyValue.Length != 1 || answerKeyValue[0] < 'A' || answerKeyValue[0] > 'Z')
+                            ReportError(diItem, "Unexpected MC answer key: '{0}'", answerKeyValue);
+                        break;
+
+                    case "ms":      // Multi-select
+                        rubric = "Embedded";
+                        metadataExpected = "Automatic with Key(s)";
+                        {
+                            string[] parts = answerKeyValue.Split(',');
+                            bool validAnswer = parts.Length > 0;
+                            foreach(string answer in parts)
+                            {
+                                if (answer.Length != 1 || answer[0] < 'A' || answer[0] > 'Z') validAnswer = false;
+                            }
+                            if (!validAnswer) ReportError(diItem, "Unexpected MS answer key: '{0}'", answerKeyValue);
+                        }
+                        break;
+
+                    case "EBSR":    // Evidence-based selectd response
+                        rubric = "Embedded";
+                        metadataExpected = "Automatic with Key(s)";
+                        if (answerKeyValue.Length != 1 || answerKeyValue[0] < 'A' || answerKeyValue[0] > 'Z')
+                            ReportError(diItem, "Unexpected MC answer key: '{0}'", answerKeyValue);
+                        break;
+                    // TODO: Add check for part 1 of EBSR (in "itm_att_Item Format")
+
+                    case "eq":          // Equation
+                    case "gi":          // Grid Item (graphic)
+                    case "htq":         // Hot Text (in wrapped-QTI format)
+                    case "mi":          // Match Interaction
+                    case "ti":          // Table Interaction
+                        metadataExpected = (machineRubricFilename != null) ? "Automatic with Machine Rubric" : "HandScored";
+                        usesMachineRubric = true;
+                        rubric = machineRubricType;
+                        if (!string.Equals(answerKeyValue, itemType.ToUpper())) ReportError(diItem, "Answer key attribute is '{0}', expected '{1}'.", answerKeyValue, itemType.ToUpper());
+                        break;
+
+                    case "er":          // Extended-Response
+                    case "sa":          // Short Answer
+                    case "wer":         // Writing Extended Response
+                        metadataExpected = "HandScored";
+                        if (!string.Equals(answerKeyValue, itemType.ToUpper())) ReportError(diItem, "Answer key attribute is '{0}', expected '{1}'.", answerKeyValue, itemType.ToUpper());
+                        break;
+
+                    default:
+                        ReportError(diItem, "Validation of rubrics for type '{0}' is not supported.", itemType);
+                        break;
+                }
+
+                if (metadataExpected != null && !string.Equals(metadataScoringEngine, metadataExpected, StringComparison.Ordinal))
+                {
+                    if (string.Equals(metadataScoringEngine, metadataExpected, StringComparison.OrdinalIgnoreCase))
+                        ReportError(diItem, "Capitalization error in ScoringEngine metadata. Found '{0}', expected '{1}'.", metadataScoringEngine, metadataExpected);
+                    else
+                        ReportError(diItem, "Incorrect ScoringEngine metadata for type '{0}'. Found '{1}', expected '{2}'.", itemType, metadataScoringEngine, metadataExpected);
+                }
+
+                if (!string.IsNullOrEmpty(machineRubricFilename) && !usesMachineRubric)
+                    ReportError(diItem, "Unexpected machine rubric found for item type '{0}': {1}", itemType, machineRubricFilename);
+
+                // Check for unreferenced machine rubrics
+                foreach(FileInfo fi in diItem.EnumerateFiles("*.qrx"))
+                {
+                    if (machineRubricFilename == null || !string.Equals(fi.Name, machineRubricFilename, StringComparison.OrdinalIgnoreCase))
+                        ReportError(diItem, "Machine rubric file found but not referenced in <MachineRubric> element: {0}", fi.Name);
                 }
 
                 // Todo: Check the metadata value for ScoringEngine and tabulate permutation
                 // match with what we've done so far. Then add validation code.
-
-                if (string.IsNullOrEmpty(rubric)) ReportUnexpectedFiles(diItem, "Machine Rubric", "*.qrx");
             }
-            mRubricCounts.Increment(rubric);
+            //mRubricCounts.Increment(rubric);
 
             // AssessmentType (PT or CAT)
-            string assessmentType = string.Equals(xmlMetadata.XpEvalE("metadata/smarterAppMetadata/PerformanceTaskComponentItem"), "Y", StringComparison.OrdinalIgnoreCase) ? "PT" : "CAT";
+            string assessmentType = string.Equals(xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:PerformanceTaskComponentItem", sXmlNs), "Y", StringComparison.OrdinalIgnoreCase) ? "PT" : "CAT";
             
             // Standard, Claim and Target
             string standard;
@@ -493,7 +641,7 @@ namespace TabulateSmarterTestContentPackage
                     }
                     else
                     {
-                        ReportError(diItem, "Audio Glossary Filename in unrecognized format: ", fi.Name);
+                        ReportError(diItem, "Audio Glossary Filename in unrecognized format: {0}", fi.Name);
                     }
                 }
             }
@@ -589,9 +737,11 @@ namespace TabulateSmarterTestContentPackage
 
         public static void Dump(this Dictionary<string, int> dict, TextWriter writer)
         {
-            foreach (var pair in dict)
+            List<KeyValuePair<string, int>> list = new List<KeyValuePair<string, int>>(dict);
+            list.Sort(delegate(KeyValuePair<string, int> a, KeyValuePair<string, int> b) { return b.Value - a.Value; });
+            foreach (var pair in list)
             {
-                writer.WriteLine("  {0}: {1}", pair.Key, pair.Value);
+                writer.WriteLine("{0,6}: {1}", pair.Value, pair.Key);
             }
         }
     }

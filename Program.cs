@@ -10,7 +10,11 @@ namespace TabulateSmarterTestContentPackage
     class Program
     {
         static readonly string cSyntax =
-@"Syntax: TabulateSmarterTestContentPackage <path to package directory>
+@"Syntax: TabulateSmarterTestContentPackage [options] <path to package directory>
+
+Options:
+    -s Individually tabulate each package in Subdirectories of the specified directory.
+    -a Tabulate all packages in subdirectories and aggregate the results.
 
 Packages are typically delivered in .zip format. The .zip file must be unpacked
 into a directory tree. The path of the root of the directory tree should be
@@ -24,14 +28,56 @@ in the root directory alongside the imsmanifest.zip file.";
         {
             try
             {
-                if (args.Length == 0)
+                string rootPath = null;
+                char operation = 'o'; // o=one, s=packages in Subdirectories, a=aggregate packages in subdirectories
+                foreach (string arg in args)
                 {
-                    Console.WriteLine(cSyntax);                
+                    if (arg[0] == '-') // Option
+                    {
+                        switch (arg.ToLower())
+                        {
+                            case "-s":
+                                operation = 's';
+                                break;
+                            case "-a":
+                                operation = 'a';
+                                break;
+                            default:
+                                throw new ArgumentException("Unexpected command-line option: " + arg);
+                        }
+                    }
+                    else if (rootPath == null)
+                    {
+                        rootPath = arg;
+                    }
+                    else
+                    {
+                        throw new ArgumentException("Unexpected command-line parameter: " + arg);
+                    }
                 }
-                else
+
+                if (rootPath == null)
                 {
-                    new Tabulator(args[0]).Tabulate();
+                    Console.Error.WriteLine(cSyntax);
+                    return;
                 }
+
+                Tabulator tab = new Tabulator(rootPath);
+                switch (operation)
+                {
+                    default:
+                        tab.TabulateOne();
+                        break;
+
+                    case 's':
+                        tab.TabulateEach();
+                        break;
+
+                    case 'a':
+                        tab.TabulateAggregate();
+                        break;
+                }
+
             }
             catch (Exception err)
             {
