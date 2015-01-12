@@ -199,7 +199,7 @@ namespace TabulateSmarterTestContentPackage
                     Console.WriteLine(err.Message);
 #endif
                     Console.WriteLine();
-                    ReportError(diItem, null, null, err.ToString());
+                    ReportError(new ItemContext(this, diItem, null, null), ErrCat.Exception, err.ToString());
                 }
             }
         }
@@ -219,6 +219,8 @@ namespace TabulateSmarterTestContentPackage
             ++mItemCount;
             mTypeCounts.Increment(itemType);
 
+            ItemContext it = new ItemContext(this, diItem, itemId, itemType);
+
             switch (itemType)
             {
                 case "EBSR":        // Evidence-Based Selected Response
@@ -234,11 +236,11 @@ namespace TabulateSmarterTestContentPackage
                 case "SIM":         // Simulation
                 case "ti":          // Table Interaction
                 case "wer":         // Writing Extended Response
-                    TabulateInteraction(diItem, xml, itemId, itemType);
+                    TabulateInteraction(it, xml);
                     break;
 
                 case "wordList":    // Word List (Glossary)
-                    TabulateWordList(diItem, xml, itemId);
+                    TabulateWordList(it, xml);
                     break;
 
                 case "pass":        // Passage
@@ -246,41 +248,37 @@ namespace TabulateSmarterTestContentPackage
                     break;  // Ignore for the moment
 
                 default:
-                    ReportError(diItem, null, null, "Unexpected item type: " + itemType);
+                    ReportError(it, ErrCat.Unsupported, "Unexpected item type: " + itemType);
                     break;
             }
 
             if (string.Equals(itemType, "wordList", StringComparison.Ordinal))
             {
-                TabulateWordList(diItem, xml, itemId);
+                TabulateWordList(it, xml);
             }
         }
 
-        void TabulateInteraction(DirectoryInfo diItem, XmlDocument xml, string itemId, string itemType)
+        void TabulateInteraction(ItemContext it, XmlDocument xml)
         {
-            string metadataPath = Path.Combine(diItem.FullName, "metadata.xml");
+            string metadataPath = Path.Combine(it.DiItem.FullName, "metadata.xml");
             if (!File.Exists(metadataPath)) throw new InvalidDataException("Metadata file not found: " + metadataPath);
             XmlDocument xmlMetadata = new XmlDocument(sXmlNt);
-            xmlMetadata.Load(Path.Combine(diItem.FullName, "metadata.xml"));
-
-            // Folder
-            Debug.Assert(diItem.FullName.StartsWith(mRootPath));
-            string folder = diItem.FullName.Substring(mRootPath.Length);
+            xmlMetadata.Load(Path.Combine(it.DiItem.FullName, "metadata.xml"));
 
             // Subject
             string subject = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='itm_item_subject']/val");
             string metaSubject = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:Subject", sXmlNs);
             if (string.IsNullOrEmpty(subject))
             {
-                ReportError(diItem, itemId, itemType, "Missing subject in item attributes (itm_att_Grade).");
+                ReportError(it, ErrCat.Attribute, "Missing subject in item attributes (itm_att_Grade).");
                 subject = metaSubject;
                 if (string.IsNullOrEmpty(subject))
-                    ReportError(diItem, itemId, itemType, "Missing subject in item metadata.");
+                    ReportError(it, ErrCat.Metadata, "Missing subject in item metadata.");
             }
             else
             {
                 if (!string.Equals(subject, metaSubject, StringComparison.Ordinal))
-                    ReportError(diItem, itemId, itemType, "Item indicates subject '{0} but metadata indicates subject '{1}'.", subject, metaSubject);
+                    ReportError(it, ErrCat.Metadata, "Item indicates subject '{0} but metadata indicates subject '{1}'.", subject, metaSubject);
             }
 
             // Grade
@@ -288,15 +286,15 @@ namespace TabulateSmarterTestContentPackage
             string metaGrade = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:IntendedGrade", sXmlNs);
             if (string.IsNullOrEmpty(grade))
             {
-                ReportError(diItem, itemId, itemType, "Missing grade in item attributes (itm_att_Grade).");
+                ReportError(it, ErrCat.Attribute, "Missing grade in item attributes (itm_att_Grade).");
                 grade = metaGrade;
                 if (string.IsNullOrEmpty(grade))
-                    ReportError(diItem, itemId, itemType, "Missing grade in item metadata.");
+                    ReportError(it, ErrCat.Metadata, "Missing grade in item metadata.");
             }
             else
             {
                 if (!string.Equals(grade, metaGrade, StringComparison.Ordinal))
-                    ReportError(diItem, itemId, itemType, "Item indicates grade '{0} but metadata indicates grade '{1}'.", grade, metaGrade);
+                    ReportError(it, ErrCat.Metadata, "Item indicates grade '{0} but metadata indicates grade '{1}'.", grade, metaGrade);
             }
             
             // Rubric
@@ -315,25 +313,25 @@ namespace TabulateSmarterTestContentPackage
                 {
                     machineRubricType = Path.GetExtension(machineRubricFilename).ToLower();
                     if (machineRubricType.Length > 0) machineRubricType = machineRubricType.Substring(1);
-                    if (!File.Exists(Path.Combine(diItem.FullName, machineRubricFilename)))
-                        ReportError(diItem, itemId, itemType, "Item specifies machine rubric '{0}' but file was not found.");
+                    if (!File.Exists(Path.Combine(it.DiItem.FullName, machineRubricFilename)))
+                        ReportError(it, ErrCat.Rubric, "Item specifies machine rubric '{0}' but file was not found.");
                 }
 
                 string metadataScoringEngine = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:ScoringEngine", sXmlNs);
 
                 // Count the rubric types
-                mRubricCounts.Increment(string.Concat(itemType, " '", xmlEle.XpEvalE("val"), "' ", machineRubricType ));
+                mRubricCounts.Increment(string.Concat(it.ItemType, " '", xmlEle.XpEvalE("val"), "' ", machineRubricType ));
 
                 // Rubric type is dictated by item type
                 bool usesMachineRubric = false;
                 string metadataExpected = null;
-                switch (itemType)
+                switch (it.ItemType)
                 {
                     case "mc":      // Multiple Choice
                         rubric = "Embedded";
                         metadataExpected = "Automatic with Key";
                         if (answerKeyValue.Length != 1 || answerKeyValue[0] < 'A' || answerKeyValue[0] > 'Z')
-                            ReportError(diItem, itemId, itemType, "Unexpected MC answer key: '{0}'", answerKeyValue);
+                            ReportError(it, ErrCat.Rubric, "Unexpected MC answer key value: '{0}'", answerKeyValue);
                         break;
 
                     case "ms":      // Multi-select
@@ -346,7 +344,7 @@ namespace TabulateSmarterTestContentPackage
                             {
                                 if (answer.Length != 1 || answer[0] < 'A' || answer[0] > 'Z') validAnswer = false;
                             }
-                            if (!validAnswer) ReportError(diItem, itemId, itemType, "Unexpected MS answer key: '{0}'", answerKeyValue);
+                            if (!validAnswer) ReportError(it, ErrCat.Rubric, "Unexpected MS answer key value: '{0}'", answerKeyValue);
                         }
                         break;
 
@@ -354,7 +352,7 @@ namespace TabulateSmarterTestContentPackage
                         rubric = "Embedded";
                         metadataExpected = "Automatic with Key(s)";
                         if (answerKeyValue.Length != 1 || answerKeyValue[0] < 'A' || answerKeyValue[0] > 'Z')
-                            ReportError(diItem, itemId, itemType, "Unexpected MC answer key: '{0}'", answerKeyValue);
+                            ReportError(it, ErrCat.Rubric, "Unexpected MC answer key: '{0}'", answerKeyValue);
                         break;
                     // TODO: Add check for part 1 of EBSR (in "itm_att_Item Format")
 
@@ -366,39 +364,39 @@ namespace TabulateSmarterTestContentPackage
                         metadataExpected = (machineRubricFilename != null) ? "Automatic with Machine Rubric" : "HandScored";
                         usesMachineRubric = true;
                         rubric = machineRubricType;
-                        if (!string.Equals(answerKeyValue, itemType.ToUpper()))
-                            ReportError(diItem, itemId, itemType, "Answer key attribute is '{0}', expected '{1}'.", answerKeyValue, itemType.ToUpper());
+                        if (!string.Equals(answerKeyValue, it.ItemType.ToUpper()))
+                            ReportError(it, ErrCat.Rubric, "Answer key attribute is '{0}', expected '{1}'.", answerKeyValue, it.ItemType.ToUpper());
                         break;
 
                     case "er":          // Extended-Response
                     case "sa":          // Short Answer
                     case "wer":         // Writing Extended Response
                         metadataExpected = "HandScored";
-                        if (!string.Equals(answerKeyValue, itemType.ToUpper()))
-                            ReportError(diItem, itemId, itemType, "Answer key attribute is '{0}', expected '{1}'.", answerKeyValue, itemType.ToUpper());
+                        if (!string.Equals(answerKeyValue, it.ItemType.ToUpper()))
+                            ReportError(it, ErrCat.Rubric, "Answer key attribute is '{0}', expected '{1}'.", answerKeyValue, it.ItemType.ToUpper());
                         break;
 
                     default:
-                        ReportError(diItem, itemId, itemType, "Validation of rubrics for type '{0}' is not supported.", itemType);
+                        ReportError(it, ErrCat.Unsupported, "Validation of rubrics for type '{0}' is not supported.", it.ItemType);
                         break;
                 }
 
                 if (metadataExpected != null && !string.Equals(metadataScoringEngine, metadataExpected, StringComparison.Ordinal))
                 {
                     if (string.Equals(metadataScoringEngine, metadataExpected, StringComparison.OrdinalIgnoreCase))
-                        ReportError(diItem, itemId, itemType, "Capitalization error in ScoringEngine metadata. Found '{0}', expected '{1}'.", metadataScoringEngine, metadataExpected);
+                        ReportError(it, ErrCat.Metadata, "Capitalization error in ScoringEngine metadata. Found '{0}', expected '{1}'.", metadataScoringEngine, metadataExpected);
                     else
-                        ReportError(diItem, itemId, itemType, "Incorrect ScoringEngine metadata for type '{0}'. Found '{1}', expected '{2}'.", itemType, metadataScoringEngine, metadataExpected);
+                        ReportError(it, ErrCat.Metadata, "Incorrect ScoringEngine metadata for type '{0}'. Found '{1}', expected '{2}'.", it.ItemType, metadataScoringEngine, metadataExpected);
                 }
 
                 if (!string.IsNullOrEmpty(machineRubricFilename) && !usesMachineRubric)
-                    ReportError(diItem, itemId, itemType, "Unexpected machine rubric found for item type '{0}': {1}", itemType, machineRubricFilename);
+                    ReportError(it, ErrCat.Rubric, "Unexpected machine rubric found for item type '{0}': {1}", it.ItemType, machineRubricFilename);
 
                 // Check for unreferenced machine rubrics
-                foreach(FileInfo fi in diItem.EnumerateFiles("*.qrx"))
+                foreach(FileInfo fi in it.DiItem.EnumerateFiles("*.qrx"))
                 {
                     if (machineRubricFilename == null || !string.Equals(fi.Name, machineRubricFilename, StringComparison.OrdinalIgnoreCase))
-                        ReportError(diItem, itemId, itemType, "Machine rubric file found but not referenced in <MachineRubric> element: {0}", fi.Name);
+                        ReportError(it, ErrCat.Rubric, "Machine rubric file found but not referenced in <MachineRubric> element: {0}", fi.Name);
                 }
             }
 
@@ -409,22 +407,22 @@ namespace TabulateSmarterTestContentPackage
             string standard;
             string claim;
             string target;
-            StandardFromMetadata(xmlMetadata, out standard, out claim, out target);
+            StandardFromMetadata(it, xmlMetadata, out standard, out claim, out target);
             if (string.IsNullOrEmpty(standard))
             {
-                ReportError(diItem, itemId, itemType, "No PrimaryStandard specified in metadata.");
+                ReportError(it, ErrCat.Metadata, "No PrimaryStandard specified in metadata.");
             }
 
             // ASL
             string asl = string.Empty;
             {
-                bool aslFound = CheckForAttachment(diItem, itemId, itemType, xml, "ASL", "MP4");
+                bool aslFound = CheckForAttachment(it, xml, "ASL", "MP4");
                 if (aslFound) asl = "MP4";
-                if (!aslFound) ReportUnexpectedFiles(diItem, itemId, itemType, "ASL video", "item_{0}_ASL*", itemId);
+                if (!aslFound) ReportUnexpectedFiles(it, "ASL video", "item_{0}_ASL*", it.ItemId);
 
                 bool aslInMetadata = string.Equals(xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:AccessibilityTagsASLLanguage", sXmlNs), "Y", StringComparison.OrdinalIgnoreCase);
-                if (aslInMetadata && !aslFound) ReportError(diItem, itemId, itemType, "Item metadata specifies ASL but no ASL in item.");
-                if (!aslInMetadata && aslFound) ReportError(diItem, itemId, itemType, "Item has ASL but not indicated in the metadata.");
+                if (aslInMetadata && !aslFound) ReportError(it, ErrCat.Metadata, "Item metadata specifies ASL but no ASL in item.");
+                if (!aslInMetadata && aslFound) ReportError(it, ErrCat.Metadata, "Item has ASL but not indicated in the metadata.");
             }
 
             // BrailleEmbedded
@@ -437,17 +435,17 @@ namespace TabulateSmarterTestContentPackage
             // BrailleFile
             string brailleFile = string.Empty;
             {
-                bool brfFound = CheckForAttachment(diItem, itemId, itemType, xml, "BRF", "BRF");
+                bool brfFound = CheckForAttachment(it, xml, "BRF", "BRF");
                 if (brfFound) brailleFile = "BRF";
-                if (!brfFound) ReportUnexpectedFiles(diItem, itemId, itemType, "Braille BRF", "item_{0}_*.brf", itemId);
+                if (!brfFound) ReportUnexpectedFiles(it, "Braille BRF", "item_{0}_*.brf", it.ItemId);
 
-                bool prnFound = CheckForAttachment(diItem, itemId, itemType, xml, "PRN", "PRN");
+                bool prnFound = CheckForAttachment(it, xml, "PRN", "PRN");
                 if (prnFound)
                 {
                     if (brailleFile.Length > 0) brailleFile = string.Concat(brailleFile, " ", "PRN");
                     else brailleFile = "PRN";
                 }
-                if (!prnFound) ReportUnexpectedFiles(diItem, itemId, itemType, "Braille PRN", "item_{0}_*.prn", itemId);
+                if (!prnFound) ReportUnexpectedFiles(it, "Braille PRN", "item_{0}_*.prn", it.ItemId);
             }
 
             // Translation
@@ -486,7 +484,7 @@ namespace TabulateSmarterTestContentPackage
 
                     // See if metadata agrees
                     XmlNode node = xmlMetadata.SelectSingleNode(string.Concat("metadata/sa:smarterAppMetadata/sa:Language[. = '", language, "']"), sXmlNs);
-                    if (node == null) ReportError(diItem, itemId, itemType, "Item content includes '{0}' language but metadata does not have a corresponding <Language> entry.", language);
+                    if (node == null) ReportError(it, ErrCat.Metadata, "Item content includes '{0}' language but metadata does not have a corresponding <Language> entry.", language);
                 }
 
                 // Now, search the metadata for translations and make sure all exist in the content
@@ -495,16 +493,16 @@ namespace TabulateSmarterTestContentPackage
                     string language = xmlEle.InnerText;
                     if (!languages.Contains(language))
                     {
-                        ReportError(diItem, itemId, itemType, "Item metadata indicates '{0}' language but item content does not include that language.", language);
+                        ReportError(it, ErrCat.Metadata, "Item metadata indicates '{0}' language but item content does not include that language.", language);
                     }
                 }
             }
 
-            // Folder,ItemId,ItemType,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,ASL,BrailleEmbedded,BrailleFile,Translation
-            mItemReport.WriteLine(string.Join(",", CsvEncode(folder), CsvEncode(itemId), CsvEncode(itemType), CsvEncode(subject), CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), CsvEncode(asl), CsvEncode(brailleEmbedded), CsvEncode(brailleFile), CsvEncode(translation)));
+            // Folder,it.ItemId,it.ItemType,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,ASL,BrailleEmbedded,BrailleFile,Translation
+            mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(subject), CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), CsvEncode(asl), CsvEncode(brailleEmbedded), CsvEncode(brailleFile), CsvEncode(translation)));
         }
 
-        bool CheckForAttachment(DirectoryInfo diItem, string itemId, string itemType, XmlDocument xml, string attachType, string expectedExtension)
+        bool CheckForAttachment(ItemContext it, XmlDocument xml, string attachType, string expectedExtension)
         {
             XmlElement xmlEle = xml.SelectSingleNode(string.Concat("itemrelease/item/content/attachmentlist/attachment[@type='", attachType, "']")) as XmlElement;
             if (xmlEle != null)
@@ -512,12 +510,12 @@ namespace TabulateSmarterTestContentPackage
                 string filename = xmlEle.GetAttribute("file");
                 if (string.IsNullOrEmpty(filename))
                 {
-                    ReportError(diItem, itemId, itemType, "Attachment of type '{0}' missing file attribute.", attachType);
+                    ReportError(it, ErrCat.Item, "Attachment of type '{0}' missing file attribute.", attachType);
                     return false;
                 }
-                if (!File.Exists(Path.Combine(diItem.FullName, filename)))
+                if (!File.Exists(Path.Combine(it.DiItem.FullName, filename)))
                 {
-                    ReportError(diItem, itemId, itemType, "Dangling Reference: Item specifies '{0}' attachment '{1}' but file does not exist.", attachType, filename);
+                    ReportError(it, ErrCat.Item, "Dangling Reference: Item specifies '{0}' attachment '{1}' but file does not exist.", attachType, filename);
                     return false;
                 }
 
@@ -525,18 +523,18 @@ namespace TabulateSmarterTestContentPackage
                 if (extension.Length > 0) extension = extension.Substring(1); // Strip leading "."
                 if (!string.Equals(extension, expectedExtension, StringComparison.OrdinalIgnoreCase))
                 {
-                    ReportError(diItem, itemId, itemType, "Attachment of type '{0}' has extension '{1}', expected '{2}'. Filename='{3}'.", attachType, extension, expectedExtension, filename);
+                    ReportError(it, ErrCat.Item, "Attachment of type '{0}' has extension '{1}', expected '{2}'. Filename='{3}'.", attachType, extension, expectedExtension, filename);
                 }
                 return true;
             }
             return false;
         }
 
-        void ReportUnexpectedFiles(DirectoryInfo diItem, string itemId, string itemType, string attachDescription, string pattern, params object[] args)
+        void ReportUnexpectedFiles(ItemContext it, string attachDescription, string pattern, params object[] args)
         {
-            foreach (FileInfo file in diItem.GetFiles(string.Format(pattern, args)))
+            foreach (FileInfo file in it.DiItem.GetFiles(string.Format(pattern, args)))
             {
-                ReportError(diItem, itemId, itemType, "Item does not specify {0} but file '{1}' found.", attachDescription, file.Name);
+                ReportError(it, ErrCat.Item, "Item does not specify {0} but file '{1}' found.", attachDescription, file.Name);
             }
         }
 
@@ -575,7 +573,7 @@ namespace TabulateSmarterTestContentPackage
             new StandardCoding("SBAC-MA-v4", 0, 2)
         };
 
-        static void StandardFromMetadata(XmlDocument xmlMetadata, out string standard, out string claim, out string target)
+        void StandardFromMetadata(ItemContext it, XmlDocument xmlMetadata, out string standard, out string claim, out string target)
         {
             // Try each coding
             foreach(StandardCoding coding in sStandardCodings)
@@ -584,7 +582,10 @@ namespace TabulateSmarterTestContentPackage
                 if (std != null)
                 {
                     if (!std.StartsWith(string.Concat(coding.Publication, ":"), StringComparison.Ordinal))
-                        throw new InvalidDataException(string.Format("Standard aligment with publication '{0}' has invalid value '{1}.", coding.Publication, std));
+                    {
+                        ReportError(it, ErrCat.Metadata, "Standard alignment with publication '{0}' has invalid value '{1}.", coding.Publication, std);
+                        continue;   // See if another coding works
+                    }
 
                     string[] parts = std.Substring(coding.Publication.Length + 1).Split('|');
                     standard = std;
@@ -601,11 +602,8 @@ namespace TabulateSmarterTestContentPackage
 
         static readonly Regex sRxParseAudiofile = new Regex(@"Item_(\d+)_v(\d+)_(\w+)_(\d+)([a-zA-Z]+)_glossary_", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
-        private void TabulateWordList(DirectoryInfo diItem, XmlDocument xml, string itemId)
+        private void TabulateWordList(ItemContext it, XmlDocument xml)
         {
-            Debug.Assert(diItem.FullName.StartsWith(mRootPath));
-            string folder = CsvEncode(diItem.FullName.Substring(mRootPath.Length));
-            
             List<string> terms = new List<string>();
             ++mWordlistCount;
             foreach (XmlNode kwNode in xml.SelectNodes("itemrelease/item/keywordList/keyword"))
@@ -624,12 +622,12 @@ namespace TabulateSmarterTestContentPackage
                     mTranslationCounts.Increment(language);
 
                     // Folder,WIT_ID,Index,Term,Language,Length
-                    mTextGlossaryReport.WriteLine(string.Join(",", folder, CsvEncode(itemId), index.ToString(), CsvEncode(term), CsvEncode(language), htmlNode.InnerXml.Length.ToString()));
+                    mTextGlossaryReport.WriteLine(string.Join(",", it.Folder, CsvEncode(it.ItemId), index.ToString(), CsvEncode(term), CsvEncode(language), htmlNode.InnerXml.Length.ToString()));
                 }
             }
 
             // Tablulate m4a audio translations
-            foreach (FileInfo fi in diItem.EnumerateFiles("*", SearchOption.TopDirectoryOnly))
+            foreach (FileInfo fi in it.DiItem.EnumerateFiles("*", SearchOption.TopDirectoryOnly))
             {
                 // If Audio file
                 string extension = fi.Extension.Substring(1).ToLower();
@@ -643,7 +641,7 @@ namespace TabulateSmarterTestContentPackage
 
                         if (index == 0 || index >= terms.Count)
                         {
-                            ReportError(diItem, itemId, "wordList", "Audio file {0} has index {1} with no matching glossary term.", fi.Name, index);
+                            ReportError(it, ErrCat.Item, "Audio file {0} has index {1} with no matching glossary term.", fi.Name, index);
                             continue;
                         }
 
@@ -661,11 +659,11 @@ namespace TabulateSmarterTestContentPackage
                         }
 
                         // Folder,WIT_ID,Index,Term,Language,Encoding,Size
-                        mAudioGlossaryReport.WriteLine(String.Join(",", folder, CsvEncode(itemId), index.ToString(), CsvEncode(term), CsvEncode(language), CsvEncode(extension), fi.Length.ToString()));
+                        mAudioGlossaryReport.WriteLine(String.Join(",", it.Folder, CsvEncode(it.ItemId), index.ToString(), CsvEncode(term), CsvEncode(language), CsvEncode(extension), fi.Length.ToString()));
                     }
                     else
                     {
-                        ReportError(diItem, itemId, "wordList", "Audio Glossary Filename in unrecognized format: {0}", fi.Name);
+                        ReportError(it, ErrCat.Unsupported, "Audio Glossary Filename in unrecognized format: {0}", fi.Name);
                     }
                 }
             }
@@ -698,31 +696,29 @@ namespace TabulateSmarterTestContentPackage
             writer.WriteLine();
         }
 
-        void ReportError(DirectoryInfo diItem, string itemId, string itemType, string msg, params object[] args)
+        // Error Categories
+        enum ErrCat
+        {
+            Exception,
+            Unsupported,
+            Attribute,
+            Rubric,
+            Metadata,
+            Item
+        }
+
+        void ReportError(ItemContext it, ErrCat category, string msg, params object[] args)
         {
             if (mErrorReport == null)
             {
                 mErrorReport = new StreamWriter(Path.Combine(mRootPath, cErrorReportFn), false, sUtf8NoBomEncoding);
-                mErrorReport.WriteLine("Folder,ItemId,ItemType,ErrorMessage");
+                mErrorReport.WriteLine("Folder,ItemId,ItemType,Category,ErrorMessage");
             }
 
-            string folder;
-            if (diItem != null)
-            {
-                folder = diItem.FullName;
-                if (folder.StartsWith(mRootPath)) folder = folder.Substring(mRootPath.Length);
-            }
-            else
-            {
-                folder = string.Empty;
-            }
-
-            if (itemId == null) itemId = string.Empty;
-            if (itemType == null) itemType = string.Empty;
             if (msg == null) msg = string.Empty;
 
-            // "Folder,ItemId,ItemType,ErrorMessage"
-            mErrorReport.WriteLine(string.Join(",", CsvEncode(folder), CsvEncode(itemId), CsvEncode(itemType), CsvEncode(string.Format(msg, args))));
+            // "Folder,ItemId,ItemType,Category,ErrorMessage"
+            mErrorReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), category.ToString(), CsvEncode(string.Format(msg, args))));
 
             ++mErrorCount;
         }
@@ -738,6 +734,29 @@ namespace TabulateSmarterTestContentPackage
         static string CsvEncodeExcel(string text)
         {
             return string.Concat("=\"", text.Replace("\"", "\"\""), "\"");
+        }
+
+        private class ItemContext
+        {
+            public ItemContext(Tabulator tabulator, DirectoryInfo diItem, string itemId, string itemType)
+            {
+                DiItem = diItem;
+                ItemId = (itemId != null) ? itemId : string.Empty;
+                ItemType = (itemType != null) ? itemType : string.Empty;
+                if (diItem.FullName.StartsWith(tabulator.mRootPath))
+                {
+                    Folder = diItem.FullName.Substring(tabulator.mRootPath.Length);
+                }
+                else
+                {
+                    Folder = diItem.FullName;
+                }
+            }
+
+            public DirectoryInfo DiItem { get; private set; }
+            public string ItemId { get; private set; }
+            public string ItemType { get; private set; }
+            public string Folder { get; private set; }
         }
 
     }
