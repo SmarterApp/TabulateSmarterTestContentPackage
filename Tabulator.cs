@@ -28,7 +28,7 @@ namespace TabulateSmarterTestContentPackage
         const string cTextGlossaryReportFn = "TextGlossaryReport.csv";
         const string cAudioGlossaryReportFn = "AudioGlossaryReport.csv";
         const string cItemReportFn = "ItemReport.csv";
-        const string cErrorReportFn = "ErrorReport.txt";
+        const string cErrorReportFn = "ErrorReport.csv";
 
         string mRootPath;
         int mErrorCount = 0;
@@ -199,7 +199,7 @@ namespace TabulateSmarterTestContentPackage
                     Console.WriteLine(err.Message);
 #endif
                     Console.WriteLine();
-                    ReportError(diItem, err.ToString());
+                    ReportError(diItem, null, null, err.ToString());
                 }
             }
         }
@@ -246,7 +246,7 @@ namespace TabulateSmarterTestContentPackage
                     break;  // Ignore for the moment
 
                 default:
-                    ReportError(diItem, "Unexpected item type: " + itemType);
+                    ReportError(diItem, null, null, "Unexpected item type: " + itemType);
                     break;
             }
 
@@ -290,7 +290,8 @@ namespace TabulateSmarterTestContentPackage
                 {
                     machineRubricType = Path.GetExtension(machineRubricFilename).ToLower();
                     if (machineRubricType.Length > 0) machineRubricType = machineRubricType.Substring(1);
-                    if (!File.Exists(Path.Combine(diItem.FullName, machineRubricFilename))) ReportError(diItem, "Item specifies machine rubric '{0}' but file was not found.");
+                    if (!File.Exists(Path.Combine(diItem.FullName, machineRubricFilename)))
+                        ReportError(diItem, itemId, itemType, "Item specifies machine rubric '{0}' but file was not found.");
                 }
 
                 string metadataScoringEngine = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:ScoringEngine", sXmlNs);
@@ -307,7 +308,7 @@ namespace TabulateSmarterTestContentPackage
                         rubric = "Embedded";
                         metadataExpected = "Automatic with Key";
                         if (answerKeyValue.Length != 1 || answerKeyValue[0] < 'A' || answerKeyValue[0] > 'Z')
-                            ReportError(diItem, "Unexpected MC answer key: '{0}'", answerKeyValue);
+                            ReportError(diItem, itemId, itemType, "Unexpected MC answer key: '{0}'", answerKeyValue);
                         break;
 
                     case "ms":      // Multi-select
@@ -320,7 +321,7 @@ namespace TabulateSmarterTestContentPackage
                             {
                                 if (answer.Length != 1 || answer[0] < 'A' || answer[0] > 'Z') validAnswer = false;
                             }
-                            if (!validAnswer) ReportError(diItem, "Unexpected MS answer key: '{0}'", answerKeyValue);
+                            if (!validAnswer) ReportError(diItem, itemId, itemType, "Unexpected MS answer key: '{0}'", answerKeyValue);
                         }
                         break;
 
@@ -328,7 +329,7 @@ namespace TabulateSmarterTestContentPackage
                         rubric = "Embedded";
                         metadataExpected = "Automatic with Key(s)";
                         if (answerKeyValue.Length != 1 || answerKeyValue[0] < 'A' || answerKeyValue[0] > 'Z')
-                            ReportError(diItem, "Unexpected MC answer key: '{0}'", answerKeyValue);
+                            ReportError(diItem, itemId, itemType, "Unexpected MC answer key: '{0}'", answerKeyValue);
                         break;
                     // TODO: Add check for part 1 of EBSR (in "itm_att_Item Format")
 
@@ -340,37 +341,39 @@ namespace TabulateSmarterTestContentPackage
                         metadataExpected = (machineRubricFilename != null) ? "Automatic with Machine Rubric" : "HandScored";
                         usesMachineRubric = true;
                         rubric = machineRubricType;
-                        if (!string.Equals(answerKeyValue, itemType.ToUpper())) ReportError(diItem, "Answer key attribute is '{0}', expected '{1}'.", answerKeyValue, itemType.ToUpper());
+                        if (!string.Equals(answerKeyValue, itemType.ToUpper()))
+                            ReportError(diItem, itemId, itemType, "Answer key attribute is '{0}', expected '{1}'.", answerKeyValue, itemType.ToUpper());
                         break;
 
                     case "er":          // Extended-Response
                     case "sa":          // Short Answer
                     case "wer":         // Writing Extended Response
                         metadataExpected = "HandScored";
-                        if (!string.Equals(answerKeyValue, itemType.ToUpper())) ReportError(diItem, "Answer key attribute is '{0}', expected '{1}'.", answerKeyValue, itemType.ToUpper());
+                        if (!string.Equals(answerKeyValue, itemType.ToUpper()))
+                            ReportError(diItem, itemId, itemType, "Answer key attribute is '{0}', expected '{1}'.", answerKeyValue, itemType.ToUpper());
                         break;
 
                     default:
-                        ReportError(diItem, "Validation of rubrics for type '{0}' is not supported.", itemType);
+                        ReportError(diItem, itemId, itemType, "Validation of rubrics for type '{0}' is not supported.", itemType);
                         break;
                 }
 
                 if (metadataExpected != null && !string.Equals(metadataScoringEngine, metadataExpected, StringComparison.Ordinal))
                 {
                     if (string.Equals(metadataScoringEngine, metadataExpected, StringComparison.OrdinalIgnoreCase))
-                        ReportError(diItem, "Capitalization error in ScoringEngine metadata. Found '{0}', expected '{1}'.", metadataScoringEngine, metadataExpected);
+                        ReportError(diItem, itemId, itemType, "Capitalization error in ScoringEngine metadata. Found '{0}', expected '{1}'.", metadataScoringEngine, metadataExpected);
                     else
-                        ReportError(diItem, "Incorrect ScoringEngine metadata for type '{0}'. Found '{1}', expected '{2}'.", itemType, metadataScoringEngine, metadataExpected);
+                        ReportError(diItem, itemId, itemType, "Incorrect ScoringEngine metadata for type '{0}'. Found '{1}', expected '{2}'.", itemType, metadataScoringEngine, metadataExpected);
                 }
 
                 if (!string.IsNullOrEmpty(machineRubricFilename) && !usesMachineRubric)
-                    ReportError(diItem, "Unexpected machine rubric found for item type '{0}': {1}", itemType, machineRubricFilename);
+                    ReportError(diItem, itemId, itemType, "Unexpected machine rubric found for item type '{0}': {1}", itemType, machineRubricFilename);
 
                 // Check for unreferenced machine rubrics
                 foreach(FileInfo fi in diItem.EnumerateFiles("*.qrx"))
                 {
                     if (machineRubricFilename == null || !string.Equals(fi.Name, machineRubricFilename, StringComparison.OrdinalIgnoreCase))
-                        ReportError(diItem, "Machine rubric file found but not referenced in <MachineRubric> element: {0}", fi.Name);
+                        ReportError(diItem, itemId, itemType, "Machine rubric file found but not referenced in <MachineRubric> element: {0}", fi.Name);
                 }
 
                 // Todo: Check the metadata value for ScoringEngine and tabulate permutation
@@ -388,19 +391,19 @@ namespace TabulateSmarterTestContentPackage
             StandardFromMetadata(xmlMetadata, out standard, out claim, out target);
             if (string.IsNullOrEmpty(standard))
             {
-                ReportError(diItem, "No PrimaryStandard specified in metadata.");
+                ReportError(diItem, itemId, itemType, "No PrimaryStandard specified in metadata.");
             }
 
             // ASL
             string asl = string.Empty;
             {
-                bool aslFound = CheckForAttachment(diItem, xml, "ASL", "MP4");
+                bool aslFound = CheckForAttachment(diItem, itemId, itemType, xml, "ASL", "MP4");
                 if (aslFound) asl = "MP4";
-                if (!aslFound) ReportUnexpectedFiles(diItem, "ASL video", "item_{0}_ASL*", itemId);
+                if (!aslFound) ReportUnexpectedFiles(diItem, itemId, itemType, "ASL video", "item_{0}_ASL*", itemId);
 
                 bool aslInMetadata = string.Equals(xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:AccessibilityTagsASLLanguage", sXmlNs), "Y", StringComparison.OrdinalIgnoreCase);
-                if (aslInMetadata && !aslFound) ReportError(diItem, "Item metadata specifies ASL but no ASL in item.");
-                if (!aslInMetadata && aslFound) ReportError(diItem, "Item has ASL but not indicated in the metadata.");
+                if (aslInMetadata && !aslFound) ReportError(diItem, itemId, itemType, "Item metadata specifies ASL but no ASL in item.");
+                if (!aslInMetadata && aslFound) ReportError(diItem, itemId, itemType, "Item has ASL but not indicated in the metadata.");
             }
 
             // BrailleEmbedded
@@ -413,17 +416,17 @@ namespace TabulateSmarterTestContentPackage
             // BrailleFile
             string brailleFile = string.Empty;
             {
-                bool brfFound = CheckForAttachment(diItem, xml, "BRF", "BRF");
+                bool brfFound = CheckForAttachment(diItem, itemId, itemType, xml, "BRF", "BRF");
                 if (brfFound) brailleFile = "BRF";
-                if (!brfFound) ReportUnexpectedFiles(diItem, "Braille BRF", "item_{0}_*.brf", itemId);
+                if (!brfFound) ReportUnexpectedFiles(diItem, itemId, itemType, "Braille BRF", "item_{0}_*.brf", itemId);
 
-                bool prnFound = CheckForAttachment(diItem, xml, "PRN", "PRN");
+                bool prnFound = CheckForAttachment(diItem, itemId, itemType, xml, "PRN", "PRN");
                 if (prnFound)
                 {
                     if (brailleFile.Length > 0) brailleFile = string.Concat(brailleFile, " ", "PRN");
                     else brailleFile = "PRN";
                 }
-                if (!prnFound) ReportUnexpectedFiles(diItem, "Braille PRN", "item_{0}_*.prn", itemId);
+                if (!prnFound) ReportUnexpectedFiles(diItem, itemId, itemType, "Braille PRN", "item_{0}_*.prn", itemId);
             }
 
             // Translation
@@ -462,7 +465,7 @@ namespace TabulateSmarterTestContentPackage
 
                     // See if metadata agrees
                     XmlNode node = xmlMetadata.SelectSingleNode(string.Concat("metadata/sa:smarterAppMetadata/sa:Language[. = '", language, "']"), sXmlNs);
-                    if (node == null) ReportError(diItem, "Item content includes '{0}' language but metadata does not have a corresponding <Language> entry.", language);
+                    if (node == null) ReportError(diItem, itemId, itemType, "Item content includes '{0}' language but metadata does not have a corresponding <Language> entry.", language);
                 }
 
                 // Now, search the metadata for translations and make sure all exist in the content
@@ -471,7 +474,7 @@ namespace TabulateSmarterTestContentPackage
                     string language = xmlEle.InnerText;
                     if (!languages.Contains(language))
                     {
-                        ReportError(diItem, "Item metadata indicates '{0}' language but item content does not include that language.", language);
+                        ReportError(diItem, itemId, itemType, "Item metadata indicates '{0}' language but item content does not include that language.", language);
                     }
                 }
             }
@@ -480,7 +483,7 @@ namespace TabulateSmarterTestContentPackage
             mItemReport.WriteLine(string.Join(",", CsvEncode(folder), CsvEncode(itemId), CsvEncode(itemType), CsvEncode(subject), CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), CsvEncode(asl), CsvEncode(brailleEmbedded), CsvEncode(brailleFile), CsvEncode(translation)));
         }
 
-        bool CheckForAttachment(DirectoryInfo diItem, XmlDocument xml, string attachType, string expectedExtension)
+        bool CheckForAttachment(DirectoryInfo diItem, string itemId, string itemType, XmlDocument xml, string attachType, string expectedExtension)
         {
             XmlElement xmlEle = xml.SelectSingleNode(string.Concat("itemrelease/item/content/attachmentlist/attachment[@type='", attachType, "']")) as XmlElement;
             if (xmlEle != null)
@@ -488,12 +491,12 @@ namespace TabulateSmarterTestContentPackage
                 string filename = xmlEle.GetAttribute("file");
                 if (string.IsNullOrEmpty(filename))
                 {
-                    ReportError(diItem, "Attachment of type '{0}' missing file attribute.", attachType);
+                    ReportError(diItem, itemId, itemType, "Attachment of type '{0}' missing file attribute.", attachType);
                     return false;
                 }
                 if (!File.Exists(Path.Combine(diItem.FullName, filename)))
                 {
-                    ReportError(diItem, "Dangling Reference: Item specifies '{0}' attachment '{1}' but file does not exist.", attachType, filename);
+                    ReportError(diItem, itemId, itemType, "Dangling Reference: Item specifies '{0}' attachment '{1}' but file does not exist.", attachType, filename);
                     return false;
                 }
 
@@ -501,18 +504,18 @@ namespace TabulateSmarterTestContentPackage
                 if (extension.Length > 0) extension = extension.Substring(1); // Strip leading "."
                 if (!string.Equals(extension, expectedExtension, StringComparison.OrdinalIgnoreCase))
                 {
-                    ReportError(diItem, "Attachment of type '{0}' has extension '{1}', expected '{2}'. Filename='{3}'.", attachType, extension, expectedExtension, filename);
+                    ReportError(diItem, itemId, itemType, "Attachment of type '{0}' has extension '{1}', expected '{2}'. Filename='{3}'.", attachType, extension, expectedExtension, filename);
                 }
                 return true;
             }
             return false;
         }
 
-        void ReportUnexpectedFiles(DirectoryInfo diItem, string attachDescription, string pattern, params object[] args)
+        void ReportUnexpectedFiles(DirectoryInfo diItem, string itemId, string itemType, string attachDescription, string pattern, params object[] args)
         {
             foreach (FileInfo file in diItem.GetFiles(string.Format(pattern, args)))
             {
-                ReportError(diItem, "Item does not specify {0} but file '{1}' found.", attachDescription, file.Name);
+                ReportError(diItem, itemId, itemType, "Item does not specify {0} but file '{1}' found.", attachDescription, file.Name);
             }
         }
 
@@ -575,7 +578,7 @@ namespace TabulateSmarterTestContentPackage
             target = string.Empty;
         }
 
-        static readonly Regex sRxParseAudiofile = new Regex(@"Item_(\d+)_v(\d+)_(\d+)_(\d+)([a-zA-Z]+)_glossary_", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+        static readonly Regex sRxParseAudiofile = new Regex(@"Item_(\d+)_v(\d+)_(\w+)_(\d+)([a-zA-Z]+)_glossary_", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
         private void TabulateWordList(DirectoryInfo diItem, XmlDocument xml, string itemId)
         {
@@ -619,7 +622,7 @@ namespace TabulateSmarterTestContentPackage
 
                         if (index == 0 || index >= terms.Count)
                         {
-                            ReportError(diItem, "Audio file {0} has index {1} with no matching term.", fi.Name, index);
+                            ReportError(diItem, itemId, "wordList", "Audio file {0} has index {1} with no matching glossary term.", fi.Name, index);
                             continue;
                         }
 
@@ -641,7 +644,7 @@ namespace TabulateSmarterTestContentPackage
                     }
                     else
                     {
-                        ReportError(diItem, "Audio Glossary Filename in unrecognized format: {0}", fi.Name);
+                        ReportError(diItem, itemId, "wordList", "Audio Glossary Filename in unrecognized format: {0}", fi.Name);
                     }
                 }
             }
@@ -674,27 +677,33 @@ namespace TabulateSmarterTestContentPackage
             writer.WriteLine();
         }
 
-        void ReportError(string msg)
+        void ReportError(DirectoryInfo diItem, string itemId, string itemType, string msg, params object[] args)
         {
             if (mErrorReport == null)
             {
                 mErrorReport = new StreamWriter(Path.Combine(mRootPath, cErrorReportFn), false, sUtf8NoBomEncoding);
+                mErrorReport.WriteLine("Folder,ItemId,ItemType,ErrorMessage");
             }
-            mErrorReport.Write(msg);
-            if (msg[msg.Length - 1] != '\n') mErrorReport.WriteLine();
-            mErrorReport.WriteLine();
+
+            string folder;
+            if (diItem != null)
+            {
+                folder = diItem.FullName;
+                if (folder.StartsWith(mRootPath)) folder = folder.Substring(mRootPath.Length);
+            }
+            else
+            {
+                folder = string.Empty;
+            }
+
+            if (itemId == null) itemId = string.Empty;
+            if (itemType == null) itemType = string.Empty;
+            if (msg == null) msg = string.Empty;
+
+            // "Folder,ItemId,ItemType,ErrorMessage"
+            mErrorReport.WriteLine(string.Join(",", CsvEncode(folder), CsvEncode(itemId), CsvEncode(itemType), CsvEncode(string.Format(msg, args))));
+
             ++mErrorCount;
-        }
-
-        void ReportError(DirectoryInfo diItem, string msg)
-        {
-            ReportError(string.Concat(diItem.Name, "\r\n", msg));
-
-        }
-
-        void ReportError(DirectoryInfo diItem, string msg, params object[] args)
-        {
-            ReportError(diItem, string.Format(msg, args));
         }
 
         private static readonly char[] cCsvEscapeChars = {',', '"', '\'', '\r', '\n'};
