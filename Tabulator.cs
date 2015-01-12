@@ -251,11 +251,6 @@ namespace TabulateSmarterTestContentPackage
                     ReportError(it, ErrCat.Unsupported, "Unexpected item type: " + itemType);
                     break;
             }
-
-            if (string.Equals(itemType, "wordList", StringComparison.Ordinal))
-            {
-                TabulateWordList(it, xml);
-            }
         }
 
         void TabulateInteraction(ItemContext it, XmlDocument xml)
@@ -350,6 +345,7 @@ namespace TabulateSmarterTestContentPackage
 
                     case "EBSR":    // Evidence-based selectd response
                         rubric = "Embedded";
+                        usesMachineRubric = true;
                         metadataExpected = "Automatic with Key(s)";
                         if (answerKeyValue.Length != 1 || answerKeyValue[0] < 'A' || answerKeyValue[0] > 'Z')
                             ReportError(it, ErrCat.Rubric, "Unexpected MC answer key: '{0}'", answerKeyValue);
