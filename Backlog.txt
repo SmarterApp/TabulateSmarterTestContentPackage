@@ -1,0 +1,9 @@
+﻿Features Backlog for TabulateSmarterTestContentPackage
+
+* Check for the issues identified by ETS on 11 January.
+* Add severity to ErrorReport
+* Find the item IDs that correspond with wordList WIT_IDs
+* Tabulate and validate passages.
+* Find absent audio glossaries where the same term exists in another wordlist.
+* Match passage dependency information in three places - in the stim_pass_id attribute of the item, in the AssociatedStimulus metadata, and in imsmanifest.xml
+

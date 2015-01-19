@@ -397,7 +397,17 @@ namespace TabulateSmarterTestContentPackage
             }
 
             // AssessmentType (PT or CAT)
-            string assessmentType = string.Equals(xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:PerformanceTaskComponentItem", sXmlNs), "Y", StringComparison.OrdinalIgnoreCase) ? "PT" : "CAT";
+            string assessmentType;
+            {
+                string meta = xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:PerformanceTaskComponentItem", sXmlNs);
+                if (meta == null || string.Equals(meta, "N", StringComparison.Ordinal))assessmentType = "CAT";
+                else if (string.Equals(meta, "Y", StringComparison.Ordinal)) assessmentType  = "PT";
+                else
+                {
+                    assessmentType = "CAT";
+                    ReportError(it, ErrCat.Metadata, "PerformanceTaskComponentItem should be 'Y' or 'N'. Found '{0}'.", meta);
+                }
+            }
             
             // Standard, Claim and Target
             string standard;
@@ -564,7 +574,7 @@ namespace TabulateSmarterTestContentPackage
         private static readonly StandardCoding[] sStandardCodings = new StandardCoding[]
         {
             new StandardCoding("SBAC-ELA-v1", 0, 1),
-            new StandardCoding("SBAC-MA-v6", 0, 2),
+            new StandardCoding("SBAC-MA-v6", 0, 3),
             new StandardCoding("SBAC-MA-v5", 0, 2),
             new StandardCoding("SBAC-MA-v4", 0, 2)
         };
