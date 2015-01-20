@@ -34,6 +34,20 @@ namespace TabulateSmarterTestContentPackage
                 "Narrative"
             });
 
+        static readonly HashSet<string> sValidClaims = new HashSet<string>(
+            new string[] {
+                "1",
+                "1-LT",
+                "1-IT",
+                "2",
+                "2-W",
+                "3",
+                "3-L",
+                "3-S",
+                "4",
+                "4-CR"
+            });
+
         // Filenames
         const string cSummaryReportFn = "SummaryReport.txt";
         const string cTextGlossaryReportFn = "TextGlossaryReport.csv";
@@ -140,10 +154,10 @@ namespace TabulateSmarterTestContentPackage
             if (File.Exists(mErrorReportPath)) File.Delete(mErrorReportPath);
 
             mTextGlossaryReport = new StreamWriter(Path.Combine(reportFolderPath, cTextGlossaryReportFn), false, sUtf8NoBomEncoding);
-            mTextGlossaryReport.WriteLine("Folder,WIT_ID,ItemId,Index,Term,Language,Length");
+            mTextGlossaryReport.WriteLine("Folder,WIT_ID,FirstItemId,Index,Term,Language,Length");
 
             mAudioGlossaryReport = new StreamWriter(Path.Combine(reportFolderPath, cAudioGlossaryReportFn));
-            mAudioGlossaryReport.WriteLine("Folder,WIT_ID,ItemId,Index,Term,Language,Encoding,Size");
+            mAudioGlossaryReport.WriteLine("Folder,WIT_ID,FirstItemId,Index,Term,Language,Encoding,Size");
 
             mItemReport = new StreamWriter(Path.Combine(reportFolderPath, cItemReportFn));
             mItemReport.WriteLine("Folder,ItemId,ItemType,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,ASL,BrailleEmbedded,BrailleFile,Translation");
@@ -519,6 +533,25 @@ namespace TabulateSmarterTestContentPackage
                 ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "No PrimaryStandard specified in metadata.");
             }
 
+            // Validate claim
+            if (!sValidClaims.Contains(claim))
+                ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "Unexpected claim value.", "Claim='{0}'", claim);
+
+            // Validate target suffix grade (Generating lots of errors. Need to follow up.)
+            /*
+            {
+                string[] parts = target.Split('-');
+                if (parts.Length != 2)
+                {
+                    ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Unexpected target format when seeking grade suffix.", "Target='{0}', Standard='{1}'", target, standard);
+                }
+                else if (!string.Equals(parts[1], grade, StringComparison.OrdinalIgnoreCase))
+                {
+                    ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Target suffix indicates a different grade from item attribute.", "ItemAttributeGrade='{0}' TargetSuffixGrade='{1}'", grade, parts[1]);
+                }
+            }
+            */ 
+
             // ASL
             string asl = string.Empty;
             {
@@ -794,11 +827,7 @@ namespace TabulateSmarterTestContentPackage
                 else
                 {
                     string otherItemId;
-                    if (mWitIdToItemId.TryGetValue(witId, out otherItemId))
-                    {
-                        ReportError(it, ErrCat.Item, ErrSeverity.Benign, "Multiple items reference the same wordlist.", "OtherItemId='{0}'", otherItemId);
-                    }
-                    else
+                    if (!mWitIdToItemId.TryGetValue(witId, out otherItemId))
                     {
                         mWitIdToItemId.Add(witId, it.ItemId);
                     }

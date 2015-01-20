@@ -6,9 +6,9 @@ Done:
 * Verify PtWritingType metadata for PT ER items
 * Validate dependencies in the imsmanifest.xml
 * Find the item IDs that correspond with wordList WIT_IDs
+* Validate claim and target values
 
 Pending:
-* Check for the issues identified by CTB.
 * Tabulate and validate passages.
 * Find absent audio glossaries where the same term exists in another wordlist.
 * Match passage dependency information in three places - in the stim_pass_id attribute of the item, in the AssociatedStimulus metadata, and in imsmanifest.xml
