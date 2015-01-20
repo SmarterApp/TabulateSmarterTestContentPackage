@@ -21,6 +21,8 @@ namespace TabulateSmarterTestContentPackage
             sXmlNt = new NameTable();
             sXmlNs = new XmlNamespaceManager(sXmlNt);
             sXmlNs.AddNamespace("sa", "http://www.smarterapp.org/ns/1/assessment_item_metadata");
+            sXmlNs.AddNamespace("xsi", "http://www.w3.org/2001/XMLSchema-instance");
+            sXmlNs.AddNamespace("ims", "http://www.imsglobal.org/xsd/apip/apipv1p0/imscp_v1p1");
         }
 
         static readonly HashSet<string> sValidWritingTypes = new HashSet<string>(
@@ -53,6 +55,14 @@ namespace TabulateSmarterTestContentPackage
         Dictionary<string, int> mOggTranslationCounts = new Dictionary<string, int>();
         Dictionary<string, int> mRubricCounts = new Dictionary<string, int>();
 
+        // Per Package variables
+        string mPackagePath;
+        Dictionary<string, string> mFilenameToResourceId = new Dictionary<string, string>();
+        HashSet<string> mResourceDependencies = new HashSet<string>();
+        Dictionary<string, string> mWitIdToItemId = new Dictionary<string, string>();   // Wordlist ID to Item Id
+        Dictionary<string, ItemContext> mIdToItemContext = new Dictionary<string, ItemContext>();
+
+        // Per report variables
         TextWriter mTextGlossaryReport;
         TextWriter mAudioGlossaryReport;
         TextWriter mItemReport;
@@ -129,17 +139,17 @@ namespace TabulateSmarterTestContentPackage
             mErrorReportPath = Path.Combine(reportFolderPath, cErrorReportFn);
             if (File.Exists(mErrorReportPath)) File.Delete(mErrorReportPath);
 
-            mSummaryReportPath = Path.Combine(reportFolderPath, cSummaryReportFn);
-            if (File.Exists(mSummaryReportPath)) File.Delete(mSummaryReportPath);
-
             mTextGlossaryReport = new StreamWriter(Path.Combine(reportFolderPath, cTextGlossaryReportFn), false, sUtf8NoBomEncoding);
-            mTextGlossaryReport.WriteLine("Folder,WIT_ID,Index,Term,Language,Length");
+            mTextGlossaryReport.WriteLine("Folder,WIT_ID,ItemId,Index,Term,Language,Length");
 
             mAudioGlossaryReport = new StreamWriter(Path.Combine(reportFolderPath, cAudioGlossaryReportFn));
-            mAudioGlossaryReport.WriteLine("Folder,WIT_ID,Index,Term,Language,Encoding,Size");
+            mAudioGlossaryReport.WriteLine("Folder,WIT_ID,ItemId,Index,Term,Language,Encoding,Size");
 
             mItemReport = new StreamWriter(Path.Combine(reportFolderPath, cItemReportFn));
             mItemReport.WriteLine("Folder,ItemId,ItemType,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,ASL,BrailleEmbedded,BrailleFile,Translation");
+
+            mSummaryReportPath = Path.Combine(reportFolderPath, cSummaryReportFn);
+            if (File.Exists(mSummaryReportPath)) File.Delete(mSummaryReportPath);
 
             mTypeCounts.Clear();
             mTermCounts.Clear();
@@ -153,14 +163,17 @@ namespace TabulateSmarterTestContentPackage
         {
             try
             {
-                using (StreamWriter summaryReport = new StreamWriter(mSummaryReportPath, false, sUtf8NoBomEncoding))
+                if (mSummaryReportPath != null)
                 {
-                    SummaryReport(summaryReport);
-                }
+                    using (StreamWriter summaryReport = new StreamWriter(mSummaryReportPath, false, sUtf8NoBomEncoding))
+                    {
+                        SummaryReport(summaryReport);
+                    }
 
-                // Report aggregate results to the console
-                SummaryReport(Console.Out);
-                Console.WriteLine();
+                    // Report aggregate results to the console
+                    SummaryReport(Console.Out);
+                    Console.WriteLine();
+                }
             }
             finally
             {
@@ -192,28 +205,57 @@ namespace TabulateSmarterTestContentPackage
             if (!File.Exists(Path.Combine(packageFolderPath, "imsmanifest.xml"))) throw new ArgumentException("Not a valid content package path. File imsmanifest.xml not found!");
             Console.WriteLine("Tabulating " + packageFolderPath);
 
+            // Initialize package-specific collections
+            mPackagePath = null;
+            mFilenameToResourceId.Clear();
+            mResourceDependencies.Clear();
+            mWitIdToItemId.Clear();
+            mIdToItemContext.Clear();
+
+            mPackagePath = packageFolderPath;
+
+            // Validate manifest
+            try
+            {
+                ValidateManifest(packageFolderPath);
+            }
+            catch (Exception err)
+            {
+                ReportError(new ItemContext(this, new DirectoryInfo(packageFolderPath), null, null), ErrCat.Exception, ErrSeverity.Severe, err.ToString());
+            }
+
+            // First pass through items
             DirectoryInfo diItems = new DirectoryInfo(Path.Combine(packageFolderPath, "Items"));
             foreach (DirectoryInfo diItem in diItems.EnumerateDirectories())
             {
                 try
                 {
-                    TabulateItem(diItem);
+                    TabulateItem_Pass1(diItem);
                 }
                 catch (Exception err)
                 {
-                    Console.WriteLine();
-#if DEBUG
-                    Console.WriteLine(err.ToString());
-#else
-                    Console.WriteLine(err.Message);
-#endif
-                    Console.WriteLine();
                     ReportError(new ItemContext(this, diItem, null, null), ErrCat.Exception, ErrSeverity.Severe, err.ToString());
                 }
             }
+
+            // Second pass through items
+            foreach (var entry in mIdToItemContext)
+            {
+                try
+                {
+                    TabulateItem_Pass2(entry.Value);
+                }
+                catch (Exception err)
+                {
+                    ReportError(entry.Value, ErrCat.Exception, ErrSeverity.Severe, err.ToString());
+                }
+            }
+
+            // Verify Wordlist References
+            VerifyWordlistReferences();
         }
 
-        private void TabulateItem(DirectoryInfo diItem)
+        private void TabulateItem_Pass1(DirectoryInfo diItem)
         {
             // Read the item XML
             XmlDocument xml = new XmlDocument(sXmlNt);
@@ -228,7 +270,9 @@ namespace TabulateSmarterTestContentPackage
             ++mItemCount;
             mTypeCounts.Increment(itemType);
 
+            // Create and save the item context
             ItemContext it = new ItemContext(this, diItem, itemId, itemType);
+            mIdToItemContext.Add(itemId, it);
 
             switch (itemType)
             {
@@ -249,7 +293,7 @@ namespace TabulateSmarterTestContentPackage
                     break;
 
                 case "wordList":    // Word List (Glossary)
-                    TabulateWordList(it, xml);
+                    // Defer wordlists to pass 2
                     break;
 
                 case "pass":        // Passage
@@ -258,6 +302,40 @@ namespace TabulateSmarterTestContentPackage
 
                 default:
                     ReportError(it, ErrCat.Unsupported, ErrSeverity.Benign, "Unexpected item type: " + itemType);
+                    break;
+            }
+        }
+
+        private void TabulateItem_Pass2(ItemContext it)
+        {
+            switch (it.ItemType)
+            {
+                case "EBSR":        // Evidence-Based Selected Response
+                case "eq":          // Equation
+                case "er":          // Extended-Response
+                case "gi":          // Grid Item (graphic)
+                case "htq":         // Hot Text (QTI)
+                case "mc":          // Multiple Choice
+                case "mi":          // Match Interaction
+                case "ms":          // Multi-Select
+                //case "nl":          // Natural Language
+                case "sa":          // Short Answer
+                case "SIM":         // Simulation
+                case "ti":          // Table Interaction
+                case "wer":         // Writing Extended Response
+                    // Do nothing on these item types in pass 2
+                    break;
+
+                case "wordList":    // Word List (Glossary)
+                    TabulateWordList(it);
+                    break;
+
+                case "pass":        // Passage
+                case "tut":         // Tutorial
+                    break;  // Ignore for the moment
+
+                default:
+                    ReportError(it, ErrCat.Unsupported, ErrSeverity.Benign, "Unexpected item type: " + it.ItemType);
                     break;
             }
         }
@@ -647,6 +725,84 @@ namespace TabulateSmarterTestContentPackage
                         }
                     }
                 }
+
+                // Stimulus (Passage) ID
+                string stimId = xml.XpEval("itemrelease/item/attriblist/attrib[@attid='stm_pass_id']/val");
+                if (stimId == null)
+                {
+                    ReportError(it, ErrCat.Item, ErrSeverity.Severe, "PT Item missing associated passage ID (stm_pass_id).");
+                }
+                else
+                {
+                    string metaStimId = xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:AssociatedStimulus", sXmlNs);
+                    if (metaStimId == null)
+                    {
+                        ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "PT Item metatadata missing AssociatedStimulus.");
+                    }
+                    else if (!string.Equals(stimId, metaStimId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "PT Item passage ID doesn't match metadata AssociatedStimulus.", "Item stm_pass_id='{0}' Metadata AssociatedStimulus='{1}'", stimId, metaStimId);
+                    }
+
+                    // Stimulus dependencies are not recorded in the manifest therefore this code isn't useful
+                    // Retaining because the ResourceId lookup code may be useful for other things in the future.
+                    // For example, manifest DOES record dependencies between items and tutorials. This can be
+                    // validated in the future.
+                    /*
+
+                    // Look for the stimulus
+                    string stimulusFilename = Path.Combine(mPackagePath, string.Format("Stimuli\\stim-200-{0}\\stim-200-{0}.xml", stimId));
+                    if (!File.Exists(stimulusFilename))
+                    {
+                        ReportError(it, ErrCat.Item, ErrSeverity.Severe, "PT item stimulus not found.", "StimulusId='{0}'", stimId);
+                    }
+
+                    // Look up item in manifest
+                    string itemResourceId = null;
+                    if (!mFilenameToResourceId.TryGetValue(NormalizeFilenameInManifest(it.ItemFilename), out itemResourceId))
+                    {
+                        ReportError(it, ErrCat.Manifest, ErrSeverity.Tolerable, "Item not found in manifest.");
+                    }
+
+                    // Look up stimulus in manifest
+                    string stimulusResourceId = null;
+                    if (!mFilenameToResourceId.TryGetValue(NormalizeFilenameInManifest(stimulusFilename), out stimulusResourceId))
+                    {
+                        ReportError(it, ErrCat.Manifest, ErrSeverity.Tolerable, "Stimulus not found in manifest.", "StimulusId='{0}'", stimId);
+                    }
+
+                    // Check for dependency on stimulus in manifest
+                    if (!string.IsNullOrEmpty(itemResourceId) && !string.IsNullOrEmpty(stimulusResourceId))
+                    {
+                        if (!mResourceDependencies.Contains(ToDependsOnString(itemResourceId, itemResourceId)))
+                            ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, "Manifest does not record dependency between item and stimulus.", "ItemResourceId='{0}' StimulusResourceId='{1}'", itemResourceId, stimulusResourceId);
+                        else
+                            ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, "Manifest records dependency between item and stimulus.", "ItemResourceId='{0}' StimulusResourceId='{1}'", itemResourceId, stimulusResourceId);
+                    }
+                    */
+                }
+            } // if Performance Task
+
+            // WordList Reference
+            foreach (XmlElement xmlRes in xml.SelectNodes("itemrelease/item/resourceslist/resource[@type='wordList']"))
+            {
+                string witId = xmlRes.GetAttribute("id");
+                if (string.IsNullOrEmpty(witId))
+                {
+                    ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Item has blank wordList id.");
+                }
+                else
+                {
+                    string otherItemId;
+                    if (mWitIdToItemId.TryGetValue(witId, out otherItemId))
+                    {
+                        ReportError(it, ErrCat.Item, ErrSeverity.Benign, "Multiple items reference the same wordlist.", "OtherItemId='{0}'", otherItemId);
+                    }
+                    else
+                    {
+                        mWitIdToItemId.Add(witId, it.ItemId);
+                    }
+                }
             }
 
         } // TablulateInteraction
@@ -751,8 +907,24 @@ namespace TabulateSmarterTestContentPackage
 
         static readonly Regex sRxParseAudiofile = new Regex(@"Item_(\d+)_v(\d+)_(\w+)_(\d+)([a-zA-Z]+)_glossary_", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
-        private void TabulateWordList(ItemContext it, XmlDocument xml)
+        private void TabulateWordList(ItemContext it)
         {
+            // Read the item XML
+            XmlDocument xml = new XmlDocument(sXmlNt);
+            xml.Load(Path.Combine(it.DiItem.FullName, it.DiItem.Name + ".xml"));
+
+            // Sanity check
+            if (!string.Equals(xml.XpEval("itemrelease/item/@id"), it.ItemId)) throw new InvalidDataException("Item id mismatch on pass 2");
+
+            // Find the referring item ID
+            string referringId;
+            if (!mWitIdToItemId.TryGetValue(it.ItemId, out referringId))
+            {
+                ReportError(it, ErrCat.Wordlist, ErrSeverity.Benign, "Wordlist is not referenced by any item.");
+                referringId = string.Empty;
+            }
+
+            // Enumerate up the terms in the wordlist
             List<string> terms = new List<string>();
             ++mWordlistCount;
             foreach (XmlNode kwNode in xml.SelectNodes("itemrelease/item/keywordList/keyword"))
@@ -770,8 +942,8 @@ namespace TabulateSmarterTestContentPackage
                     string language = htmlNode.XpEval("@listType");
                     mTranslationCounts.Increment(language);
 
-                    // Folder,WIT_ID,Index,Term,Language,Length
-                    mTextGlossaryReport.WriteLine(string.Join(",", it.Folder, CsvEncode(it.ItemId), index.ToString(), CsvEncode(term), CsvEncode(language), htmlNode.InnerXml.Length.ToString()));
+                    // Folder,WIT_ID,ItemId,Index,Term,Language,Length
+                    mTextGlossaryReport.WriteLine(string.Join(",", it.Folder, CsvEncode(it.ItemId), CsvEncode(referringId), index.ToString(), CsvEncodeExcel(term), CsvEncode(language), htmlNode.InnerXml.Length.ToString()));
                 }
             }
 
@@ -790,7 +962,7 @@ namespace TabulateSmarterTestContentPackage
 
                         if (index == 0 || index >= terms.Count)
                         {
-                            ReportError(it, ErrCat.Item, ErrSeverity.Benign, "Audio file with no matching glossary term.", "filename='{0}' index='{1}'", fi.Name, index);
+                            ReportError(it, ErrCat.Wordlist, ErrSeverity.Benign, "Audio file with no matching glossary term.", "filename='{0}' index='{1}'", fi.Name, index);
                             continue;
                         }
 
@@ -807,8 +979,8 @@ namespace TabulateSmarterTestContentPackage
                             ++mGlossaryOggCount;
                         }
 
-                        // Folder,WIT_ID,Index,Term,Language,Encoding,Size
-                        mAudioGlossaryReport.WriteLine(String.Join(",", it.Folder, CsvEncode(it.ItemId), index.ToString(), CsvEncode(term), CsvEncode(language), CsvEncode(extension), fi.Length.ToString()));
+                        // Folder,WIT_ID,ItemId,Index,Term,Language,Encoding,Size
+                        mAudioGlossaryReport.WriteLine(String.Join(",", it.Folder, CsvEncode(it.ItemId), CsvEncode(referringId), index.ToString(), CsvEncodeExcel(term), CsvEncode(language), CsvEncode(extension), fi.Length.ToString()));
                     }
                     else
                     {
@@ -816,6 +988,163 @@ namespace TabulateSmarterTestContentPackage
                     }
                 }
             }
+        }
+
+        void VerifyWordlistReferences()
+        {
+            foreach (var entry in mWitIdToItemId)
+            {
+                ItemContext it;
+                if (!mIdToItemContext.TryGetValue(entry.Key, out it) || !string.Equals(it.ItemType, "wordList", StringComparison.Ordinal))
+                {
+                    if (mIdToItemContext.TryGetValue(entry.Value, out it))
+                        ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Item references nonexistent wordlist.", "WIT_ID='{0}'", entry.Key);
+                    else
+                        throw new ApplicationException("Item id not in index!");
+                }
+            }
+        }
+
+        void ValidateManifest(string packageFolderPath)
+        {
+            // Prep an itemcontext for reporting errors
+            ItemContext it = new ItemContext(this, new DirectoryInfo(packageFolderPath), null, null);
+
+            // Load the manifest
+            XmlDocument xmlManifest = new XmlDocument(sXmlNt);
+            xmlManifest.Load(Path.Combine(packageFolderPath, "imsmanifest.xml"));
+
+            // Keep track of every resource id mentioned in the manifest
+            HashSet<string> ids = new HashSet<string>();
+
+            // Enumerate all resources in the manifest
+            foreach (XmlElement xmlRes in xmlManifest.SelectNodes("ims:manifest/ims:resources/ims:resource", sXmlNs))
+            {
+                string id = xmlRes.GetAttribute("identifier");
+                if (string.IsNullOrEmpty(id))
+                    ReportError(it, ErrCat.Manifest, ErrSeverity.Tolerable, "Resource in manifest is missing id.", "Filename='{0}'", xmlRes.XpEvalE("ims:file/@href", sXmlNs));
+                string filename = xmlRes.XpEval("ims:file/@href", sXmlNs);
+                if (string.IsNullOrEmpty(filename))
+                {
+                    ReportError(it, ErrCat.Manifest, ErrSeverity.Tolerable, "Resource specified in manifest has no filename.", "ResourceId='{0}'", id);
+                }
+                else if (!File.Exists(Path.Combine(packageFolderPath, filename)))
+                {
+                    ReportError(it, ErrCat.Manifest, ErrSeverity.Tolerable, "Resource specified in manifest does not exist.", "ResourceId='{0}' Filename='{1}'", id, filename);
+                }
+
+                if (ids.Contains(id))
+                {
+                    ReportError(it, ErrCat.Manifest, ErrSeverity.Tolerable, "Resource listed multiple times in manifest.", "ResourceId='{0}'", id);
+                }
+                else
+                {
+                    ids.Add(id);
+                }
+
+                // Normalize the filename
+                filename = filename.ToLower().Replace('\\', '/');
+                if (mFilenameToResourceId.ContainsKey(filename))
+                {
+                    ReportError(it, ErrCat.Manifest, ErrSeverity.Tolerable, "File listed multiple times in manifest.", "ResourceId='{0}' Filename='{1}'", id, filename);
+                }
+                else
+                {
+                    mFilenameToResourceId.Add(filename, id);
+                }
+
+                // Index any dependencies
+                foreach (XmlElement xmlDep in xmlRes.SelectNodes("ims:dependency", sXmlNs))
+                {
+                    string dependsOnId = xmlDep.GetAttribute("identifierref");
+                    if (string.IsNullOrEmpty(dependsOnId))
+                    {
+                        ReportError(it, ErrCat.Manifest, ErrSeverity.Tolerable, "Dependency in manifest is missing identifierref attribute.", "ResourceId='{0}'", id);
+                    }
+                    else
+                    {
+                        string dependency = ToDependsOnString(id, dependsOnId);
+                        if (mResourceDependencies.Contains(dependency))
+                        {
+                            ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, "Dependency in manifest repeated multiple times.", "ResourceId='{0}' DependsOnId='{1}'", id, dependsOnId);
+                        }
+                        else
+                        {
+                            mResourceDependencies.Add(dependency);
+                         }
+                    }
+
+                }
+            }
+
+            // Enumerate all files and check for them in the manifest
+            {
+                DirectoryInfo diPackage = new DirectoryInfo(packageFolderPath);
+                foreach (DirectoryInfo di in diPackage.GetDirectories())
+                {
+                    ValidateDirectoryInManifest(it, di);
+                }
+            }
+        }
+
+        // Recursively check that files exist in the manifest
+        void ValidateDirectoryInManifest(ItemContext it, DirectoryInfo di)
+        {
+            // See if this is an item or stimulus directory
+            string itemFileName = null;
+            string itemId = null;
+            if (
+                (di.Name.StartsWith("item-", StringComparison.OrdinalIgnoreCase) || di.Name.StartsWith("stim-", StringComparison.OrdinalIgnoreCase))
+                && (File.Exists(Path.Combine(di.FullName, string.Concat(di.Name, ".xml")))))
+            {
+                itemFileName = NormalizeFilenameInManifest(Path.Combine(di.FullName, string.Concat(di.Name, ".xml")));
+
+                if (!mFilenameToResourceId.TryGetValue(itemFileName, out itemId))
+                {
+                    ReportError(it, ErrCat.Manifest, ErrSeverity.Degraded, "Item does not appear in the manifest.", "ItemId='{0}'", di.Name);
+                    itemFileName = null;
+                    itemId = null;
+                }
+            }
+
+            foreach (FileInfo fi in di.EnumerateFiles())
+            {
+                string filename = NormalizeFilenameInManifest(fi.FullName);
+
+                string resourceId;
+                if (!mFilenameToResourceId.TryGetValue(filename, out resourceId))
+                {
+                    ReportError(it, ErrCat.Manifest, ErrSeverity.Tolerable, "Resource does not appear in the manifest.", "Filename='{0}'", filename);
+                }
+
+                // If in an item, see if dependency is expressed
+                else if (itemId != null && !string.Equals(itemId, resourceId, StringComparison.Ordinal))
+                {
+                    // Check for dependency
+                    if (!mResourceDependencies.Contains(ToDependsOnString(itemId, resourceId)))
+                        ReportError(it, ErrCat.Manifest, ErrSeverity.Tolerable, "Manifest does not express resource dependency.", "ResourceId='{0}' DependesOnId='{1}'", itemId, resourceId);
+                }
+            }
+
+            // Recurse
+            foreach(DirectoryInfo diSub in di.GetDirectories())
+            {
+                ValidateDirectoryInManifest(it, diSub);
+            }
+        }
+
+        string NormalizeFilenameInManifest(string filename)
+        {
+            int ppLen = mPackagePath.Length;
+            if (filename.Length > ppLen && filename.StartsWith(mPackagePath, StringComparison.OrdinalIgnoreCase) && filename[ppLen] == '\\')
+                filename = filename.Substring(ppLen+1);
+            filename = filename.ToLower().Replace('\\', '/');
+            return filename;
+        }
+
+        static string ToDependsOnString(string itemId, string dependsOnId)
+        {
+            return string.Concat(itemId, "~", dependsOnId);
         }
 
         void SummaryReport(TextWriter writer)
@@ -853,7 +1182,9 @@ namespace TabulateSmarterTestContentPackage
             Attribute,
             Rubric,
             Metadata,
-            Item
+            Item,
+            Wordlist,
+            Manifest
         }
 
         // Error Severity
@@ -930,6 +1261,13 @@ namespace TabulateSmarterTestContentPackage
             public string ItemId { get; private set; }
             public string ItemType { get; private set; }
             public string Folder { get; private set; }
+            public string ItemFilename
+            {
+                get
+                {
+                    return Path.Combine(DiItem.FullName, DiItem.Name + ".xml");
+                }
+            }
         }
 
     }
