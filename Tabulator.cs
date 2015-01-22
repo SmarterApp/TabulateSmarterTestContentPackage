@@ -25,6 +25,8 @@ namespace TabulateSmarterTestContentPackage
             sXmlNs.AddNamespace("ims", "http://www.imsglobal.org/xsd/apip/apipv1p0/imscp_v1p1");
         }
 
+        const string cStimulusInteractionType = "Stimulus";
+
         static readonly HashSet<string> sValidWritingTypes = new HashSet<string>(
             new string[] {
                 "Explanatory",
@@ -154,13 +156,13 @@ namespace TabulateSmarterTestContentPackage
             if (File.Exists(mErrorReportPath)) File.Delete(mErrorReportPath);
 
             mTextGlossaryReport = new StreamWriter(Path.Combine(reportFolderPath, cTextGlossaryReportFn), false, sUtf8NoBomEncoding);
-            mTextGlossaryReport.WriteLine("Folder,WIT_ID,FirstItemId,Index,Term,Language,Length");
+            mTextGlossaryReport.WriteLine("Folder,WIT_ID,Index,Term,Language,Length");
 
             mAudioGlossaryReport = new StreamWriter(Path.Combine(reportFolderPath, cAudioGlossaryReportFn));
-            mAudioGlossaryReport.WriteLine("Folder,WIT_ID,FirstItemId,Index,Term,Language,Encoding,Size");
+            mAudioGlossaryReport.WriteLine("Folder,WIT_ID,Index,Term,Language,Encoding,Size");
 
             mItemReport = new StreamWriter(Path.Combine(reportFolderPath, cItemReportFn));
-            mItemReport.WriteLine("Folder,ItemId,ItemType,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,ASL,BrailleEmbedded,BrailleFile,Translation");
+            mItemReport.WriteLine("Folder,ItemId,ItemType,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleEmbedded,BrailleFile,Translation");
 
             mSummaryReportPath = Path.Combine(reportFolderPath, cSummaryReportFn);
             if (File.Exists(mSummaryReportPath)) File.Delete(mSummaryReportPath);
@@ -187,6 +189,7 @@ namespace TabulateSmarterTestContentPackage
                     // Report aggregate results to the console
                     SummaryReport(Console.Out);
                     Console.WriteLine();
+                    Console.WriteLine("{0} Errors reported.", mErrorCount);
                 }
             }
             finally
@@ -240,19 +243,39 @@ namespace TabulateSmarterTestContentPackage
 
             // First pass through items
             DirectoryInfo diItems = new DirectoryInfo(Path.Combine(packageFolderPath, "Items"));
-            foreach (DirectoryInfo diItem in diItems.EnumerateDirectories())
+            if (diItems.Exists)
             {
-                try
+                foreach (DirectoryInfo diItem in diItems.EnumerateDirectories())
                 {
-                    TabulateItem_Pass1(diItem);
-                }
-                catch (Exception err)
-                {
-                    ReportError(new ItemContext(this, diItem, null, null), ErrCat.Exception, ErrSeverity.Severe, err.ToString());
+                    try
+                    {
+                        TabulateItem_Pass1(diItem);
+                    }
+                    catch (Exception err)
+                    {
+                        ReportError(new ItemContext(this, diItem, null, null), ErrCat.Exception, ErrSeverity.Severe, err.ToString());
+                    }
                 }
             }
 
-            // Second pass through items
+            // First pass through stimuli
+            diItems = new DirectoryInfo(Path.Combine(packageFolderPath, "Stimuli"));
+            if (diItems.Exists)
+            {
+                foreach (DirectoryInfo diItem in diItems.EnumerateDirectories())
+                {
+                    try
+                    {
+                        TabulateStimulus(diItem);
+                    }
+                    catch (Exception err)
+                    {
+                        ReportError(new ItemContext(this, diItem, null, null), ErrCat.Exception, ErrSeverity.Severe, err.ToString());
+                    }
+                }
+            }
+
+            // Second pass through items (including stimuli)
             foreach (var entry in mIdToItemContext)
             {
                 try
@@ -278,7 +301,7 @@ namespace TabulateSmarterTestContentPackage
             if (itemType == null) itemType = xml.XpEval("itemrelease/item/@type");
             if (itemType == null) throw new InvalidDataException("Item type not found");
             string itemId = xml.XpEval("itemrelease/item/@id");
-            if (itemId == null) throw new InvalidDataException("Item id not found");
+            if (string.IsNullOrEmpty(itemId)) throw new InvalidDataException("Item id not found");
 
             // Add to the item count and the type count
             ++mItemCount;
@@ -318,6 +341,31 @@ namespace TabulateSmarterTestContentPackage
                     ReportError(it, ErrCat.Unsupported, ErrSeverity.Benign, "Unexpected item type: " + itemType);
                     break;
             }
+        }
+
+        private void TabulateStimulus(DirectoryInfo diItem)
+        {
+            // Read the item XML
+            XmlDocument xml = new XmlDocument(sXmlNt);
+            xml.Load(Path.Combine(diItem.FullName, diItem.Name + ".xml"));
+
+            // See if passage
+            XmlElement xmlPassage = xml.SelectSingleNode("itemrelease/passage") as XmlElement;
+            if (xmlPassage == null) throw new InvalidDataException("Stimulus does not have passage xml.");
+
+            string itemType = "pass";
+            string itemId = xmlPassage.GetAttribute("id");
+            if (string.IsNullOrEmpty(itemId)) throw new InvalidDataException("Item id not found");
+
+            // Add to the item count and the type count
+            ++mItemCount;
+            mTypeCounts.Increment(itemType);
+
+            // Create and save the item context
+            ItemContext it = new ItemContext(this, diItem, itemId, itemType);
+            mIdToItemContext.Add(itemId, it);
+
+            TabulatePassage(it, xml);
         }
 
         private void TabulateItem_Pass2(ItemContext it)
@@ -361,6 +409,11 @@ namespace TabulateSmarterTestContentPackage
             XmlDocument xmlMetadata = new XmlDocument(sXmlNt);
             xmlMetadata.Load(Path.Combine(it.DiItem.FullName, "metadata.xml"));
 
+            // Check interaction type
+            string metaItemType = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:InteractionType", sXmlNs);
+            if (!string.Equals(metaItemType, it.ItemType.ToUpper(), StringComparison.Ordinal))
+                ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Incorrect metadata <InteractionType>.", "InteractionType='{0}' Expected='{1}'", metaItemType, it.ItemType.ToUpper());
+
             // Subject
             string subject = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='itm_item_subject']/val");
             string metaSubject = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:Subject", sXmlNs);
@@ -385,7 +438,7 @@ namespace TabulateSmarterTestContentPackage
                 ReportError(it, ErrCat.Attribute, ErrSeverity.Tolerable, "Missing grade in item attributes (itm_att_Grade).");
                 grade = metaGrade;
                 if (string.IsNullOrEmpty(grade))
-                    ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Missing grade in item metadata.");
+                    ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Missing <IntendedGrade> in item metadata.");
             }
             else
             {
@@ -550,7 +603,10 @@ namespace TabulateSmarterTestContentPackage
                     ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Target suffix indicates a different grade from item attribute.", "ItemAttributeGrade='{0}' TargetSuffixGrade='{1}'", grade, parts[1]);
                 }
             }
-            */ 
+            */
+
+            // WordList ID
+            string wordlistId = GetWordlistId(it, xml);
 
             // ASL
             string asl = string.Empty;
@@ -564,11 +620,28 @@ namespace TabulateSmarterTestContentPackage
                 if (!aslInMetadata && aslFound) ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Item has ASL but not indicated in the metadata.");
             }
 
-            // BrailleEmbedded
-            string brailleEmbedded = "No";
+            // BrailleText
+            string brailleText = "No";
             {
-                XmlElement xmlEle = xml.SelectSingleNode("itemrelease/item/content//brailleText") as XmlElement;
-                if (xmlEle != null && xmlEle.HasChildNodes) brailleEmbedded = "Yes";
+                int brailleLen = 0;
+                foreach (XmlElement xmlBraille in xml.SelectNodes("itemrelease/item/content//brailleText"))
+                {
+                    foreach (XmlNode node in xmlBraille.ChildNodes)
+                    {
+                        if (node.NodeType == XmlNodeType.Element &&
+                            (string.Equals(node.Name, "brailleTextString") || string.Equals(node.Name, "brailleCode")))
+                        {
+                            if (node.InnerText.Length == 0)
+                                ReportError("ebt", it, ErrCat.Item, ErrSeverity.Degraded, string.Format("{0} element is empty.", node.Name));
+                            brailleLen += node.InnerText.Length;
+                        }
+                    }
+
+                    if (brailleLen > 0)
+                    {
+                        brailleText = "Yes";
+                    }
+                }
             }
 
             // BrailleFile
@@ -588,57 +661,10 @@ namespace TabulateSmarterTestContentPackage
             }
 
             // Translation
-            string translation = string.Empty;
-            {               
-                // Find non-english content and the language value
-                HashSet<string> languages = new HashSet<string>();
-                foreach (XmlElement xmlEle in xml.SelectNodes("itemrelease/item/content"))
-                {
-                    string language = xmlEle.GetAttribute("language").ToLower();
+            string translation = GetTranslation(it, xml, xmlMetadata);
 
-                    // The spec says that languages should be in RFC 5656 format.
-                    // However, the items use ENU for English and ESN for Spanish.
-                    // Neither of these are compliant with RFC 5656.
-                    // Meanwhile, the metadata file uses eng for English and spa for Spanish which,
-                    // at least abides the spec which says that ISO-639-2 should be used.
-                    // (Note that ISO-639-2 codes are included in RFC 5656).
-                    switch (language)
-                    {
-                        case "enu":
-                            language = "eng";
-                            break;
-                        case "esn":
-                            language = "spa";
-                            break;
-                    }
-
-                    // Add to hashset
-                    languages.Add(language.ToLower());
-
-                    // If not english, add to result
-                    if (!string.Equals(language, "eng", StringComparison.Ordinal))
-                    {
-                        translation = (translation.Length > 0) ? string.Concat(translation, " ", language) : language;
-                    }
-
-                    // See if metadata agrees
-                    XmlNode node = xmlMetadata.SelectSingleNode(string.Concat("metadata/sa:smarterAppMetadata/sa:Language[. = '", language, "']"), sXmlNs);
-                    if (node == null) ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Item content includes language but metadata does not have a corresponding <Language> entry.", "Language='{0}'", language);
-                }
-
-                // Now, search the metadata for translations and make sure all exist in the content
-                foreach(XmlElement xmlEle in xmlMetadata.SelectNodes("metadata/sa:smarterAppMetadata/sa:Language", sXmlNs))
-                {
-                    string language = xmlEle.InnerText;
-                    if (!languages.Contains(language))
-                    {
-                        ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "Item metadata indicates language but item content does not include that language.", "Language='{0}'", language);
-                    }
-                }
-            }
-
-            // Folder,it.ItemId,it.ItemType,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,ASL,BrailleEmbedded,BrailleFile,Translation
-            mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(subject), CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), CsvEncode(asl), CsvEncode(brailleEmbedded), CsvEncode(brailleFile), CsvEncode(translation)));
+            // Folder,ItemId,ItemType,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleText,BrailleFile,Translation
+            mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(subject), CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleText), CsvEncode(brailleFile), CsvEncode(translation)));
 
             // === Tabulation is complete, check for other errors
 
@@ -777,14 +803,11 @@ namespace TabulateSmarterTestContentPackage
                         ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "PT Item passage ID doesn't match metadata AssociatedStimulus.", "Item stm_pass_id='{0}' Metadata AssociatedStimulus='{1}'", stimId, metaStimId);
                     }
 
-                    // Stimulus dependencies are not recorded in the manifest therefore this code isn't useful
-                    // Retaining because the ResourceId lookup code may be useful for other things in the future.
-                    // For example, manifest DOES record dependencies between items and tutorials. This can be
-                    // validated in the future.
-                    /*
-
+                    // Get the bankKey
+                    string bankKey = xml.XpEvalE("itemrelease/item/@bankkey");
+                    
                     // Look for the stimulus
-                    string stimulusFilename = Path.Combine(mPackagePath, string.Format("Stimuli\\stim-200-{0}\\stim-200-{0}.xml", stimId));
+                    string stimulusFilename = Path.Combine(mPackagePath, string.Format("Stimuli\\stim-{1}-{0}\\stim-{1}-{0}.xml", stimId, bankKey));
                     if (!File.Exists(stimulusFilename))
                     {
                         ReportError(it, ErrCat.Item, ErrSeverity.Severe, "PT item stimulus not found.", "StimulusId='{0}'", stimId);
@@ -808,37 +831,133 @@ namespace TabulateSmarterTestContentPackage
                     if (!string.IsNullOrEmpty(itemResourceId) && !string.IsNullOrEmpty(stimulusResourceId))
                     {
                         if (!mResourceDependencies.Contains(ToDependsOnString(itemResourceId, itemResourceId)))
-                            ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, "Manifest does not record dependency between item and stimulus.", "ItemResourceId='{0}' StimulusResourceId='{1}'", itemResourceId, stimulusResourceId);
-                        else
-                            ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, "Manifest records dependency between item and stimulus.", "ItemResourceId='{0}' StimulusResourceId='{1}'", itemResourceId, stimulusResourceId);
+                            ReportError("pmd", it, ErrCat.Manifest, ErrSeverity.Benign, "Manifest does not record dependency between item and stimulus.", "ItemResourceId='{0}' StimulusResourceId='{1}'", itemResourceId, stimulusResourceId);
                     }
-                    */
                 }
             } // if Performance Task
 
-            // WordList Reference
-            foreach (XmlElement xmlRes in xml.SelectNodes("itemrelease/item/resourceslist/resource[@type='wordList']"))
+        } // TablulateInteraction
+
+        void TabulatePassage(ItemContext it, XmlDocument xml)
+        {
+            string metadataPath = Path.Combine(it.DiItem.FullName, "metadata.xml");
+            if (!File.Exists(metadataPath)) throw new InvalidDataException("Metadata file not found: " + metadataPath);
+            XmlDocument xmlMetadata = new XmlDocument(sXmlNt);
+            xmlMetadata.Load(Path.Combine(it.DiItem.FullName, "metadata.xml"));
+
+            // Check interaction type
+            string metaItemType = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:InteractionType", sXmlNs);
+            if (!string.Equals(metaItemType, cStimulusInteractionType, StringComparison.Ordinal))
+                ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Incorrect metadata <InteractionType>.", "InteractionType='{0}' Expected='{1}'", metaItemType, cStimulusInteractionType);
+
+            // Subject
+            string subject = xml.XpEvalE("itemrelease/passage/attriblist/attrib[@attid='itm_item_subject']/val");
+            string metaSubject = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:Subject", sXmlNs);
+            if (string.IsNullOrEmpty(subject))
             {
-                string witId = xmlRes.GetAttribute("id");
-                if (string.IsNullOrEmpty(witId))
-                {
-                    ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Item has blank wordList id.");
-                }
+                // For the present, we don't expect the subject in the item attributes on passages
+                //ReportError(it, ErrCat.Attribute, ErrSeverity.Tolerable, "Missing subject in item attributes (itm_item_subject).");
+                subject = metaSubject;
+                if (string.IsNullOrEmpty(subject))
+                    ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Missing subject in item metadata.");
+            }
+            else
+            {
+                if (!string.Equals(subject, metaSubject, StringComparison.Ordinal))
+                    ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Subject mismatch between item and metadata.", "ItemSubject='{0}' MetadataSubject='{1}'", subject, metaSubject);
+            }
+
+            // Grade
+            string grade = xml.XpEvalE("itemrelease/passage/attriblist/attrib[@attid='itm_att_Grade']/val");
+            string metaGrade = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:IntendedGrade", sXmlNs);
+            if (string.IsNullOrEmpty(grade))
+            {
+                // For the present, we don't expect the grade in the item attributes on passages
+                //ReportError(it, ErrCat.Attribute, ErrSeverity.Tolerable, "Missing grade in item attributes (itm_att_Grade).");
+                grade = metaGrade;
+                if (string.IsNullOrEmpty(grade))
+                    ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Missing <IntendedGrade> in item metadata.");
+            }
+            else
+            {
+                if (!string.Equals(grade, metaGrade, StringComparison.Ordinal))
+                    ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Grade mismatch between item and metadata.", "ItemGrade='{0}', MetadataGrade='{1}'", grade, metaGrade);
+            }
+
+            // Rubric
+            string rubric = string.Empty; // Passages don't have rubrics
+
+            // AssessmentType (PT or CAT)
+            string assessmentType;
+            {
+                string meta = xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:PerformanceTaskComponentItem", sXmlNs);
+                if (meta == null || string.Equals(meta, "N", StringComparison.Ordinal)) assessmentType = "CAT";
+                else if (string.Equals(meta, "Y", StringComparison.Ordinal)) assessmentType = "PT";
                 else
                 {
-                    string otherItemId;
-                    if (!mWitIdToItemId.TryGetValue(witId, out otherItemId))
-                    {
-                        mWitIdToItemId.Add(witId, it.ItemId);
-                    }
+                    assessmentType = "CAT";
+                    ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "PerformanceTaskComponentItem metadata should be 'Y' or 'N'.", "Value='{0}'", meta);
                 }
             }
 
-        } // TablulateInteraction
+            // Standard, Claim and Target
+            string standard = string.Empty; // Passages don't have these values
+            string claim = string.Empty;
+            string target = string.Empty;
+
+            // WordList ID
+            string wordlistId = GetWordlistId(it, xml);
+
+            // ASL
+            string asl = string.Empty;
+            {
+                bool aslFound = CheckForAttachment(it, xml, "ASL", "MP4");
+                if (aslFound) asl = "MP4";
+                if (!aslFound) ReportUnexpectedFiles(it, "ASL video", "item_{0}_ASL*", it.ItemId);
+
+                bool aslInMetadata = string.Equals(xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:AccessibilityTagsASLLanguage", sXmlNs), "Y", StringComparison.OrdinalIgnoreCase);
+                if (aslInMetadata && !aslFound) ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Item metadata specifies ASL but no ASL in item.");
+                if (!aslInMetadata && aslFound) ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Item has ASL but not indicated in the metadata.");
+            }
+
+            // BrailleEmbedded
+            string brailleEmbedded = "No";
+            {
+                XmlElement xmlEle = xml.SelectSingleNode("itemrelease/passage/content//brailleText") as XmlElement;
+                if (xmlEle != null && xmlEle.HasChildNodes) brailleEmbedded = "Yes";
+            }
+
+            // BrailleFile
+            string brailleFile = string.Empty;
+            {
+                bool brfFound = CheckForAttachment(it, xml, "BRF", "BRF");
+                if (brfFound) brailleFile = "BRF";
+                if (!brfFound) ReportUnexpectedFiles(it, "Braille BRF", "item_{0}_*.brf", it.ItemId);
+
+                bool prnFound = CheckForAttachment(it, xml, "PRN", "PRN");
+                if (prnFound)
+                {
+                    if (brailleFile.Length > 0) brailleFile = string.Concat(brailleFile, " ", "PRN");
+                    else brailleFile = "PRN";
+                }
+                if (!prnFound) ReportUnexpectedFiles(it, "Braille PRN", "item_{0}_*.prn", it.ItemId);
+            }
+
+            // Translation
+            string translation = GetTranslation(it, xml, xmlMetadata);
+
+            // Folder,ItemId,ItemType,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleEmbedded,BrailleFile,Translation
+            mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(subject), CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleEmbedded), CsvEncode(brailleFile), CsvEncode(translation)));
+
+        } // TablulatePassage
 
         bool CheckForAttachment(ItemContext it, XmlDocument xml, string attachType, string expectedExtension)
         {
-            XmlElement xmlEle = xml.SelectSingleNode(string.Concat("itemrelease/item/content/attachmentlist/attachment[@type='", attachType, "']")) as XmlElement;
+            string xp = (!it.IsPassage)
+                ? string.Concat("itemrelease/item/content/attachmentlist/attachment[@type='", attachType, "']")
+                : string.Concat("itemrelease/passage/content/attachmentlist/attachment[@type='", attachType, "']");
+
+            XmlElement xmlEle = xml.SelectSingleNode(xp) as XmlElement;
             if (xmlEle != null)
             {
                 string filename = xmlEle.GetAttribute("file");
@@ -871,6 +990,96 @@ namespace TabulateSmarterTestContentPackage
                 ReportError(it, ErrCat.Item, ErrSeverity.Benign, "Unreferenced file found.", "fileType='{0}', filename='{1}'", fileType, file.Name);
             }
         }
+
+        string GetWordlistId(ItemContext it, XmlDocument xml)
+        {
+            string wordlistId = string.Empty;
+            string xp = it.IsPassage
+                ? "itemrelease/passage/resourceslist/resource[@type='wordList']"
+                : "itemrelease/item/resourceslist/resource[@type='wordList']";
+
+            foreach (XmlElement xmlRes in xml.SelectNodes("itemrelease/item/resourceslist/resource[@type='wordList']"))
+            {
+                string witId = xmlRes.GetAttribute("id");
+                if (string.IsNullOrEmpty(witId))
+                {
+                    ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Item references blank wordList id.");
+                }
+                else
+                {
+                    if (!string.IsNullOrEmpty(wordlistId))
+                    {
+                        ReportError(it, ErrCat.Item, ErrSeverity.Tolerable, "Item references multiple wordlists.");
+                    }
+                    else
+                    {
+                        wordlistId = witId;
+                    }
+
+                    string otherItemId;
+                    if (!mWitIdToItemId.TryGetValue(witId, out otherItemId))
+                    {
+                        mWitIdToItemId.Add(witId, it.ItemId);
+                    }
+                }
+            }
+
+            return wordlistId;
+        }
+
+        string GetTranslation(ItemContext it, XmlDocument xml, XmlDocument xmlMetadata)
+        {
+            string translation = string.Empty;
+
+            // Find non-english content and the language value
+            HashSet<string> languages = new HashSet<string>();
+            foreach (XmlElement xmlEle in xml.SelectNodes(it.IsPassage ? "itemrelease/passage/content" : "itemrelease/item/content"))
+            {
+                string language = xmlEle.GetAttribute("language").ToLower();
+
+                // The spec says that languages should be in RFC 5656 format.
+                // However, the items use ENU for English and ESN for Spanish.
+                // Neither of these are compliant with RFC 5656.
+                // Meanwhile, the metadata file uses eng for English and spa for Spanish which,
+                // at least abides the spec which says that ISO-639-2 should be used.
+                // (Note that ISO-639-2 codes are included in RFC 5656).
+                switch (language)
+                {
+                    case "enu":
+                        language = "eng";
+                        break;
+                    case "esn":
+                        language = "spa";
+                        break;
+                }
+
+                // Add to hashset
+                languages.Add(language.ToLower());
+
+                // If not english, add to result
+                if (!string.Equals(language, "eng", StringComparison.Ordinal))
+                {
+                    translation = (translation.Length > 0) ? string.Concat(translation, " ", language) : language;
+                }
+
+                // See if metadata agrees
+                XmlNode node = xmlMetadata.SelectSingleNode(string.Concat("metadata/sa:smarterAppMetadata/sa:Language[. = '", language, "']"), sXmlNs);
+                if (node == null) ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Item content includes language but metadata does not have a corresponding <Language> entry.", "Language='{0}'", language);
+            }
+
+            // Now, search the metadata for translations and make sure all exist in the content
+            foreach (XmlElement xmlEle in xmlMetadata.SelectNodes("metadata/sa:smarterAppMetadata/sa:Language", sXmlNs))
+            {
+                string language = xmlEle.InnerText;
+                if (!languages.Contains(language))
+                {
+                    ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "Item metadata indicates language but item content does not include that language.", "Language='{0}'", language);
+                }
+            }
+
+            return translation;
+        }
+
 
         /* 
          * Locate and parse the standard, claim, and target from the metadata
@@ -971,8 +1180,8 @@ namespace TabulateSmarterTestContentPackage
                     string language = htmlNode.XpEval("@listType");
                     mTranslationCounts.Increment(language);
 
-                    // Folder,WIT_ID,ItemId,Index,Term,Language,Length
-                    mTextGlossaryReport.WriteLine(string.Join(",", it.Folder, CsvEncode(it.ItemId), CsvEncode(referringId), index.ToString(), CsvEncodeExcel(term), CsvEncode(language), htmlNode.InnerXml.Length.ToString()));
+                    // Folder,WIT_ID,Index,Term,Language,Length
+                    mTextGlossaryReport.WriteLine(string.Join(",", it.Folder, CsvEncode(it.ItemId),index.ToString(), CsvEncodeExcel(term), CsvEncode(language), htmlNode.InnerXml.Length.ToString()));
                 }
             }
 
@@ -1008,8 +1217,8 @@ namespace TabulateSmarterTestContentPackage
                             ++mGlossaryOggCount;
                         }
 
-                        // Folder,WIT_ID,ItemId,Index,Term,Language,Encoding,Size
-                        mAudioGlossaryReport.WriteLine(String.Join(",", it.Folder, CsvEncode(it.ItemId), CsvEncode(referringId), index.ToString(), CsvEncodeExcel(term), CsvEncode(language), CsvEncode(extension), fi.Length.ToString()));
+                        // Folder,WIT_ID,Index,Term,Language,Encoding,Size
+                        mAudioGlossaryReport.WriteLine(String.Join(",", it.Folder, CsvEncode(it.ItemId), index.ToString(), CsvEncodeExcel(term), CsvEncode(language), CsvEncode(extension), fi.Length.ToString()));
                     }
                     else
                     {
@@ -1178,7 +1387,7 @@ namespace TabulateSmarterTestContentPackage
 
         void SummaryReport(TextWriter writer)
         {
-            if (mErrorCount != 0) writer.WriteLine("Errors: {0}", mErrorCount);
+            writer.WriteLine("Errors: {0}", mErrorCount);
             writer.WriteLine("Items: {0}", mItemCount);
             writer.WriteLine("Word Lists: {0}", mWordlistCount);
             writer.WriteLine("Glossary Terms: {0}", mGlossaryTermCount);
@@ -1256,6 +1465,18 @@ namespace TabulateSmarterTestContentPackage
             ReportError(it, category, severity, msg, null);
         }
 
+        void ReportError(string validationOption, ItemContext it, ErrCat category, ErrSeverity severity, string msg)
+        {
+            if (Program.gValidationOptions.IsEnabled(validationOption))
+                ReportError(it, category, severity, msg, null);
+        }
+
+        void ReportError(string validationOption, ItemContext it, ErrCat category, ErrSeverity severity, string msg, string detail, params object[] args)
+        {
+            if (Program.gValidationOptions.IsEnabled(validationOption))
+                ReportError(it, category, severity, msg, detail, args);
+        }
+
         private static readonly char[] cCsvEscapeChars = {',', '"', '\'', '\r', '\n'};
 
         static string CsvEncode(string text)
@@ -1290,11 +1511,20 @@ namespace TabulateSmarterTestContentPackage
             public string ItemId { get; private set; }
             public string ItemType { get; private set; }
             public string Folder { get; private set; }
+
             public string ItemFilename
             {
                 get
                 {
                     return Path.Combine(DiItem.FullName, DiItem.Name + ".xml");
+                }
+            }
+
+            public bool IsPassage
+            {
+                get
+                {
+                    return string.Equals(ItemType, "pass", StringComparison.OrdinalIgnoreCase);
                 }
             }
         }
