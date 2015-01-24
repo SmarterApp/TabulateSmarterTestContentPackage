@@ -871,22 +871,8 @@ namespace TabulateSmarterTestContentPackage
                     ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Subject mismatch between item and metadata.", "ItemSubject='{0}' MetadataSubject='{1}'", subject, metaSubject);
             }
 
-            // Grade
-            string grade = xml.XpEvalE("itemrelease/passage/attriblist/attrib[@attid='itm_att_Grade']/val");
-            string metaGrade = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:IntendedGrade", sXmlNs);
-            if (string.IsNullOrEmpty(grade))
-            {
-                // For the present, we don't expect the grade in the item attributes on passages
-                //ReportError(it, ErrCat.Attribute, ErrSeverity.Tolerable, "Missing grade in item attributes (itm_att_Grade).");
-                grade = metaGrade;
-                if (string.IsNullOrEmpty(grade))
-                    ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Missing <IntendedGrade> in item metadata.");
-            }
-            else
-            {
-                if (!string.Equals(grade, metaGrade, StringComparison.Ordinal))
-                    ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Grade mismatch between item and metadata.", "ItemGrade='{0}', MetadataGrade='{1}'", grade, metaGrade);
-            }
+            // Grade: Passages do not have a particular grade affiliation
+            string grade = string.Empty;
 
             // Rubric
             string rubric = string.Empty; // Passages don't have rubrics
