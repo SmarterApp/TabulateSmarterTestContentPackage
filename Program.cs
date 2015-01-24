@@ -38,9 +38,12 @@ subset of errors can be controlled this way.
 Validation Options:
     -v-pmd  Passage Manifest Dependency: An item that depends on a passage
             should have that dependency represented in the manifest. This
-            option disables checking for that dependency. 
+            option disables checking for that dependency.
+
     -v+ebt  Empty Braille Text: Enables checking for empty <brailleText>
             elements in items.
+    -v+tgs  Target Grade Suffix: Enables checking whether the grade suffix in
+            a target matches the grade alignment in the item attributes.
 ";
 // 78 character margin                                                       |
 
@@ -52,6 +55,7 @@ Validation Options:
             {
                 // Default options
                 gValidationOptions.Disable("ebt");  // Disable EmptyBrailleText test.
+                gValidationOptions.Disable("tgs");  // Disable Target Grade Suffix
 
                 string rootPath = null;
                 char operation = 'o'; // o=one, s=packages in Subdirectories, a=aggregate packages in subdirectories

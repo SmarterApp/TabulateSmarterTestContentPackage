@@ -432,7 +432,7 @@ namespace TabulateSmarterTestContentPackage
             }
 
             // Grade
-            string grade = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='itm_att_Grade']/val");
+            string grade = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='itm_att_Grade']/val").Trim();
             string metaGrade = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:IntendedGrade", sXmlNs);
             if (string.IsNullOrEmpty(grade))
             {
@@ -591,20 +591,14 @@ namespace TabulateSmarterTestContentPackage
             if (!sValidClaims.Contains(claim))
                 ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "Unexpected claim value.", "Claim='{0}'", claim);
 
-            // Validate target suffix grade (Generating lots of errors. Need to follow up.)
-            /*
+            // Validate target grade suffix (Generating lots of errors. Need to follow up.)
             {
                 string[] parts = target.Split('-');
-                if (parts.Length != 2)
+                if (parts.Length == 2 && !string.Equals(parts[1].Trim(), grade, StringComparison.OrdinalIgnoreCase))
                 {
-                    ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Unexpected target format when seeking grade suffix.", "Target='{0}', Standard='{1}'", target, standard);
-                }
-                else if (!string.Equals(parts[1], grade, StringComparison.OrdinalIgnoreCase))
-                {
-                    ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Target suffix indicates a different grade from item attribute.", "ItemAttributeGrade='{0}' TargetSuffixGrade='{1}'", grade, parts[1]);
+                    ReportError("tgs", it, ErrCat.Metadata, ErrSeverity.Tolerable, "Target suffix indicates a different grade from item attribute.", "ItemAttributeGrade='{0}' TargetSuffixGrade='{1}'", grade, parts[1]);
                 }
             }
-            */
 
             // WordList ID
             string wordlistId = GetWordlistId(it, xml);
@@ -673,79 +667,85 @@ namespace TabulateSmarterTestContentPackage
             {
                 string answerKeyValue = string.Empty;
                 string itemPoint = xml.XpEval("itemrelease/item/attriblist/attrib[@attid='itm_att_Item Point']/val");
-                if (itemPoint == null) ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Item Point attribute not found.");
-                int points;
-                if (!int.TryParse(itemPoint.FirstWord(), out points))
+                if (itemPoint == null)
                 {
-                    ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Item Point attribute is not integer.", "itm_att_Item Point='{0}'", itemPoint);
+                    ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Item Point attribute (item_att_Item Point) not found.");
                 }
                 else
                 {
-                    // See if matches MaximumNumberOfPoints (defined as optional in metadata)
-                    string metaPoint = xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:MaximumNumberOfPoints", sXmlNs);
-                    if (metaPoint == null)
+                    int points;
+                    if (!int.TryParse(itemPoint.FirstWord(), out points))
                     {
-                        ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "MaximumNumberOfPoints not found in metadata.");
+                        ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Item Point attribute is not integer.", "itm_att_Item Point='{0}'", itemPoint);
                     }
                     else
                     {
-                        int mpoints;
-                        if (!int.TryParse(metaPoint, out mpoints))
+                        // See if matches MaximumNumberOfPoints (defined as optional in metadata)
+                        string metaPoint = xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:MaximumNumberOfPoints", sXmlNs);
+                        if (metaPoint == null)
                         {
-                            ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Metadata MaximumNumberOfPoints value is not integer.", "MaximumNumberOfPoints='{0}'", metaPoint);
+                            ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "MaximumNumberOfPoints not found in metadata.");
                         }
-                        else if (mpoints != points)
+                        else
                         {
-                            ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Metadata MaximumNumberOfPoints does not match item point attribute.", "MaximumNumberOfPoints='{0}' itm_att_Item Point='{0}'", mpoints, points);
+                            int mpoints;
+                            if (!int.TryParse(metaPoint, out mpoints))
+                            {
+                                ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Metadata MaximumNumberOfPoints value is not integer.", "MaximumNumberOfPoints='{0}'", metaPoint);
+                            }
+                            else if (mpoints != points)
+                            {
+                                ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Metadata MaximumNumberOfPoints does not match item point attribute.", "MaximumNumberOfPoints='{0}' itm_att_Item Point='{0}'", mpoints, points);
+                            }
                         }
-                    }
 
-                    // See if matches ScorePoints (defined as optional in metadata)
-                    string scorePoints = xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:ScorePoints", sXmlNs);
-                    if (scorePoints == null)
-                    {
-                        ReportError(it, ErrCat.Metadata, ErrSeverity.Benign, "ScorePoints not found in metadata.");
-                    }
-                    else
-                    {
-                        scorePoints = scorePoints.Trim();
-                        if (scorePoints[0] == '"')
-                            scorePoints = scorePoints.Substring(1);
-                        else
-                            ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "ScorePoints value missing leading quote.");
-                        if (scorePoints[scorePoints.Length-1] == '"')
-                            scorePoints = scorePoints.Substring(0, scorePoints.Length-1);
-                        else
-                            ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "ScorePoints value missing trailing quote.");
-
-                        int maxspoints = -1;
-                        int minspoints = 100000;
-                        foreach (string sp in scorePoints.Split(','))
+                        // See if matches ScorePoints (defined as optional in metadata)
+                        string scorePoints = xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:ScorePoints", sXmlNs);
+                        if (scorePoints == null)
                         {
-                            int spoints;
-                            if (!int.TryParse(sp.Trim(), out spoints))
-                            {
-                                ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Metadata ScorePoints value is not integer.", "ScorePoints='{0}' value='{1}'", scorePoints, sp);
-                            }
-                            else if (spoints < 0 || spoints > points)
-                            {
-                                ReportError(it, ErrCat.Metadata, ErrSeverity.Severe, "Metadata ScorePoints value is out of range (0 - {1}).", "ScorePoints='{0}' value='{1}' min='0' max='{2}'", scorePoints, spoints, points);
-                            }
+                            ReportError(it, ErrCat.Metadata, ErrSeverity.Benign, "ScorePoints not found in metadata.");
+                        }
+                        else
+                        {
+                            scorePoints = scorePoints.Trim();
+                            if (scorePoints[0] == '"')
+                                scorePoints = scorePoints.Substring(1);
                             else
+                                ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "ScorePoints value missing leading quote.");
+                            if (scorePoints[scorePoints.Length - 1] == '"')
+                                scorePoints = scorePoints.Substring(0, scorePoints.Length - 1);
+                            else
+                                ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "ScorePoints value missing trailing quote.");
+
+                            int maxspoints = -1;
+                            int minspoints = 100000;
+                            foreach (string sp in scorePoints.Split(','))
                             {
-                                if (maxspoints < spoints) 
+                                int spoints;
+                                if (!int.TryParse(sp.Trim(), out spoints))
                                 {
-                                    maxspoints = spoints;
+                                    ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Metadata ScorePoints value is not integer.", "ScorePoints='{0}' value='{1}'", scorePoints, sp);
+                                }
+                                else if (spoints < 0 || spoints > points)
+                                {
+                                    ReportError(it, ErrCat.Metadata, ErrSeverity.Severe, "Metadata ScorePoints value is out of range (0 - {1}).", "ScorePoints='{0}' value='{1}' min='0' max='{2}'", scorePoints, spoints, points);
                                 }
                                 else
                                 {
-                                    ReportError(it, ErrCat.Metadata, ErrSeverity.Benign, "Metadata ScorePoints are not in ascending order.", "ScorePoints='{0}'", scorePoints);
+                                    if (maxspoints < spoints)
+                                    {
+                                        maxspoints = spoints;
+                                    }
+                                    else
+                                    {
+                                        ReportError(it, ErrCat.Metadata, ErrSeverity.Benign, "Metadata ScorePoints are not in ascending order.", "ScorePoints='{0}'", scorePoints);
+                                    }
+                                    if (minspoints > spoints) minspoints = spoints;
                                 }
-                                if (minspoints > spoints) minspoints = spoints;
                             }
+                            if (minspoints > 0) ReportError(it, ErrCat.Metadata, ErrSeverity.Benign, "Metadata ScorePoints doesn't include a zero score", "ScorePoints='{0}'", scorePoints);
+                            if (maxspoints < points) ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "Metadata ScorePoints doesn't include a maximum score.", "ScorePoints='{0}' max='{1}'", scorePoints, points);
                         }
-                        if (minspoints > 0) ReportError(it, ErrCat.Metadata, ErrSeverity.Benign, "Metadata ScorePoints doesn't include a zero score", "ScorePoints='{0}'", scorePoints);
-                        if (maxspoints < points) ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "Metadata ScorePoints doesn't include a maximum score.", "ScorePoints='{0}' max='{1}'", scorePoints, points);
                     }
                 }
             }
