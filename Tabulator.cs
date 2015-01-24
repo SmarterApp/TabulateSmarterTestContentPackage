@@ -162,7 +162,7 @@ namespace TabulateSmarterTestContentPackage
             mAudioGlossaryReport.WriteLine("Folder,WIT_ID,Index,Term,Language,Encoding,Size");
 
             mItemReport = new StreamWriter(Path.Combine(reportFolderPath, cItemReportFn));
-            mItemReport.WriteLine("Folder,ItemId,ItemType,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleEmbedded,BrailleFile,Translation");
+            mItemReport.WriteLine("Folder,ItemId,ItemType,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleText,BrailleFile,Translation");
 
             mSummaryReportPath = Path.Combine(reportFolderPath, cSummaryReportFn);
             if (File.Exists(mSummaryReportPath)) File.Delete(mSummaryReportPath);
@@ -813,29 +813,33 @@ namespace TabulateSmarterTestContentPackage
                         ReportError(it, ErrCat.Item, ErrSeverity.Severe, "PT item stimulus not found.", "StimulusId='{0}'", stimId);
                     }
 
-                    // Look up item in manifest
-                    string itemResourceId = null;
-                    if (!mFilenameToResourceId.TryGetValue(NormalizeFilenameInManifest(it.ItemFilename), out itemResourceId))
-                    {
-                        ReportError(it, ErrCat.Manifest, ErrSeverity.Tolerable, "Item not found in manifest.");
-                    }
-
-                    // Look up stimulus in manifest
-                    string stimulusResourceId = null;
-                    if (!mFilenameToResourceId.TryGetValue(NormalizeFilenameInManifest(stimulusFilename), out stimulusResourceId))
-                    {
-                        ReportError(it, ErrCat.Manifest, ErrSeverity.Tolerable, "Stimulus not found in manifest.", "StimulusId='{0}'", stimId);
-                    }
-
-                    // Check for dependency on stimulus in manifest
-                    if (!string.IsNullOrEmpty(itemResourceId) && !string.IsNullOrEmpty(stimulusResourceId))
-                    {
-                        if (!mResourceDependencies.Contains(ToDependsOnString(itemResourceId, itemResourceId)))
-                            ReportError("pmd", it, ErrCat.Manifest, ErrSeverity.Benign, "Manifest does not record dependency between item and stimulus.", "ItemResourceId='{0}' StimulusResourceId='{1}'", itemResourceId, stimulusResourceId);
-                    }
+                    // Make sure dependency is recorded in manifest
+                    CheckDependencyInManifest(it, stimulusFilename, "Stimulus");
                 }
             } // if Performance Task
 
+            // Check for tutorial
+            {
+                string tutorialId = xml.XpEval("itemrelease/item/tutorial/@id");
+                if (tutorialId == null)
+                {
+                    ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Tutorial id missing from item.");
+                }
+                else
+                {
+                    string bankKey = xml.XpEval("itemrelease/item/tutorial/@bankkey");
+
+                    // Look for the tutorial
+                    string tutorialFilename = Path.Combine(mPackagePath, string.Format("Items\\item-{1}-{0}\\item-{1}-{0}.xml", tutorialId, bankKey));
+                    if (!File.Exists(tutorialFilename))
+                    {
+                        ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Tutorial not found.", "TutorialId='{0}'", tutorialId);
+                    }
+
+                    // Make sure dependency is recorded in manifest
+                    CheckDependencyInManifest(it, tutorialFilename, "Tutorial");
+                }
+            }
         } // TablulateInteraction
 
         void TabulatePassage(ItemContext it, XmlDocument xml)
@@ -988,6 +992,30 @@ namespace TabulateSmarterTestContentPackage
             foreach (FileInfo file in it.DiItem.GetFiles(string.Format(pattern, args)))
             {
                 ReportError(it, ErrCat.Item, ErrSeverity.Benign, "Unreferenced file found.", "fileType='{0}', filename='{1}'", fileType, file.Name);
+            }
+        }
+
+        void CheckDependencyInManifest(ItemContext it, string dependencyFilename, string dependencyType)
+        {
+            // Look up item in manifest
+            string itemResourceId = null;
+            if (!mFilenameToResourceId.TryGetValue(NormalizeFilenameInManifest(it.ItemFilename), out itemResourceId))
+            {
+                ReportError(it, ErrCat.Manifest, ErrSeverity.Tolerable, "Item not found in manifest.");
+            }
+
+            // Look up dependency in the manifest
+            string dependencyResourceId = null;
+            if (!mFilenameToResourceId.TryGetValue(NormalizeFilenameInManifest(dependencyFilename), out dependencyResourceId))
+            {
+                ReportError(it, ErrCat.Manifest, ErrSeverity.Tolerable, dependencyType + " not found in manifest.", "DependencyFilename='{0}'", dependencyFilename);
+            }
+
+            // Check for dependency in manifest
+            if (!string.IsNullOrEmpty(itemResourceId) && !string.IsNullOrEmpty(dependencyResourceId))
+            {
+                if (!mResourceDependencies.Contains(ToDependsOnString(itemResourceId, dependencyResourceId)))
+                    ReportError("pmd", it, ErrCat.Manifest, ErrSeverity.Benign, string.Format("Manifest does not record dependency between item and {0}.", dependencyType), "ItemResourceId='{0}' {1}ResourceId='{2}'", itemResourceId, dependencyType, dependencyResourceId);
             }
         }
 

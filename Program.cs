@@ -19,7 +19,7 @@ Options:
     -a       Tabulate all packages in subdirectories and aggregate the
              results into one set of reports.
     -v-<opt> Disable a particular validation option (see below)
-    -v+<opt> Enable a partcular validation option
+    -v+<opt> Enable a particular validation option
     -h       Display this help text
 
 Packages are typically delivered in .zip format. The .zip file must be
@@ -32,7 +32,7 @@ directory as the imsmanifest.xml file. When aggregating the results (with the
 -a option) then the reports are placed in the parent directory of all of the
 packages (the one specified on the command line).
 
-Validation options disable or enable the reportiong of certain errors. Only a
+Validation options disable or enable the reporting of certain errors. Only a
 subset of errors can be controlled this way.
 
 Validation Options:
