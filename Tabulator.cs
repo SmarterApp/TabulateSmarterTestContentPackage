@@ -26,6 +26,7 @@ namespace TabulateSmarterTestContentPackage
         }
 
         const string cStimulusInteractionType = "Stimulus";
+        const string cTutorialInteractionType = "TUT";
 
         static readonly HashSet<string> sValidWritingTypes = new HashSet<string>(
             new string[] {
@@ -333,12 +334,12 @@ namespace TabulateSmarterTestContentPackage
                     // Defer wordlists to pass 2
                     break;
 
-                case "pass":        // Passage
                 case "tut":         // Tutorial
+                    TabulateTutorial(it, xml);
                     break;  // Ignore for the moment
 
                 default:
-                    ReportError(it, ErrCat.Unsupported, ErrSeverity.Benign, "Unexpected item type: " + itemType);
+                    ReportError(it, ErrCat.Unsupported, ErrSeverity.Benign, "Unexpected item type.", "ItemType='{0}'", itemType);
                     break;
             }
         }
@@ -939,7 +940,109 @@ namespace TabulateSmarterTestContentPackage
             // Folder,ItemId,ItemType,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleEmbedded,BrailleFile,Translation
             mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(subject), CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleEmbedded), CsvEncode(brailleFile), CsvEncode(translation)));
 
-        } // TablulatePassage
+        } // TabulatePassage
+
+        
+        void TabulateTutorial(ItemContext it, XmlDocument xml)
+        {
+            string metadataPath = Path.Combine(it.DiItem.FullName, "metadata.xml");
+            if (!File.Exists(metadataPath)) throw new InvalidDataException("Metadata file not found: " + metadataPath);
+            XmlDocument xmlMetadata = new XmlDocument(sXmlNt);
+            xmlMetadata.Load(Path.Combine(it.DiItem.FullName, "metadata.xml"));
+
+            // Subject
+            string subject = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='itm_item_subject']/val");
+            string metaSubject = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:Subject", sXmlNs);
+            if (string.IsNullOrEmpty(subject))
+            {
+                ReportError(it, ErrCat.Attribute, ErrSeverity.Tolerable, "Missing subject in item attributes (itm_item_subject).");
+                subject = metaSubject;
+                if (string.IsNullOrEmpty(subject))
+                    ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Missing subject in item metadata.");
+            }
+            else
+            {
+                if (!string.Equals(subject, metaSubject, StringComparison.Ordinal))
+                    ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Subject mismatch between item and metadata.", "ItemSubject='{0}' MetadataSubject='{1}'", subject, metaSubject);
+            }
+
+            // Grade
+            string grade = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='itm_att_Grade']/val"); // will return "NA" or empty
+            
+            // Rubric
+            string rubric = string.Empty;   // Not applicable
+
+            // AssessmentType (PT or CAT)
+            string assessmentType = string.Empty; // Not applicable
+            
+            // Standard, Claim and Target (not applicable
+            string standard = string.Empty;
+            string claim = string.Empty;
+            string target = string.Empty;
+
+            // WordList ID
+            string wordlistId = GetWordlistId(it, xml);
+
+            // ASL
+            string asl = string.Empty;
+            {
+                bool aslFound = CheckForAttachment(it, xml, "ASL", "MP4");
+                if (aslFound) asl = "MP4";
+                if (!aslFound) ReportUnexpectedFiles(it, "ASL video", "item_{0}_ASL*", it.ItemId);
+
+                bool aslInMetadata = string.Equals(xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:AccessibilityTagsASLLanguage", sXmlNs), "Y", StringComparison.OrdinalIgnoreCase);
+                if (aslInMetadata && !aslFound) ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Item metadata specifies ASL but no ASL in item.");
+                if (!aslInMetadata && aslFound) ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Item has ASL but not indicated in the metadata.");
+            }
+
+            // BrailleText
+            string brailleText = "No";
+            {
+                int brailleLen = 0;
+                foreach (XmlElement xmlBraille in xml.SelectNodes("itemrelease/item/content//brailleText"))
+                {
+                    foreach (XmlNode node in xmlBraille.ChildNodes)
+                    {
+                        if (node.NodeType == XmlNodeType.Element &&
+                            (string.Equals(node.Name, "brailleTextString") || string.Equals(node.Name, "brailleCode")))
+                        {
+                            if (node.InnerText.Length == 0)
+                                ReportError("ebt", it, ErrCat.Item, ErrSeverity.Degraded, string.Format("{0} element is empty.", node.Name));
+                            brailleLen += node.InnerText.Length;
+                        }
+                    }
+
+                    if (brailleLen > 0)
+                    {
+                        brailleText = "Yes";
+                    }
+                }
+            }
+
+            // BrailleFile
+            string brailleFile = string.Empty;
+            {
+                bool brfFound = CheckForAttachment(it, xml, "BRF", "BRF");
+                if (brfFound) brailleFile = "BRF";
+                if (!brfFound) ReportUnexpectedFiles(it, "Braille BRF", "item_{0}_*.brf", it.ItemId);
+
+                bool prnFound = CheckForAttachment(it, xml, "PRN", "PRN");
+                if (prnFound)
+                {
+                    if (brailleFile.Length > 0) brailleFile = string.Concat(brailleFile, " ", "PRN");
+                    else brailleFile = "PRN";
+                }
+                if (!prnFound) ReportUnexpectedFiles(it, "Braille PRN", "item_{0}_*.prn", it.ItemId);
+            }
+
+            // Translation
+            string translation = GetTranslation(it, xml, xmlMetadata);
+
+            // Folder,ItemId,ItemType,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleText,BrailleFile,Translation
+            mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(subject), CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleText), CsvEncode(brailleFile), CsvEncode(translation)));
+
+        } // TabulateTutorial
+
 
         bool CheckForAttachment(ItemContext it, XmlDocument xml, string attachType, string expectedExtension)
         {
@@ -1012,7 +1115,7 @@ namespace TabulateSmarterTestContentPackage
                 ? "itemrelease/passage/resourceslist/resource[@type='wordList']"
                 : "itemrelease/item/resourceslist/resource[@type='wordList']";
 
-            foreach (XmlElement xmlRes in xml.SelectNodes("itemrelease/item/resourceslist/resource[@type='wordList']"))
+            foreach (XmlElement xmlRes in xml.SelectNodes(xp))
             {
                 string witId = xmlRes.GetAttribute("id");
                 if (string.IsNullOrEmpty(witId))
