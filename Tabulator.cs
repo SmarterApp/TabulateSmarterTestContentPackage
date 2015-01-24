@@ -938,51 +938,14 @@ namespace TabulateSmarterTestContentPackage
                 if (!aslInMetadata && aslFound) ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Item has ASL but not indicated in the metadata.");
             }
 
-            // BrailleText
-            string brailleText = "No";
-            {
-                int brailleLen = 0;
-                foreach (XmlElement xmlBraille in xml.SelectNodes("itemrelease/item/content//brailleText"))
-                {
-                    foreach (XmlNode node in xmlBraille.ChildNodes)
-                    {
-                        if (node.NodeType == XmlNodeType.Element &&
-                            (string.Equals(node.Name, "brailleTextString") || string.Equals(node.Name, "brailleCode")))
-                        {
-                            if (node.InnerText.Length == 0)
-                                ReportError("ebt", it, ErrCat.Item, ErrSeverity.Degraded, string.Format("{0} element is empty.", node.Name));
-                            brailleLen += node.InnerText.Length;
-                        }
-                    }
-
-                    if (brailleLen > 0)
-                    {
-                        brailleText = "Yes";
-                    }
-                }
-            }
-
-            // BrailleFile
-            string brailleFile = string.Empty;
-            {
-                bool brfFound = CheckForAttachment(it, xml, "BRF", "BRF");
-                if (brfFound) brailleFile = "BRF";
-                if (!brfFound) ReportUnexpectedFiles(it, "Braille BRF", "item_{0}_*.brf", it.ItemId);
-
-                bool prnFound = CheckForAttachment(it, xml, "PRN", "PRN");
-                if (prnFound)
-                {
-                    if (brailleFile.Length > 0) brailleFile = string.Concat(brailleFile, " ", "PRN");
-                    else brailleFile = "PRN";
-                }
-                if (!prnFound) ReportUnexpectedFiles(it, "Braille PRN", "item_{0}_*.prn", it.ItemId);
-            }
+            // BrailleType
+            string brailleType = GetBrailleType(it, xml, xmlMetadata);
 
             // Translation
             string translation = GetTranslation(it, xml, xmlMetadata);
 
-            // Folder,ItemId,ItemType,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleText,BrailleFile,Translation
-            mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(subject), CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleText), CsvEncode(brailleFile), CsvEncode(translation)));
+            // Folder,ItemId,ItemType,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation
+            mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(subject), CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation)));
 
         } // TabulateTutorial
 
