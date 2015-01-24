@@ -39,6 +39,10 @@ Validation Options:
     -v-pmd  Passage Manifest Dependency: An item that depends on a passage
             should have that dependency represented in the manifest. This
             option disables checking for that dependency.
+    -v-trd  Tutorial References and Dependencies: Disables checking for
+            tutorial references and dependencies. This is valuable when
+            tutorials are packaged separately from the balance of the
+            content.
 
     -v+ebt  Empty Braille Text: Enables checking for empty <brailleText>
             elements in items.

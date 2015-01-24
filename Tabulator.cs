@@ -826,7 +826,7 @@ namespace TabulateSmarterTestContentPackage
                 {
                     ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Tutorial id missing from item.");
                 }
-                else
+                else if (Program.gValidationOptions.IsEnabled("trd"))
                 {
                     string bankKey = xml.XpEval("itemrelease/item/tutorial/@bankkey");
 
