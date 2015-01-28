@@ -56,6 +56,7 @@ namespace TabulateSmarterTestContentPackage
         const string cTextGlossaryReportFn = "TextGlossaryReport.csv";
         const string cAudioGlossaryReportFn = "AudioGlossaryReport.csv";
         const string cItemReportFn = "ItemReport.csv";
+        const string cStimulusReportFn = "StimulusReport.csv";
         const string cErrorReportFn = "ErrorReport.csv";
 
         string mRootPath;
@@ -83,6 +84,7 @@ namespace TabulateSmarterTestContentPackage
         TextWriter mTextGlossaryReport;
         TextWriter mAudioGlossaryReport;
         TextWriter mItemReport;
+        TextWriter mStimulusReport;
         string mErrorReportPath;
         TextWriter mErrorReport;
         string mSummaryReportPath;
@@ -165,6 +167,9 @@ namespace TabulateSmarterTestContentPackage
             mItemReport = new StreamWriter(Path.Combine(reportFolderPath, cItemReportFn));
             mItemReport.WriteLine("Folder,ItemId,ItemType,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation");
 
+            mStimulusReport = new StreamWriter(Path.Combine(reportFolderPath, cStimulusReportFn));
+            mStimulusReport.WriteLine("Folder,StimulusId,Subject,WordlistId,ASL,BrailleType,Translation");
+
             mSummaryReportPath = Path.Combine(reportFolderPath, cSummaryReportFn);
             if (File.Exists(mSummaryReportPath)) File.Delete(mSummaryReportPath);
 
@@ -195,6 +200,11 @@ namespace TabulateSmarterTestContentPackage
             }
             finally
             {
+                if (mStimulusReport != null)
+                {
+                    mStimulusReport.Dispose();
+                    mStimulusReport = null;
+                }
                 if (mItemReport != null)
                 {
                     mItemReport.Dispose();
@@ -842,6 +852,7 @@ namespace TabulateSmarterTestContentPackage
             string rubric = string.Empty; // Passages don't have rubrics
 
             // AssessmentType (PT or CAT)
+            /*
             string assessmentType;
             {
                 string meta = xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:PerformanceTaskComponentItem", sXmlNs);
@@ -853,11 +864,7 @@ namespace TabulateSmarterTestContentPackage
                     ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "PerformanceTaskComponentItem metadata should be 'Y' or 'N'.", "Value='{0}'", meta);
                 }
             }
-
-            // Standard, Claim and Target
-            string standard = string.Empty; // Passages don't have these values
-            string claim = string.Empty;
-            string target = string.Empty;
+            */ 
 
             // WordList ID
             string wordlistId = GetWordlistId(it, xml);
@@ -874,14 +881,14 @@ namespace TabulateSmarterTestContentPackage
                 if (!aslInMetadata && aslFound) ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Item has ASL but not indicated in the metadata.");
             }
 
-            // BrailleFile
+            // BrailleType
             string brailleType = GetBrailleType(it, xml, xmlMetadata);
 
             // Translation
             string translation = GetTranslation(it, xml, xmlMetadata);
 
-            // Folder,ItemId,ItemType,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation
-            mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(subject), CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation)));
+            // Folder,StimulusId,Subject,WordlistId,ASL,BrailleType,Translation
+            mStimulusReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(subject), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation)));
 
         } // TabulatePassage
 
