@@ -5,12 +5,10 @@ This is a command-line utility for extracting data about test packages in Smater
 
 The program is written in C# and can be built with the free edition of Microsoft Visual Studio Express 2013 for Windows Desktop. Professional versions of Visual Studio should also build the application.
 
-To use:
+An executable file is included in each "release" package. There is no installer, the program is executed from the command line.
 
-1. Unpack the content package from the .zip file distribution into a directory tree. This should be the content package in IMS Content Packaging format. You can tell that's the right file and format because it will have an imsmanifest.xml file in the root directory. Note that the content package .zip file is often nested in another zip file that contains test package xml's, a readme, and a summary spreadsheet.
-2. From a DOS command line, type: TabulateSmarterTestContentPackage <path to content directory><br/>Using the actual path to the root directory of the content package. This is the directory that contains imsmanifest.xml.
-3. The program will run and then print summary information. Three files will be placed in the same directory as imsmanifest.xml.
-  ** SummaryReport.txt - Contains the same counts as were displayed output to the console.
-  ** TextGlossaryReport.csv - Contains a tabular extract of all text glossary terms.
-  ** AudioGlossaryReport.csv - Contains a tabular extract of all audio glossary terms.
-  ** ErrorReport.txt - Only exists if errors were detected. Contains details of the errors.
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;**Syntax:** TabulateSmarterTestContentPackage [options] <path>
+
+For detailed syntax, including command-line options run the program with the -h (help) option as follows:
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;TabulateSmarterTestContentPackage -h
