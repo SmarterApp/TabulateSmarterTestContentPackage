@@ -12,6 +12,7 @@ namespace TabulateSmarterTestContentPackage
 {
     class Tabulator
     {
+        const string cImsManifest = "imsmanifest.xml";
         static readonly UTF8Encoding sUtf8NoBomEncoding = new UTF8Encoding(false, true);
         static NameTable sXmlNt;
         static XmlNamespaceManager sXmlNs;
@@ -74,7 +75,8 @@ namespace TabulateSmarterTestContentPackage
         Dictionary<string, int> mRubricCounts = new Dictionary<string, int>();
 
         // Per Package variables
-        string mPackagePath;
+        string mPackageName;
+        FileFolder mPackageFolder;
         Dictionary<string, string> mFilenameToResourceId = new Dictionary<string, string>();
         HashSet<string> mResourceDependencies = new HashSet<string>();
         Dictionary<string, string> mWitIdToItemId = new Dictionary<string, string>();   // Wordlist ID to Item Id
@@ -99,8 +101,8 @@ namespace TabulateSmarterTestContentPackage
         {
             try
             {
-                Initialize(mRootPath);
-                TabulatePackage(mRootPath);
+                Initialize(mRootPath + "\\");
+                TabulatePackage(string.Empty, new FsFolder(mRootPath));
             }
             finally
             {
@@ -115,12 +117,12 @@ namespace TabulateSmarterTestContentPackage
 
             foreach(DirectoryInfo diPackageFolder in diRoot.GetDirectories())
             {
-                if (File.Exists(Path.Combine(diPackageFolder.FullName, "imsmanifest.xml")))
+                if (File.Exists(Path.Combine(diPackageFolder.FullName, cImsManifest)))
                 {
                     try
                     {
                         Initialize(diPackageFolder.FullName);
-                        TabulatePackage(diPackageFolder.FullName);
+                        //TabulatePackage(diPackageFolder.FullName);
                     }
                     finally
                     {
@@ -140,9 +142,9 @@ namespace TabulateSmarterTestContentPackage
 
                 foreach (DirectoryInfo diPackageFolder in diRoot.GetDirectories())
                 {
-                    if (File.Exists(Path.Combine(diPackageFolder.FullName, "imsmanifest.xml")))
+                    if (File.Exists(Path.Combine(diPackageFolder.FullName, cImsManifest)))
                     {
-                        TabulatePackage(diPackageFolder.FullName);
+                        //TabulatePackage(diPackageFolder.FullName);
                     }
                 }
             }
@@ -153,24 +155,24 @@ namespace TabulateSmarterTestContentPackage
         }
 
         // Initialize all files and collections for a tabulation run
-        private void Initialize(string reportFolderPath)
+        private void Initialize(string reportPrefix)
         {
-            mErrorReportPath = Path.Combine(reportFolderPath, cErrorReportFn);
+            mErrorReportPath = string.Concat(reportPrefix, cErrorReportFn);
             if (File.Exists(mErrorReportPath)) File.Delete(mErrorReportPath);
 
-            mTextGlossaryReport = new StreamWriter(Path.Combine(reportFolderPath, cTextGlossaryReportFn), false, sUtf8NoBomEncoding);
+            mTextGlossaryReport = new StreamWriter(string.Concat(reportPrefix, cTextGlossaryReportFn), false, sUtf8NoBomEncoding);
             mTextGlossaryReport.WriteLine("Folder,WIT_ID,Index,Term,Language,Length");
 
-            mAudioGlossaryReport = new StreamWriter(Path.Combine(reportFolderPath, cAudioGlossaryReportFn));
+            mAudioGlossaryReport = new StreamWriter(string.Concat(reportPrefix, cAudioGlossaryReportFn));
             mAudioGlossaryReport.WriteLine("Folder,WIT_ID,Index,Term,Language,Encoding,Size");
 
-            mItemReport = new StreamWriter(Path.Combine(reportFolderPath, cItemReportFn));
+            mItemReport = new StreamWriter(string.Concat(reportPrefix, cItemReportFn));
             mItemReport.WriteLine("Folder,ItemId,ItemType,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation");
 
-            mStimulusReport = new StreamWriter(Path.Combine(reportFolderPath, cStimulusReportFn));
+            mStimulusReport = new StreamWriter(string.Concat(reportPrefix, cStimulusReportFn));
             mStimulusReport.WriteLine("Folder,StimulusId,Subject,WordlistId,ASL,BrailleType,Translation");
 
-            mSummaryReportPath = Path.Combine(reportFolderPath, cSummaryReportFn);
+            mSummaryReportPath = string.Concat(reportPrefix, cSummaryReportFn);
             if (File.Exists(mSummaryReportPath)) File.Delete(mSummaryReportPath);
 
             mTypeCounts.Clear();
@@ -228,60 +230,59 @@ namespace TabulateSmarterTestContentPackage
             }
         }
 
-        public void TabulatePackage(string packageFolderPath)
+        public void TabulatePackage(string packageName, FileFolder packageFolder)
         {
-            if (!File.Exists(Path.Combine(packageFolderPath, "imsmanifest.xml"))) throw new ArgumentException("Not a valid content package path. File imsmanifest.xml not found!");
-            Console.WriteLine("Tabulating " + packageFolderPath);
+            mPackageName = packageName;
+
+            if (!packageFolder.FileExists(cImsManifest)) throw new ArgumentException("Not a valid content package path. File imsmanifest.xml not found!");
+            Console.WriteLine("Tabulating " + packageName);
 
             // Initialize package-specific collections
-            mPackagePath = null;
+            mPackageFolder = packageFolder;
             mFilenameToResourceId.Clear();
             mResourceDependencies.Clear();
             mWitIdToItemId.Clear();
             mIdToItemContext.Clear();
 
-            mPackagePath = packageFolderPath;
-
             // Validate manifest
             try
             {
-                ValidateManifest(packageFolderPath);
+                ValidateManifest();
             }
             catch (Exception err)
             {
-                ReportError(new ItemContext(this, new DirectoryInfo(packageFolderPath), null, null), ErrCat.Exception, ErrSeverity.Severe, err.ToString());
+                ReportError(new ItemContext(this, packageFolder, null, null), ErrCat.Exception, ErrSeverity.Severe, err.ToString());
             }
 
             // First pass through items
-            DirectoryInfo diItems = new DirectoryInfo(Path.Combine(packageFolderPath, "Items"));
-            if (diItems.Exists)
+            FileFolder ffItems;           
+            if (packageFolder.TryGetFolder("Items", out ffItems))
             {
-                foreach (DirectoryInfo diItem in diItems.EnumerateDirectories())
+                foreach (FileFolder ffItem in ffItems.Folders)
                 {
                     try
                     {
-                        TabulateItem_Pass1(diItem);
+                        TabulateItem_Pass1(ffItem);
                     }
                     catch (Exception err)
                     {
-                        ReportError(new ItemContext(this, diItem, null, null), ErrCat.Exception, ErrSeverity.Severe, err.ToString());
+                        ReportError(new ItemContext(this, ffItem, null, null), ErrCat.Exception, ErrSeverity.Severe, err.ToString());
                     }
                 }
             }
 
             // First pass through stimuli
-            diItems = new DirectoryInfo(Path.Combine(packageFolderPath, "Stimuli"));
-            if (diItems.Exists)
+            if (packageFolder.TryGetFolder("Stimuli", out ffItems))
             {
-                foreach (DirectoryInfo diItem in diItems.EnumerateDirectories())
+                foreach (FileFolder ffItem in ffItems.Folders)
                 {
                     try
                     {
-                        TabulateStimulus(diItem);
+                        TabulateStimulus(ffItem);
                     }
                     catch (Exception err)
                     {
-                        ReportError(new ItemContext(this, diItem, null, null), ErrCat.Exception, ErrSeverity.Severe, err.ToString());
+                        ReportError(new ItemContext(this, ffItem, null, null), ErrCat.Exception, ErrSeverity.Severe, err.ToString());
                     }
                 }
             }
@@ -303,11 +304,17 @@ namespace TabulateSmarterTestContentPackage
             VerifyWordlistReferences();
         }
 
-        private void TabulateItem_Pass1(DirectoryInfo diItem)
+        private void TabulateItem_Pass1(FileFolder ffItem)
         {
             // Read the item XML
             XmlDocument xml = new XmlDocument(sXmlNt);
-            xml.Load(Path.Combine(diItem.FullName, diItem.Name + ".xml"));
+            if (!TryLoadXml(ffItem, ffItem.Name + ".xml", xml))
+            {
+                ReportError(new ItemContext(this, ffItem, null, null), ErrCat.Item, ErrSeverity.Severe, "Item folder missing item file.");
+                return;
+            }
+
+            // Get the details
             string itemType = xml.XpEval("itemrelease/item/@format");
             if (itemType == null) itemType = xml.XpEval("itemrelease/item/@type");
             if (itemType == null) throw new InvalidDataException("Item type not found");
@@ -319,7 +326,7 @@ namespace TabulateSmarterTestContentPackage
             mTypeCounts.Increment(itemType);
 
             // Create and save the item context
-            ItemContext it = new ItemContext(this, diItem, itemId, itemType);
+            ItemContext it = new ItemContext(this, ffItem, itemId, itemType);
             mIdToItemContext.Add(itemId, it);
 
             switch (itemType)
@@ -354,11 +361,15 @@ namespace TabulateSmarterTestContentPackage
             }
         }
 
-        private void TabulateStimulus(DirectoryInfo diItem)
+        private void TabulateStimulus(FileFolder ffItem)
         {
             // Read the item XML
             XmlDocument xml = new XmlDocument(sXmlNt);
-            xml.Load(Path.Combine(diItem.FullName, diItem.Name + ".xml"));
+            if (!TryLoadXml(ffItem, ffItem.Name + ".xml", xml))
+            {
+                ReportError(new ItemContext(this, ffItem, null, null), ErrCat.Item, ErrSeverity.Severe, "Stimulus folder missing stimulus file.");
+                return;
+            }
 
             // See if passage
             XmlElement xmlPassage = xml.SelectSingleNode("itemrelease/passage") as XmlElement;
@@ -373,7 +384,7 @@ namespace TabulateSmarterTestContentPackage
             mTypeCounts.Increment(itemType);
 
             // Create and save the item context
-            ItemContext it = new ItemContext(this, diItem, itemId, itemType);
+            ItemContext it = new ItemContext(this, ffItem, itemId, itemType);
             mIdToItemContext.Add(itemId, it);
 
             TabulatePassage(it, xml);
@@ -415,10 +426,12 @@ namespace TabulateSmarterTestContentPackage
 
         void TabulateInteraction(ItemContext it, XmlDocument xml)
         {
-            string metadataPath = Path.Combine(it.DiItem.FullName, "metadata.xml");
-            if (!File.Exists(metadataPath)) throw new InvalidDataException("Metadata file not found: " + metadataPath);
+            // Load metadata
             XmlDocument xmlMetadata = new XmlDocument(sXmlNt);
-            xmlMetadata.Load(Path.Combine(it.DiItem.FullName, "metadata.xml"));
+            if (!TryLoadXml(it.FfItem, "metadata.xml", xmlMetadata))
+            {
+                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Item metadata file not found.");
+            }
 
             // Check interaction type
             string metaItemType = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:InteractionType", sXmlNs);
@@ -473,7 +486,7 @@ namespace TabulateSmarterTestContentPackage
                 {
                     machineRubricType = Path.GetExtension(machineRubricFilename).ToLower();
                     if (machineRubricType.Length > 0) machineRubricType = machineRubricType.Substring(1);
-                    if (!File.Exists(Path.Combine(it.DiItem.FullName, machineRubricFilename)))
+                    if (!it.FfItem.FileExists(machineRubricFilename))
                         ReportError(it, ErrCat.Rubric, ErrSeverity.Degraded, "Machine rubric not found.", "Filename='{0}'", machineRubricFilename);
                 }
 
@@ -567,10 +580,13 @@ namespace TabulateSmarterTestContentPackage
                     ReportError(it, ErrCat.Rubric, ErrSeverity.Benign, "Unexpected machine rubric found for HandScored item type.", "Filename='{1}'", machineRubricFilename);
 
                 // Check for unreferenced machine rubrics
-                foreach(FileInfo fi in it.DiItem.EnumerateFiles("*.qrx"))
+                foreach(Yada fi in it.FfItem.Files)
                 {
-                    if (machineRubricFilename == null || !string.Equals(fi.Name, machineRubricFilename, StringComparison.OrdinalIgnoreCase))
+                    if (string.Equals(fi.Extension, ".qrx", StringComparison.OrdinalIgnoreCase)
+                        && (machineRubricFilename == null || !string.Equals(fi.Name, machineRubricFilename, StringComparison.OrdinalIgnoreCase)))
+                    {
                         ReportError(it, ErrCat.Rubric, ErrSeverity.Degraded, "Machine rubric file found but not referenced in <MachineRubric> element.", "Filename='{0}'", fi.Name);
+                    }
                 }
             }
 
@@ -618,7 +634,7 @@ namespace TabulateSmarterTestContentPackage
             {
                 bool aslFound = CheckForAttachment(it, xml, "ASL", "MP4");
                 if (aslFound) asl = "MP4";
-                if (!aslFound) ReportUnexpectedFiles(it, "ASL video", "item_{0}_ASL*", it.ItemId);
+                if (!aslFound) ReportUnexpectedFiles(it, "ASL video", "^item_{0}_ASL", it.ItemId);
 
                 bool aslInMetadata = string.Equals(xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:AccessibilityTagsASLLanguage", sXmlNs), "Y", StringComparison.OrdinalIgnoreCase);
                 if (aslInMetadata && !aslFound) ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Item metadata specifies ASL but no ASL in item.");
@@ -781,8 +797,8 @@ namespace TabulateSmarterTestContentPackage
                     string bankKey = xml.XpEvalE("itemrelease/item/@bankkey");
                     
                     // Look for the stimulus
-                    string stimulusFilename = Path.Combine(mPackagePath, string.Format("Stimuli\\stim-{1}-{0}\\stim-{1}-{0}.xml", stimId, bankKey));
-                    if (!File.Exists(stimulusFilename))
+                    string stimulusFilename = string.Format(@"Stimuli\stim-{1}-{0}\stim-{1}-{0}.xml", stimId, bankKey);
+                    if (!mPackageFolder.FileExists(stimulusFilename))
                     {
                         ReportError(it, ErrCat.Item, ErrSeverity.Severe, "PT item stimulus not found.", "StimulusId='{0}'", stimId);
                     }
@@ -804,8 +820,8 @@ namespace TabulateSmarterTestContentPackage
                     string bankKey = xml.XpEval("itemrelease/item/tutorial/@bankkey");
 
                     // Look for the tutorial
-                    string tutorialFilename = Path.Combine(mPackagePath, string.Format("Items\\item-{1}-{0}\\item-{1}-{0}.xml", tutorialId, bankKey));
-                    if (!File.Exists(tutorialFilename))
+                    string tutorialFilename = string.Format(@"Items\item-{1}-{0}\item-{1}-{0}.xml", tutorialId, bankKey);
+                    if (!mPackageFolder.FileExists(tutorialFilename))
                     {
                         ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Tutorial not found.", "TutorialId='{0}'", tutorialId);
                     }
@@ -818,10 +834,11 @@ namespace TabulateSmarterTestContentPackage
 
         void TabulatePassage(ItemContext it, XmlDocument xml)
         {
-            string metadataPath = Path.Combine(it.DiItem.FullName, "metadata.xml");
-            if (!File.Exists(metadataPath)) throw new InvalidDataException("Metadata file not found: " + metadataPath);
             XmlDocument xmlMetadata = new XmlDocument(sXmlNt);
-            xmlMetadata.Load(Path.Combine(it.DiItem.FullName, "metadata.xml"));
+            if (!TryLoadXml(it.FfItem, "metadata.xml", xmlMetadata))
+            {
+                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Passage metadata file not found.");
+            }
 
             // Check interaction type
             string metaItemType = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:InteractionType", sXmlNs);
@@ -874,7 +891,7 @@ namespace TabulateSmarterTestContentPackage
             {
                 bool aslFound = CheckForAttachment(it, xml, "ASL", "MP4");
                 if (aslFound) asl = "MP4";
-                if (!aslFound) ReportUnexpectedFiles(it, "ASL video", "item_{0}_ASL*", it.ItemId);
+                if (!aslFound) ReportUnexpectedFiles(it, "ASL video", "^item_{0}_ASL", it.ItemId);
 
                 bool aslInMetadata = string.Equals(xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:AccessibilityTagsASLLanguage", sXmlNs), "Y", StringComparison.OrdinalIgnoreCase);
                 if (aslInMetadata && !aslFound) ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Item metadata specifies ASL but no ASL in item.");
@@ -895,10 +912,11 @@ namespace TabulateSmarterTestContentPackage
         
         void TabulateTutorial(ItemContext it, XmlDocument xml)
         {
-            string metadataPath = Path.Combine(it.DiItem.FullName, "metadata.xml");
-            if (!File.Exists(metadataPath)) throw new InvalidDataException("Metadata file not found: " + metadataPath);
             XmlDocument xmlMetadata = new XmlDocument(sXmlNt);
-            xmlMetadata.Load(Path.Combine(it.DiItem.FullName, "metadata.xml"));
+            if (!TryLoadXml(it.FfItem, "metadata.xml", xmlMetadata))
+            {
+                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Tutorial metadata file not found.");
+            }
 
             // Subject
             string subject = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='itm_item_subject']/val");
@@ -938,7 +956,7 @@ namespace TabulateSmarterTestContentPackage
             {
                 bool aslFound = CheckForAttachment(it, xml, "ASL", "MP4");
                 if (aslFound) asl = "MP4";
-                if (!aslFound) ReportUnexpectedFiles(it, "ASL video", "item_{0}_ASL*", it.ItemId);
+                if (!aslFound) ReportUnexpectedFiles(it, "ASL video", "^item_{0}_ASL*", it.ItemId);
 
                 bool aslInMetadata = string.Equals(xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:AccessibilityTagsASLLanguage", sXmlNs), "Y", StringComparison.OrdinalIgnoreCase);
                 if (aslInMetadata && !aslFound) ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Item metadata specifies ASL but no ASL in item.");
@@ -956,6 +974,22 @@ namespace TabulateSmarterTestContentPackage
 
         } // TabulateTutorial
 
+        bool TryLoadXml(FileFolder ff, string filename, XmlDocument xml)
+        {
+            Yada ffXml;
+            if (!ff.TryGetFile(filename, out ffXml))
+            {
+                return false;
+            }
+            else
+            {
+                using (Stream stream = ffXml.Open())
+                {
+                    xml.Load(stream);
+                }
+            }
+            return true;
+        }
 
         bool CheckForAttachment(ItemContext it, XmlDocument xml, string attachType, string expectedExtension)
         {
@@ -972,7 +1006,7 @@ namespace TabulateSmarterTestContentPackage
                     ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Attachment missing file attribute.", "attachType='{0}'", attachType);
                     return false;
                 }
-                if (!File.Exists(Path.Combine(it.DiItem.FullName, filename)))
+                if (!it.FfItem.FileExists(filename))
                 {
                     ReportError(it, ErrCat.Item, ErrSeverity.Tolerable, "Dangling reference to attached file that does not exist.", "attachType='{0}' Filename='{1}'", attachType, filename);
                     return false;
@@ -989,11 +1023,16 @@ namespace TabulateSmarterTestContentPackage
             return false;
         }
 
-        void ReportUnexpectedFiles(ItemContext it, string fileType, string pattern, params object[] args)
+        void ReportUnexpectedFiles(ItemContext it, string fileType, string regexPattern, params object[] args)
         {
-            foreach (FileInfo file in it.DiItem.GetFiles(string.Format(pattern, args)))
+            Regex regex = new Regex(string.Format(regexPattern, args));
+            foreach (Yada file in it.FfItem.Files)
             {
-                ReportError(it, ErrCat.Item, ErrSeverity.Benign, "Unreferenced file found.", "fileType='{0}', filename='{1}'", fileType, file.Name);
+                Match match = regex.Match(file.Name);
+                if (match.Success)
+                {
+                    ReportError(it, ErrCat.Item, ErrSeverity.Benign, "Unreferenced file found.", "fileType='{0}', filename='{1}'", fileType, file.Name);
+                }
             }
         }
 
@@ -1001,7 +1040,8 @@ namespace TabulateSmarterTestContentPackage
         {
             // Look up item in manifest
             string itemResourceId = null;
-            if (!mFilenameToResourceId.TryGetValue(NormalizeFilenameInManifest(it.ItemFilename), out itemResourceId))
+            string itemFilename = string.Concat(it.FfItem.RootedName, "/", it.FfItem.Name, ".xml");
+            if (!mFilenameToResourceId.TryGetValue(NormalizeFilenameInManifest(itemFilename), out itemResourceId))
             {
                 ReportError(it, ErrCat.Manifest, ErrSeverity.Tolerable, "Item not found in manifest.");
             }
@@ -1027,7 +1067,7 @@ namespace TabulateSmarterTestContentPackage
             {
                 bool brfFound = CheckForAttachment(it, xml, "BRF", "BRF");
                 if (brfFound) brailleFile = "BRF";
-                if (!brfFound) ReportUnexpectedFiles(it, "Braille BRF", "item_{0}_*.brf", it.ItemId);
+                if (!brfFound) ReportUnexpectedFiles(it, "Braille BRF", @"^item_{0}_.*\.brf$", it.ItemId);
 
                 bool prnFound = CheckForAttachment(it, xml, "PRN", "PRN");
                 if (prnFound)
@@ -1035,7 +1075,7 @@ namespace TabulateSmarterTestContentPackage
                     if (brailleFile.Length > 0) brailleFile = string.Concat(brailleFile, " ", "PRN");
                     else brailleFile = "PRN";
                 }
-                if (!prnFound) ReportUnexpectedFiles(it, "Braille PRN", "item_{0}_*.prn", it.ItemId);
+                if (!prnFound) ReportUnexpectedFiles(it, "Braille PRN", @"^item_{0}_.*\.prn$", it.ItemId);
             }
 
             string brailleType = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:BrailleType", sXmlNs);
@@ -1235,8 +1275,12 @@ namespace TabulateSmarterTestContentPackage
         {
             // Read the item XML
             XmlDocument xml = new XmlDocument(sXmlNt);
-            xml.Load(Path.Combine(it.DiItem.FullName, it.DiItem.Name + ".xml"));
-
+            if (!TryLoadXml(it.FfItem, it.FfItem.Name + ".xml", xml))
+            {
+                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Item folder missing item file.");
+                return;
+            }
+ 
             // Sanity check
             if (!string.Equals(xml.XpEval("itemrelease/item/@id"), it.ItemId)) throw new InvalidDataException("Item id mismatch on pass 2");
 
@@ -1272,7 +1316,7 @@ namespace TabulateSmarterTestContentPackage
             }
 
             // Tablulate m4a audio translations
-            foreach (FileInfo fi in it.DiItem.EnumerateFiles("*", SearchOption.TopDirectoryOnly))
+            foreach (Yada fi in it.FfItem.Files)
             {
                 // If Audio file
                 string extension = fi.Extension.Substring(1).ToLower();
@@ -1329,14 +1373,18 @@ namespace TabulateSmarterTestContentPackage
             }
         }
 
-        void ValidateManifest(string packageFolderPath)
+        void ValidateManifest()
         {
             // Prep an itemcontext for reporting errors
-            ItemContext it = new ItemContext(this, new DirectoryInfo(packageFolderPath), null, null);
+            ItemContext it = new ItemContext(this, mPackageFolder, null, null);
 
             // Load the manifest
             XmlDocument xmlManifest = new XmlDocument(sXmlNt);
-            xmlManifest.Load(Path.Combine(packageFolderPath, "imsmanifest.xml"));
+            if (!TryLoadXml(mPackageFolder, cImsManifest, xmlManifest))
+            {
+                ReportError(it, ErrCat.Manifest, ErrSeverity.Severe, "Manifest not found.");
+                return;
+            }
 
             // Keep track of every resource id mentioned in the manifest
             HashSet<string> ids = new HashSet<string>();
@@ -1352,7 +1400,7 @@ namespace TabulateSmarterTestContentPackage
                 {
                     ReportError(it, ErrCat.Manifest, ErrSeverity.Tolerable, "Resource specified in manifest has no filename.", "ResourceId='{0}'", id);
                 }
-                else if (!File.Exists(Path.Combine(packageFolderPath, filename)))
+                else if (!mPackageFolder.FileExists(filename))
                 {
                     ReportError(it, ErrCat.Manifest, ErrSeverity.Tolerable, "Resource specified in manifest does not exist.", "ResourceId='{0}' Filename='{1}'", id, filename);
                 }
@@ -1367,7 +1415,7 @@ namespace TabulateSmarterTestContentPackage
                 }
 
                 // Normalize the filename
-                filename = filename.ToLower().Replace('\\', '/');
+                filename = NormalizeFilenameInManifest(filename);
                 if (mFilenameToResourceId.ContainsKey(filename))
                 {
                     ReportError(it, ErrCat.Manifest, ErrSeverity.Tolerable, "File listed multiple times in manifest.", "ResourceId='{0}' Filename='{1}'", id, filename);
@@ -1403,37 +1451,38 @@ namespace TabulateSmarterTestContentPackage
 
             // Enumerate all files and check for them in the manifest
             {
-                DirectoryInfo diPackage = new DirectoryInfo(packageFolderPath);
-                foreach (DirectoryInfo di in diPackage.GetDirectories())
+                foreach (FileFolder ff in mPackageFolder.Folders)
                 {
-                    ValidateDirectoryInManifest(it, di);
+                    ValidateDirectoryInManifest(it, ff);
                 }
             }
         }
 
         // Recursively check that files exist in the manifest
-        void ValidateDirectoryInManifest(ItemContext it, DirectoryInfo di)
+        void ValidateDirectoryInManifest(ItemContext it, FileFolder ff)
         {
             // See if this is an item or stimulus directory
             string itemFileName = null;
             string itemId = null;
-            if (
-                (di.Name.StartsWith("item-", StringComparison.OrdinalIgnoreCase) || di.Name.StartsWith("stim-", StringComparison.OrdinalIgnoreCase))
-                && (File.Exists(Path.Combine(di.FullName, string.Concat(di.Name, ".xml")))))
+            if (ff.Name.StartsWith("item-", StringComparison.OrdinalIgnoreCase) || ff.Name.StartsWith("stim-", StringComparison.OrdinalIgnoreCase))
             {
-                itemFileName = NormalizeFilenameInManifest(Path.Combine(di.FullName, string.Concat(di.Name, ".xml")));
-
-                if (!mFilenameToResourceId.TryGetValue(itemFileName, out itemId))
+                Yada fi;
+                if (ff.TryGetFile(string.Concat(ff.Name, ".xml"), out fi))
                 {
-                    ReportError(it, ErrCat.Manifest, ErrSeverity.Degraded, "Item does not appear in the manifest.", "ItemId='{0}'", di.Name);
-                    itemFileName = null;
-                    itemId = null;
+                    itemFileName = NormalizeFilenameInManifest(fi.RootedName);
+
+                    if (!mFilenameToResourceId.TryGetValue(itemFileName, out itemId))
+                    {
+                        ReportError(it, ErrCat.Manifest, ErrSeverity.Degraded, "Item does not appear in the manifest.", "ItemFilename='{0}'", itemFileName);
+                        itemFileName = null;
+                        itemId = null;
+                    }
                 }
             }
 
-            foreach (FileInfo fi in di.EnumerateFiles())
+            foreach (Yada fi in ff.Files)
             {
-                string filename = NormalizeFilenameInManifest(fi.FullName);
+                string filename = NormalizeFilenameInManifest(fi.RootedName);
 
                 string resourceId;
                 if (!mFilenameToResourceId.TryGetValue(filename, out resourceId))
@@ -1451,19 +1500,16 @@ namespace TabulateSmarterTestContentPackage
             }
 
             // Recurse
-            foreach(DirectoryInfo diSub in di.GetDirectories())
+            foreach(FileFolder ffSub in ff.Folders)
             {
-                ValidateDirectoryInManifest(it, diSub);
+                ValidateDirectoryInManifest(it, ffSub);
             }
         }
 
         string NormalizeFilenameInManifest(string filename)
         {
-            int ppLen = mPackagePath.Length;
-            if (filename.Length > ppLen && filename.StartsWith(mPackagePath, StringComparison.OrdinalIgnoreCase) && filename[ppLen] == '\\')
-                filename = filename.Substring(ppLen+1);
             filename = filename.ToLower().Replace('\\', '/');
-            return filename;
+            return (filename[0] == '/') ? filename.Substring(1) : filename;
         }
 
         static string ToDependsOnString(string itemId, string dependsOnId)
@@ -1578,26 +1624,20 @@ namespace TabulateSmarterTestContentPackage
 
         private class ItemContext
         {
-            public ItemContext(Tabulator tabulator, DirectoryInfo diItem, string itemId, string itemType)
+            public ItemContext(Tabulator tabulator, FileFolder ffItem, string itemId, string itemType)
             {
-                DiItem = diItem;
+                FfItem = ffItem;
                 ItemId = (itemId != null) ? itemId : string.Empty;
                 ItemType = (itemType != null) ? itemType : string.Empty;
-                if (diItem.FullName.StartsWith(tabulator.mRootPath))
-                {
-                    Folder = diItem.FullName.Substring(tabulator.mRootPath.Length);
-                }
-                else
-                {
-                    Folder = diItem.FullName;
-                }
+                Folder = tabulator.mPackageName + ffItem.RootedName;
             }
 
-            public DirectoryInfo DiItem { get; private set; }
+            public FileFolder FfItem { get; private set; }
             public string ItemId { get; private set; }
             public string ItemType { get; private set; }
             public string Folder { get; private set; }
 
+            /*
             public string ItemFilename
             {
                 get
@@ -1605,6 +1645,7 @@ namespace TabulateSmarterTestContentPackage
                     return Path.Combine(DiItem.FullName, DiItem.Name + ".xml");
                 }
             }
+            */ 
 
             public bool IsPassage
             {
