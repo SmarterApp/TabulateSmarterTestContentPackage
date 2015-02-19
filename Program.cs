@@ -22,15 +22,20 @@ Options:
     -v+<opt> Enable a particular validation option
     -h       Display this help text
 
-Packages are typically delivered in .zip format. The .zip file must be
-unpacked into a directory tree. The path of the root of the directory tree
-should be specified. This may be identified by the presence of the
-imsmanifest.zip file in the root directory.
+Packages are typically delivered in .zip format. The tabulator can operate on
+the package in its .zip form or unpacked into a directory tree. In either
+case, the package is recognized by the presence of 'imsmanifest.xml' in the
+root folder of the package.
+
+When tabulating a single package, the path should be to the .zip file or to
+the root folder of an unpacked package. When tabulating multiple packages
+(using the -s or -a option) the path should be to the folder containing
+the packages (in .zip or unpacked form). When tabulating multiple packages
+the packages are recognized by the presence of imsmanifest.xml.
 
 Reports are a set of .csv files and one .txt file that are placed in the same
-directory as the imsmanifest.xml file. When aggregating the results (with the
--a option) then the reports are placed in the parent directory of all of the
-packages (the one specified on the command line).
+directory as the .zip or package folder. Names are prefixed with the name of
+the package. For example, 'MyContentPackage_ItemReport.csv'.
 
 Validation options disable or enable the reporting of certain errors. Only a
 subset of errors can be controlled this way.
@@ -55,6 +60,8 @@ Validation Options:
 
         static void Main(string[] args)
         {
+            long startTicks = Environment.TickCount;
+
             try
             {
                 // Default options
@@ -80,7 +87,7 @@ Validation Options:
                                 break;
                             case 'v':
                                 if (arg[2] != '+' && arg[2] != '-') throw new ArgumentException("Invalid command-line option: " + arg);
-                                gValidationOptions[arg.Substring(3).ToLower()] = (arg[2] == '+');
+                                gValidationOptions[arg.Substring(3).ToLowerInvariant()] = (arg[2] == '+');
                                 break;
                             default:
                                 throw new ArgumentException("Unexpected command-line option: " + arg);
@@ -102,19 +109,19 @@ Validation Options:
                     return;
                 }
 
-                Tabulator tab = new Tabulator(rootPath);
+                Tabulator tab = new Tabulator();
                 switch (operation)
                 {
                     default:
-                        tab.TabulateOne();
+                        tab.TabulateOne(rootPath);
                         break;
 
                     case 's':
-                        tab.TabulateEach();
+                        tab.TabulateEach(rootPath);
                         break;
 
                     case 'a':
-                        tab.TabulateAggregate();
+                        tab.TabulateAggregate(rootPath);
                         break;
 
                     case 'h':
@@ -127,6 +134,13 @@ Validation Options:
             {
                 Console.WriteLine(err.Message);
             }
+
+            long elapsedTicks;
+            unchecked
+            {
+                elapsedTicks = Environment.TickCount - startTicks;
+            }
+            Console.WriteLine("Elapsed time: {0}.{1:d3} seconds", elapsedTicks / 1000, elapsedTicks % 1000);
 
             if (ConsoleHelper.IsSoleConsoleOwner)
             {

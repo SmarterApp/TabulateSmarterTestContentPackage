@@ -60,7 +60,6 @@ namespace TabulateSmarterTestContentPackage
         const string cStimulusReportFn = "StimulusReport.csv";
         const string cErrorReportFn = "ErrorReport.csv";
 
-        string mRootPath;
         int mErrorCount = 0;
         int mItemCount = 0;
         int mWordlistCount = 0;
@@ -91,18 +90,33 @@ namespace TabulateSmarterTestContentPackage
         TextWriter mErrorReport;
         string mSummaryReportPath;
 
-        public Tabulator(string rootPath)
-        {
-            mRootPath = Path.GetFullPath(rootPath);
-        }
-
         // Tabulate a package in the specified directory
-        public void TabulateOne()
+        public void TabulateOne(string path)
         {
             try
             {
-                Initialize(mRootPath + "\\");
-                TabulatePackage(string.Empty, new FsFolder(mRootPath));
+                if (path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                {
+                    FileInfo fi = new FileInfo(path);
+                    Console.WriteLine("Tabulating " + fi.Name);
+                    if (!fi.Exists) throw new FileNotFoundException(string.Format("Package '{0}' file not found!", path));
+
+                    string filepath = fi.FullName;
+                    Initialize(filepath.Substring(0, filepath.Length-4));
+                    using (ZipFileTree tree = new ZipFileTree(filepath))
+                    {
+                        TabulatePackage(string.Empty, tree);
+                    }
+                }
+                else
+                {
+                    string folderpath = Path.GetFullPath(path);
+                    Console.WriteLine("Tabulating " + Path.GetFileName(folderpath));
+                    if (!Directory.Exists(folderpath)) throw new FileNotFoundException(string.Format("Package '{0}' directory not found!", folderpath));
+
+                    Initialize(folderpath);
+                    TabulatePackage(string.Empty, new FsFolder(folderpath));
+                }
             }
             finally
             {
@@ -111,18 +125,20 @@ namespace TabulateSmarterTestContentPackage
         }
 
         // Individually tabulate each package in subdirectories
-        public void TabulateEach()
+        public void TabulateEach(string rootPath)
         {
-            DirectoryInfo diRoot = new DirectoryInfo(mRootPath);
+            DirectoryInfo diRoot = new DirectoryInfo(rootPath);
 
+            // Tablulate unpacked packages
             foreach(DirectoryInfo diPackageFolder in diRoot.GetDirectories())
             {
                 if (File.Exists(Path.Combine(diPackageFolder.FullName, cImsManifest)))
                 {
                     try
                     {
+                        Console.WriteLine("Tabulating " + diPackageFolder.Name);
                         Initialize(diPackageFolder.FullName);
-                        //TabulatePackage(diPackageFolder.FullName);
+                        TabulatePackage(string.Empty, new FsFolder(diPackageFolder.FullName));
                     }
                     finally
                     {
@@ -130,23 +146,66 @@ namespace TabulateSmarterTestContentPackage
                     }
                 }
             }
+
+            // Tabulate zipped packages
+            foreach(FileInfo fiPackageFile in diRoot.GetFiles("*.zip"))
+            {
+                string filepath = fiPackageFile.FullName;
+                Console.WriteLine("Opening " + fiPackageFile.Name);
+                using (ZipFileTree tree = new ZipFileTree(filepath))
+                {
+                    if (tree.FileExists(cImsManifest))
+                    {
+                        try
+                        {
+                            Console.WriteLine("Tabulating " + fiPackageFile.Name);
+                            Initialize(filepath.Substring(0, filepath.Length - 4));
+                            TabulatePackage(string.Empty, tree);
+                        }
+                        finally
+                        {
+                            Conclude();
+                        }
+                    }
+                }
+            }
         }
 
         // Tabulate packages in subdirectories and aggregate the results
-        public void TabulateAggregate()
+        public void TabulateAggregate(string rootPath)
         {
-            DirectoryInfo diRoot = new DirectoryInfo(mRootPath);
+            DirectoryInfo diRoot = new DirectoryInfo(rootPath);
             try
             {
-                Initialize(mRootPath);
+                Initialize(Path.Combine(rootPath, "Aggregate"));
 
+                // Tabulate unpacked packages
                 foreach (DirectoryInfo diPackageFolder in diRoot.GetDirectories())
                 {
                     if (File.Exists(Path.Combine(diPackageFolder.FullName, cImsManifest)))
                     {
-                        //TabulatePackage(diPackageFolder.FullName);
+                        Console.WriteLine("Tabulating " + diPackageFolder.Name);
+                        TabulatePackage(diPackageFolder.Name, new FsFolder(diPackageFolder.FullName));
                     }
                 }
+
+                // Tabulate packed packages
+                foreach (FileInfo fiPackageFile in diRoot.GetFiles("*.zip"))
+                {
+                    string filepath = fiPackageFile.FullName;
+                    Console.WriteLine("Opening " + fiPackageFile.Name);
+                    using (ZipFileTree tree = new ZipFileTree(filepath))
+                    {
+                        if (tree.FileExists(cImsManifest))
+                        {
+                            Console.WriteLine("Tabulating " + fiPackageFile.Name);
+                            string packageName = fiPackageFile.Name;
+                            packageName = packageName.Substring(0, packageName.Length - 4) + "/";
+                            TabulatePackage(packageName, tree);
+                        }
+                    }
+                }
+
             }
             finally
             {
@@ -157,6 +216,7 @@ namespace TabulateSmarterTestContentPackage
         // Initialize all files and collections for a tabulation run
         private void Initialize(string reportPrefix)
         {
+            reportPrefix = string.Concat(reportPrefix, "_");
             mErrorReportPath = string.Concat(reportPrefix, cErrorReportFn);
             if (File.Exists(mErrorReportPath)) File.Delete(mErrorReportPath);
 
@@ -174,6 +234,13 @@ namespace TabulateSmarterTestContentPackage
 
             mSummaryReportPath = string.Concat(reportPrefix, cSummaryReportFn);
             if (File.Exists(mSummaryReportPath)) File.Delete(mSummaryReportPath);
+
+            mErrorCount = 0;
+            mItemCount = 0;
+            mWordlistCount = 0;
+            mGlossaryTermCount = 0;
+            mGlossaryM4aCount = 0;
+            mGlossaryOggCount = 0;
 
             mTypeCounts.Clear();
             mTermCounts.Clear();
@@ -195,9 +262,8 @@ namespace TabulateSmarterTestContentPackage
                     }
 
                     // Report aggregate results to the console
-                    SummaryReport(Console.Out);
-                    Console.WriteLine();
                     Console.WriteLine("{0} Errors reported.", mErrorCount);
+                    Console.WriteLine();
                 }
             }
             finally
@@ -235,7 +301,6 @@ namespace TabulateSmarterTestContentPackage
             mPackageName = packageName;
 
             if (!packageFolder.FileExists(cImsManifest)) throw new ArgumentException("Not a valid content package path. File imsmanifest.xml not found!");
-            Console.WriteLine("Tabulating " + packageName);
 
             // Initialize package-specific collections
             mPackageFolder = packageFolder;
@@ -484,7 +549,7 @@ namespace TabulateSmarterTestContentPackage
                 string machineRubricFilename = xml.XpEval("itemrelease/item/MachineRubric/@filename");
                 if (machineRubricFilename != null)
                 {
-                    machineRubricType = Path.GetExtension(machineRubricFilename).ToLower();
+                    machineRubricType = Path.GetExtension(machineRubricFilename).ToLowerInvariant();
                     if (machineRubricType.Length > 0) machineRubricType = machineRubricType.Substring(1);
                     if (!it.FfItem.FileExists(machineRubricFilename))
                         ReportError(it, ErrCat.Rubric, ErrSeverity.Degraded, "Machine rubric not found.", "Filename='{0}'", machineRubricFilename);
@@ -580,7 +645,7 @@ namespace TabulateSmarterTestContentPackage
                     ReportError(it, ErrCat.Rubric, ErrSeverity.Benign, "Unexpected machine rubric found for HandScored item type.", "Filename='{1}'", machineRubricFilename);
 
                 // Check for unreferenced machine rubrics
-                foreach(Yada fi in it.FfItem.Files)
+                foreach(FileFile fi in it.FfItem.Files)
                 {
                     if (string.Equals(fi.Extension, ".qrx", StringComparison.OrdinalIgnoreCase)
                         && (machineRubricFilename == null || !string.Equals(fi.Name, machineRubricFilename, StringComparison.OrdinalIgnoreCase)))
@@ -764,7 +829,7 @@ namespace TabulateSmarterTestContentPackage
                         if (!sValidWritingTypes.Contains(ptWritingType))
                         {
                             // Fix capitalization
-                            string normalized = string.Concat(ptWritingType.Substring(0, 1).ToUpper(), ptWritingType.Substring(1).ToLower());
+                            string normalized = string.Concat(ptWritingType.Substring(0, 1).ToUpper(), ptWritingType.Substring(1).ToLowerInvariant());
 
                             // Report according to type of error
                             if (!sValidWritingTypes.Contains(normalized))
@@ -976,7 +1041,7 @@ namespace TabulateSmarterTestContentPackage
 
         bool TryLoadXml(FileFolder ff, string filename, XmlDocument xml)
         {
-            Yada ffXml;
+            FileFile ffXml;
             if (!ff.TryGetFile(filename, out ffXml))
             {
                 return false;
@@ -1026,7 +1091,7 @@ namespace TabulateSmarterTestContentPackage
         void ReportUnexpectedFiles(ItemContext it, string fileType, string regexPattern, params object[] args)
         {
             Regex regex = new Regex(string.Format(regexPattern, args));
-            foreach (Yada file in it.FfItem.Files)
+            foreach (FileFile file in it.FfItem.Files)
             {
                 Match match = regex.Match(file.Name);
                 if (match.Success)
@@ -1161,7 +1226,7 @@ namespace TabulateSmarterTestContentPackage
             HashSet<string> languages = new HashSet<string>();
             foreach (XmlElement xmlEle in xml.SelectNodes(it.IsPassage ? "itemrelease/passage/content" : "itemrelease/item/content"))
             {
-                string language = xmlEle.GetAttribute("language").ToLower();
+                string language = xmlEle.GetAttribute("language").ToLowerInvariant();
 
                 // The spec says that languages should be in RFC 5656 format.
                 // However, the items use ENU for English and ESN for Spanish.
@@ -1180,7 +1245,7 @@ namespace TabulateSmarterTestContentPackage
                 }
 
                 // Add to hashset
-                languages.Add(language.ToLower());
+                languages.Add(language.ToLowerInvariant());
 
                 // If not english, add to result
                 if (!string.Equals(language, "eng", StringComparison.Ordinal))
@@ -1316,10 +1381,11 @@ namespace TabulateSmarterTestContentPackage
             }
 
             // Tablulate m4a audio translations
-            foreach (Yada fi in it.FfItem.Files)
+            foreach (FileFile fi in it.FfItem.Files)
             {
                 // If Audio file
-                string extension = fi.Extension.Substring(1).ToLower();
+                string extension = fi.Extension.ToLowerInvariant();
+                if (extension.Length > 0) extension = extension.Substring(1);
                 if (string.Equals(extension, "m4a", StringComparison.Ordinal) || string.Equals(extension, "ogg", StringComparison.Ordinal))
                 {
                     Match match = sRxParseAudiofile.Match(fi.Name);
@@ -1466,7 +1532,7 @@ namespace TabulateSmarterTestContentPackage
             string itemId = null;
             if (ff.Name.StartsWith("item-", StringComparison.OrdinalIgnoreCase) || ff.Name.StartsWith("stim-", StringComparison.OrdinalIgnoreCase))
             {
-                Yada fi;
+                FileFile fi;
                 if (ff.TryGetFile(string.Concat(ff.Name, ".xml"), out fi))
                 {
                     itemFileName = NormalizeFilenameInManifest(fi.RootedName);
@@ -1480,7 +1546,7 @@ namespace TabulateSmarterTestContentPackage
                 }
             }
 
-            foreach (Yada fi in ff.Files)
+            foreach (FileFile fi in ff.Files)
             {
                 string filename = NormalizeFilenameInManifest(fi.RootedName);
 
@@ -1508,7 +1574,7 @@ namespace TabulateSmarterTestContentPackage
 
         string NormalizeFilenameInManifest(string filename)
         {
-            filename = filename.ToLower().Replace('\\', '/');
+            filename = filename.ToLowerInvariant().Replace('\\', '/');
             return (filename[0] == '/') ? filename.Substring(1) : filename;
         }
 
@@ -1572,7 +1638,7 @@ namespace TabulateSmarterTestContentPackage
         {
             if (mErrorReport == null)
             {
-                mErrorReport = new StreamWriter(Path.Combine(mRootPath, cErrorReportFn), false, sUtf8NoBomEncoding);
+                mErrorReport = new StreamWriter(mErrorReportPath, false, sUtf8NoBomEncoding);
                 mErrorReport.WriteLine("Folder,ItemId,ItemType,Category,Severity,ErrorMessage,Detail");
             }
 
