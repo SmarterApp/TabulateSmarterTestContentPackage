@@ -228,10 +228,10 @@ namespace TabulateSmarterTestContentPackage
             mAudioGlossaryReport.WriteLine("Folder,WIT_ID,RefCount,Index,Term,Language,Encoding,Size");
 
             mItemReport = new StreamWriter(string.Concat(reportPrefix, cItemReportFn));
-            mItemReport.WriteLine("Folder,ItemId,ItemType,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation");
+            mItemReport.WriteLine("Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation");
 
             mStimulusReport = new StreamWriter(string.Concat(reportPrefix, cStimulusReportFn));
-            mStimulusReport.WriteLine("Folder,StimulusId,Subject,WordlistId,ASL,BrailleType,Translation");
+            mStimulusReport.WriteLine("Folder,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation");
 
             mSummaryReportPath = string.Concat(reportPrefix, cSummaryReportFn);
             if (File.Exists(mSummaryReportPath)) File.Delete(mSummaryReportPath);
@@ -511,6 +511,9 @@ namespace TabulateSmarterTestContentPackage
             if (!string.Equals(metaItemType, it.ItemType.ToUpper(), StringComparison.Ordinal))
                 ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Incorrect metadata <InteractionType>.", "InteractionType='{0}' Expected='{1}'", metaItemType, it.ItemType.ToUpper());
 
+            // Get the version
+            string version = xml.XpEvalE("itemrelease/item/@version");
+
             // Subject
             string subject = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='itm_item_subject']/val");
             string metaSubject = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:Subject", sXmlNs);
@@ -720,8 +723,8 @@ namespace TabulateSmarterTestContentPackage
             // Translation
             string translation = GetTranslation(it, xml, xmlMetadata);
 
-            // Folder,ItemId,ItemType,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation
-            mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(subject), CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation)));
+            // Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation
+            mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(version), CsvEncode(subject), CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation)));
 
             // === Tabulation is complete, check for other errors
 
@@ -918,6 +921,9 @@ namespace TabulateSmarterTestContentPackage
             if (!string.Equals(metaItemType, cStimulusInteractionType, StringComparison.Ordinal))
                 ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Incorrect metadata <InteractionType>.", "InteractionType='{0}' Expected='{1}'", metaItemType, cStimulusInteractionType);
 
+            // Get the version
+            string version = xml.XpEvalE("itemrelease/passage/@version");
+
             // Subject
             string subject = xml.XpEvalE("itemrelease/passage/attriblist/attrib[@attid='itm_item_subject']/val");
             string metaSubject = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:Subject", sXmlNs);
@@ -977,8 +983,8 @@ namespace TabulateSmarterTestContentPackage
             // Translation
             string translation = GetTranslation(it, xml, xmlMetadata);
 
-            // Folder,StimulusId,Subject,WordlistId,ASL,BrailleType,Translation
-            mStimulusReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(subject), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation)));
+            // Folder,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation
+            mStimulusReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(version), CsvEncode(subject), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation)));
 
         } // TabulatePassage
 
@@ -990,6 +996,9 @@ namespace TabulateSmarterTestContentPackage
             {
                 ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Tutorial metadata file not found.");
             }
+
+            // Get the version
+            string version = xml.XpEvalE("itemrelease/item/@version");
 
             // Subject
             string subject = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='itm_item_subject']/val");
@@ -1042,8 +1051,8 @@ namespace TabulateSmarterTestContentPackage
             // Translation
             string translation = GetTranslation(it, xml, xmlMetadata);
 
-            // Folder,ItemId,ItemType,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation
-            mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(subject), CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation)));
+            // Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation
+            mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(version), CsvEncode(subject), CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation)));
 
         } // TabulateTutorial
 
@@ -1686,7 +1695,7 @@ namespace TabulateSmarterTestContentPackage
 
         static string CsvEncodeExcel(string text)
         {
-            return string.Concat("=\"", text.Replace("\"", "\"\""), "\"");
+            return string.Concat("\"", text.Replace("\"", "\"\""), "\t\"");
         }
 
         private class ItemContext
