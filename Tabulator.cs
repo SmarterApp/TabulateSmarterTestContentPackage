@@ -228,10 +228,10 @@ namespace TabulateSmarterTestContentPackage
             mAudioGlossaryReport.WriteLine("Folder,WIT_ID,RefCount,Index,Term,Language,Encoding,Size");
 
             mItemReport = new StreamWriter(string.Concat(reportPrefix, cItemReportFn));
-            mItemReport.WriteLine("Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation");
+            mItemReport.WriteLine("Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation,Media,Size");
 
             mStimulusReport = new StreamWriter(string.Concat(reportPrefix, cStimulusReportFn));
-            mStimulusReport.WriteLine("Folder,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation");
+            mStimulusReport.WriteLine("Folder,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,Media,Size");
 
             mSummaryReportPath = string.Concat(reportPrefix, cSummaryReportFn);
             if (File.Exists(mSummaryReportPath)) File.Delete(mSummaryReportPath);
@@ -545,7 +545,7 @@ namespace TabulateSmarterTestContentPackage
                 if (!string.Equals(grade, metaGrade, StringComparison.Ordinal))
                     ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Grade mismatch between item and metadata.", "ItemGrade='{0}', MetadataGrade='{1}'", grade, metaGrade);
             }
-            
+
             // Rubric
             string rubric = string.Empty;
             {
@@ -569,7 +569,7 @@ namespace TabulateSmarterTestContentPackage
                 string metadataScoringEngine = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:ScoringEngine", sXmlNs);
 
                 // Count the rubric types
-                mRubricCounts.Increment(string.Concat(it.ItemType, " '", xmlEle.XpEvalE("val"), "' ", machineRubricType ));
+                mRubricCounts.Increment(string.Concat(it.ItemType, " '", xmlEle.XpEvalE("val"), "' ", machineRubricType));
 
                 // Rubric type is dictated by item type
                 bool usesMachineRubric = false;
@@ -589,7 +589,7 @@ namespace TabulateSmarterTestContentPackage
                         {
                             string[] parts = answerKeyValue.Split(',');
                             bool validAnswer = parts.Length > 0;
-                            foreach(string answer in parts)
+                            foreach (string answer in parts)
                             {
                                 if (answer.Length != 1 || answer[0] < 'A' || answer[0] > 'Z') validAnswer = false;
                             }
@@ -656,29 +656,29 @@ namespace TabulateSmarterTestContentPackage
                     ReportError(it, ErrCat.Rubric, ErrSeverity.Benign, "Unexpected machine rubric found for HandScored item type.", "Filename='{1}'", machineRubricFilename);
 
                 // Check for unreferenced machine rubrics
-                foreach(FileFile fi in it.FfItem.Files)
+                foreach (FileFile fi in it.FfItem.Files)
                 {
                     if (string.Equals(fi.Extension, ".qrx", StringComparison.OrdinalIgnoreCase)
                         && (machineRubricFilename == null || !string.Equals(fi.Name, machineRubricFilename, StringComparison.OrdinalIgnoreCase)))
-                {
+                    {
                         ReportError(it, ErrCat.Rubric, ErrSeverity.Degraded, "Machine rubric file found but not referenced in <MachineRubric> element.", "Filename='{0}'", fi.Name);
+                    }
                 }
-            }
             }
 
             // AssessmentType (PT or CAT)
             string assessmentType;
             {
                 string meta = xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:PerformanceTaskComponentItem", sXmlNs);
-                if (meta == null || string.Equals(meta, "N", StringComparison.Ordinal))assessmentType = "CAT";
-                else if (string.Equals(meta, "Y", StringComparison.Ordinal)) assessmentType  = "PT";
+                if (meta == null || string.Equals(meta, "N", StringComparison.Ordinal)) assessmentType = "CAT";
+                else if (string.Equals(meta, "Y", StringComparison.Ordinal)) assessmentType = "PT";
                 else
                 {
                     assessmentType = "CAT";
                     ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "PerformanceTaskComponentItem metadata should be 'Y' or 'N'.", "Value='{0}'", meta);
                 }
             }
-            
+
             // Standard, Claim and Target
             string standard;
             string claim;
@@ -723,8 +723,14 @@ namespace TabulateSmarterTestContentPackage
             // Translation
             string translation = GetTranslation(it, xml, xmlMetadata);
 
-            // Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation
-            mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(version), CsvEncode(subject), CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation)));
+            // Media
+            string media = GetMedia(it, xml);
+
+            // Size
+            long size = GetItemSize(it);
+
+            // Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation,Media,Size
+            mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(version), CsvEncode(subject), CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), CsvEncode(media), size.ToString()));
 
             // === Tabulation is complete, check for other errors
 
@@ -871,7 +877,7 @@ namespace TabulateSmarterTestContentPackage
 
                     // Get the bankKey
                     string bankKey = xml.XpEvalE("itemrelease/item/@bankkey");
-                    
+
                     // Look for the stimulus
                     string stimulusFilename = string.Format(@"Stimuli\stim-{1}-{0}\stim-{1}-{0}.xml", stimId, bankKey);
                     if (!mPackageFolder.FileExists(stimulusFilename))
@@ -983,8 +989,14 @@ namespace TabulateSmarterTestContentPackage
             // Translation
             string translation = GetTranslation(it, xml, xmlMetadata);
 
-            // Folder,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation
-            mStimulusReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(version), CsvEncode(subject), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation)));
+            // Media
+            string media = GetMedia(it, xml);
+
+            // Size
+            long size = GetItemSize(it);
+
+            // Folder,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,Media,Size
+            mStimulusReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(version), CsvEncode(subject), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), CsvEncode(media), size.ToString()));
 
         } // TabulatePassage
 
@@ -1285,6 +1297,64 @@ namespace TabulateSmarterTestContentPackage
             return translation;
         }
 
+        static readonly HashSet<string> sMediaFileTypes = new HashSet<string>(
+            new string[] {"MP4", "MP3", "M4A", "OGG", "VTT", "M4V", "MPG", "MPEG"  });
+
+        string GetMedia(ItemContext it, XmlDocument xml)
+        {
+            //if (it.ItemId.Equals("1117", StringComparison.Ordinal)) Debugger.Break();
+
+            // First get the list of attachments so that they are not included in the media list
+            HashSet<string> attachments = new HashSet<string>();
+            foreach (XmlElement xmlEle in xml.SelectNodes(it.IsPassage ? "itemrelease/passage/content/attachmentlist/attachment" : "itemrelease/item/content/attachmentlist/attachment"))
+            {
+                string filename = xmlEle.GetAttribute("file").ToLowerInvariant();
+                if (!string.IsNullOrEmpty(filename)) attachments.Add(filename);
+            }
+
+            // Get the content string so we can verify that media files are referenced.
+            string content = string.Empty;
+            foreach (XmlElement xmlEle in xml.SelectNodes(it.IsPassage ? "itemrelease/passage/content/stem" : "itemrelease/item/content/stem"))
+            {
+                content += xmlEle.InnerText;
+            }
+
+            // Enumerate all files and select the media
+            System.Collections.Generic.SortedSet<string> mediaList = new SortedSet<string>();
+            foreach(FileFile file in it.FfItem.Files)
+            {
+                string filename = file.Name;
+                if (attachments.Contains(filename.ToLowerInvariant())) continue;
+
+                string ext = Path.GetExtension(filename);
+                if (ext.Length > 0) ext = ext.Substring(1).ToUpperInvariant(); // Drop the leading period
+                if (sMediaFileTypes.Contains(ext))
+                {
+                    // Make sure media file is referenced
+                    if (Program.gValidationOptions.IsEnabled("umf") && content.IndexOf(filename, StringComparison.OrdinalIgnoreCase) < 0)
+                    {
+                        ReportError(it, ErrCat.Item, ErrSeverity.Benign, "Media file not referenced in item.", "Filename='{0}'", filename);
+                    }
+                    else
+                    {
+                        mediaList.Add(ext);
+                    }
+                }
+            }
+
+            if (mediaList.Count == 0) return string.Empty;
+            return string.Join(";", mediaList);
+        }
+
+        long GetItemSize(ItemContext it)
+        {
+            long size = 0;
+            foreach (FileFile f in it.FfItem.Files)
+            {
+                size += f.Length;
+            }
+            return size;
+        }
 
         /* 
          * Locate and parse the standard, claim, and target from the metadata

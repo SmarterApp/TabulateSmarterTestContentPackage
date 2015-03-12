@@ -427,8 +427,6 @@ namespace TabulateSmarterTestContentPackage
         {
             ZipArchiveEntry mEntry;
 
-            long mLength;
-
             public ZipFileFile(string rootedName, string name, ZipArchiveEntry entry)
                 : base(rootedName, name)
             {
@@ -437,7 +435,7 @@ namespace TabulateSmarterTestContentPackage
 
             public override long Length
             {
-                get { return mLength; }
+                get { return mEntry.Length; }
             }
 
             public override Stream Open()
