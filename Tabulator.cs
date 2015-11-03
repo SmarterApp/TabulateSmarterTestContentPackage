@@ -653,7 +653,7 @@ namespace TabulateSmarterTestContentPackage
                 }
 
                 if (!string.IsNullOrEmpty(machineRubricFilename) && !usesMachineRubric)
-                    ReportError(it, ErrCat.Rubric, ErrSeverity.Benign, "Unexpected machine rubric found for HandScored item type.", "Filename='{1}'", machineRubricFilename);
+                    ReportError(it, ErrCat.Rubric, ErrSeverity.Benign, "Unexpected machine rubric found for HandScored item type.", "Filename='{0}'", machineRubricFilename);
 
                 // Check for unreferenced machine rubrics
                 foreach (FileFile fi in it.FfItem.Files)
