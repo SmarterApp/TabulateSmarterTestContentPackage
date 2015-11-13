@@ -231,7 +231,7 @@ namespace TabulateSmarterTestContentPackage
             mItemReport.WriteLine("Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation,Media,Size");
 
             mStimulusReport = new StreamWriter(string.Concat(reportPrefix, cStimulusReportFn));
-            mStimulusReport.WriteLine("Folder,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,Media,Size");
+            mStimulusReport.WriteLine("Folder,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,Media,Size,WordCount");
 
             mSummaryReportPath = string.Concat(reportPrefix, cSummaryReportFn);
             if (File.Exists(mSummaryReportPath)) File.Delete(mSummaryReportPath);
@@ -995,8 +995,11 @@ namespace TabulateSmarterTestContentPackage
             // Size
             long size = GetItemSize(it);
 
-            // Folder,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,Media,Size
-            mStimulusReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(version), CsvEncode(subject), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), CsvEncode(media), size.ToString()));
+            // WordCount
+            long wordCount = GetWordCount(it, xml);
+
+            // Folder,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,Media,Size,WordCount
+            mStimulusReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(version), CsvEncode(subject), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), CsvEncode(media), size.ToString(), wordCount.ToString()));
 
         } // TabulatePassage
 
@@ -1356,6 +1359,42 @@ namespace TabulateSmarterTestContentPackage
             return size;
         }
 
+        long GetWordCount(ItemContext it, XmlDocument xml)
+        {
+            string content = string.Empty;
+            int index = 0, wordCount = 0;
+            foreach (XmlElement xmlEle in xml.SelectNodes(it.IsPassage ? "itemrelease/passage/content/stem" : "itemrelease/item/content/stem"))
+            {
+                content = xmlEle.InnerText;
+
+                // strip HTML
+                content = Regex.Replace(content, @"<[^>]+>|&nbsp;", "").Trim();
+                // replace the non-breaking HTML character &#xA0; with a blank
+                content = content.Replace("&#xA0;", "");
+                
+                // calculate word count
+                while (index < content.Length)
+                {
+                    // check if current char is part of a word.  whitespace, hypen and slash are word terminators
+                    while (index < content.Length && 
+                           (Char.IsWhiteSpace(content[index]) == false &&
+                           !content[index].Equals("-") &&
+                           !content[index].Equals("/")))
+                        index++;
+                    
+                    wordCount++;
+
+                    // skip whitespace, hypen, slash and stand alone punctuation marks until next word
+                    while (index < content.Length && 
+                           (Char.IsWhiteSpace(content[index]) == true ||
+                           content[index].Equals("-") ||
+                           content[index].Equals("/") ||
+                           Regex.IsMatch(content[index].ToString(), @"[\p{P}]")))
+                        index++;
+                }
+            }
+            return wordCount;
+        }
         /* 
          * Locate and parse the standard, claim, and target from the metadata
          * 
