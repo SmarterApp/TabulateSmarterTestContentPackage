@@ -1255,14 +1255,12 @@ namespace TabulateSmarterTestContentPackage
             // Check for match with metadata
             if (string.Equals(brailleTypeMeta, "Not Braillable", StringComparison.OrdinalIgnoreCase))
             {
-                if (brailleTypes.Count == 0)
-                {
-                    brailleTypes.Add("NotBraillable");
-                }
-                else
+                if (brailleTypes.Count != 0)
                 {
                     ReportError(it, ErrCat.Metadata, ErrSeverity.Benign, "Metadata indicates not braillable but braille content included.", "brailleTypes='{0}'", string.Join(";", brailleTypes));
                 }
+                brailleTypes.Clear();
+                brailleTypes.Add("NotBraillable");
             }
 
             return string.Join(";", brailleTypes);
