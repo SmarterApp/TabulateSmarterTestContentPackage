@@ -508,8 +508,8 @@ namespace TabulateSmarterTestContentPackage
 
             // Check interaction type
             string metaItemType = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:InteractionType", sXmlNs);
-            if (!string.Equals(metaItemType, it.ItemType.ToUpper(), StringComparison.Ordinal))
-                ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Incorrect metadata <InteractionType>.", "InteractionType='{0}' Expected='{1}'", metaItemType, it.ItemType.ToUpper());
+            if (!string.Equals(metaItemType, it.ItemType.ToUpperInvariant(), StringComparison.Ordinal))
+                ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Incorrect metadata <InteractionType>.", "InteractionType='{0}' Expected='{1}'", metaItemType, it.ItemType.ToUpperInvariant());
 
             // Get the version
             string version = xml.XpEvalE("itemrelease/item/@version");
@@ -614,16 +614,16 @@ namespace TabulateSmarterTestContentPackage
                         metadataExpected = (machineRubricFilename != null) ? "Automatic with Machine Rubric" : "HandScored";
                         usesMachineRubric = true;
                         rubric = machineRubricType;
-                        if (!string.Equals(answerKeyValue, it.ItemType.ToUpper()))
-                            ReportError(it, ErrCat.Rubric, ErrSeverity.Tolerable, "Unexpected answer key attribute.", "Value='{0}' Expected='{1}'", answerKeyValue, it.ItemType.ToUpper());
+                        if (!string.Equals(answerKeyValue, it.ItemType.ToUpperInvariant()))
+                            ReportError(it, ErrCat.Rubric, ErrSeverity.Tolerable, "Unexpected answer key attribute.", "Value='{0}' Expected='{1}'", answerKeyValue, it.ItemType.ToUpperInvariant());
                         break;
 
                     case "er":          // Extended-Response
                     case "sa":          // Short Answer
                     case "wer":         // Writing Extended Response
                         metadataExpected = "HandScored";
-                        if (!string.Equals(answerKeyValue, it.ItemType.ToUpper()))
-                            ReportError(it, ErrCat.Rubric, ErrSeverity.Tolerable, "Unexpected answer key attribute.", "Value='{0}' Expected='{1}'", answerKeyValue, it.ItemType.ToUpper());
+                        if (!string.Equals(answerKeyValue, it.ItemType.ToUpperInvariant()))
+                            ReportError(it, ErrCat.Rubric, ErrSeverity.Tolerable, "Unexpected answer key attribute.", "Value='{0}' Expected='{1}'", answerKeyValue, it.ItemType.ToUpperInvariant());
                         break;
 
                     default:
@@ -846,7 +846,7 @@ namespace TabulateSmarterTestContentPackage
                         if (!sValidWritingTypes.Contains(ptWritingType))
                         {
                             // Fix capitalization
-                            string normalized = string.Concat(ptWritingType.Substring(0, 1).ToUpper(), ptWritingType.Substring(1).ToLowerInvariant());
+                            string normalized = string.Concat(ptWritingType.Substring(0, 1).ToUpperInvariant(), ptWritingType.Substring(1).ToLowerInvariant());
 
                             // Report according to type of error
                             if (!sValidWritingTypes.Contains(normalized))
@@ -1160,58 +1160,123 @@ namespace TabulateSmarterTestContentPackage
 
         string GetBrailleType(ItemContext it, XmlDocument xml, XmlDocument xmlMetadata)
         {
-            string brailleFile = string.Empty;
-            {
-                bool brfFound = CheckForAttachment(it, xml, "BRF", "BRF");
-                if (brfFound) brailleFile = "BRF";
-                if (!brfFound) ReportUnexpectedFiles(it, "Braille BRF", @"^item_{0}_.*\.brf$", it.ItemId);
+            // First, check metadata
+            string brailleTypeMeta = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:BrailleType", sXmlNs);
 
-                bool prnFound = CheckForAttachment(it, xml, "PRN", "PRN");
-                if (prnFound)
+            SortedSet<string> brailleTypes = new SortedSet<string>(new CompareBrailleType());
+
+            // Enumerate all of the braille attachments
+            {
+                string xp = (!it.IsPassage)
+                    ? string.Concat("itemrelease/item/content/attachmentlist/attachment")
+                    : string.Concat("itemrelease/passage/content/attachmentlist/attachment");
+
+                foreach(XmlElement xmlEle in xml.SelectNodes(xp))
                 {
-                    if (brailleFile.Length > 0) brailleFile = string.Concat(brailleFile, " ", "PRN");
-                    else brailleFile = "PRN";
+                    // Get attachment type and check if braille
+                    string attachType = xmlEle.GetAttribute("type");
+                    if (string.IsNullOrEmpty(attachType))
+                    {
+                        ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Attachment missing type attribute.");
+                        continue;
+                    }
+                    if (!attachType.Equals("PRN") && !attachType.Equals("BRF"))
+                    {
+                        continue; // Not braille attachment
+                    }
+
+                    if (!attachType.Equals(brailleTypeMeta))
+                    {
+                        ReportError(it, ErrCat.Metadata, ErrSeverity.Severe, "Braille metadata does not match attachment type.", "metadata='{0}', fileType='{1}'", brailleTypeMeta, attachType);
+                    }
+
+                    // Check that the file exists
+                    string filename = xmlEle.GetAttribute("file");
+                    if (string.IsNullOrEmpty(filename))
+                    {
+                        ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Attachment missing file attribute.", "attachType='{0}'", attachType);
+                        continue;
+                    }
+                    if (!it.FfItem.FileExists(filename))
+                    {
+                        ReportError(it, ErrCat.Item, ErrSeverity.Tolerable, "Dangling reference to attached file that does not exist.", "attachType='{0}' Filename='{1}'", attachType, filename);
+                        continue;
+                    }
+
+                    // Check the extension
+                    string extension = Path.GetExtension(filename);
+                    if (extension.Length > 0) extension = extension.Substring(1); // Strip leading "."
+                    if (!string.Equals(extension, attachType, StringComparison.OrdinalIgnoreCase))
+                    {
+                        ReportError(it, ErrCat.Item, ErrSeverity.Benign, "Unexpected extension for attached file.", "extension='{0}' expected='{1}' filename='{2}'", extension, attachType, filename);
+                    }
+
+                    // Get the subtype (if any)
+                    string subtype = xmlEle.GetAttribute("subtype");
+                    string brailleFile = (string.IsNullOrEmpty(subtype)) ? attachType.ToUpperInvariant() : string.Concat(attachType.ToUpperInvariant(), "(", subtype.ToLowerInvariant(), ")");
+
+                    // Report the result
+                    if (!brailleTypes.Add(brailleFile))
+                    {
+                        ReportError(it, ErrCat.Item, ErrSeverity.Tolerable, "Multiple attachments of same type and subtype.", "type='{0}'", brailleFile);
+                    }
                 }
-                if (!prnFound) ReportUnexpectedFiles(it, "Braille PRN", @"^item_{0}_.*\.prn$", it.ItemId);
             }
 
-            string brailleType = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:BrailleType", sXmlNs);
-            if (!string.Equals(brailleFile, brailleType))
-            {
-                if (string.IsNullOrEmpty(brailleFile) && string.Equals(brailleType, "Not Braillable", StringComparison.OrdinalIgnoreCase))
-                {
-                    // do nothing, this is OK
-                }
-                else
-                {
-                    ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "Braille file presence doesn't match metadata.", "BrailleFile='{0}' Metadata BrailleType='{1}'", brailleFile, brailleType);
-                    brailleType = brailleFile;   // Use the one that more closely reflects reality
-                }
-            }
-
-            // BrailleText Error Checking
-            if (!string.IsNullOrEmpty(brailleType) && Program.gValidationOptions.IsEnabled("ebt"))
+            // Enumerate all embedded braille.
             {
                 bool emptyBrailleTextFound = false;
-                foreach (XmlElement xmlBraille in xml.SelectNodes(it.IsPassage
-                    ? "itemrelease/passage/content//brailleText"
-                    : "itemRelease/item/content//brailleText"))
+                foreach (XmlElement xmlBraille in xml.SelectNodes("//brailleText"))
                 {
-                    foreach (XmlNode node in xmlBraille.ChildNodes)
+                    foreach (XmlElement node in xmlBraille.ChildNodes)
                     {
                         if (node.NodeType == XmlNodeType.Element &&
-                            (string.Equals(node.Name, "brailleTextString") || string.Equals(node.Name, "brailleCode")))
+                            (string.Equals(node.Name, "brailleTextString", StringComparison.Ordinal) || string.Equals(node.Name, "brailleCode", StringComparison.Ordinal)))
                         {
-                            if (node.InnerText.Length == 0) emptyBrailleTextFound = true;
+                            if (node.InnerText.Length != 0)
+                            {
+                                string brailleEmbedded = string.Equals(node.Name, "brailleTextString", StringComparison.Ordinal) ? "Embed" : "EmbedCode";
+                                string brailleType = node.GetAttribute("type");
+                                if (!string.IsNullOrEmpty(brailleType)) brailleEmbedded = string.Concat(brailleEmbedded, "(", brailleType.ToLowerInvariant(), ")");
+                                brailleTypes.Add(brailleEmbedded);
+                            }
+                            else
+                            {
+                                emptyBrailleTextFound = true;
+                            }
                         }
                     }
                 }
 
-                if (!string.IsNullOrEmpty(brailleFile) && emptyBrailleTextFound)
+                if (emptyBrailleTextFound && Program.gValidationOptions.IsEnabled("ebt"))
                     ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "brailleTextString and/or brailleCode element is empty.");
             }
 
-            return brailleType;
+            // Check for match with metadata
+            if (string.Equals(brailleTypeMeta, "Not Braillable", StringComparison.OrdinalIgnoreCase))
+            {
+                if (brailleTypes.Count == 0)
+                {
+                    brailleTypes.Add("NotBraillable");
+                }
+                else
+                {
+                    ReportError(it, ErrCat.Metadata, ErrSeverity.Benign, "Metadata indicates not braillable but braille content included.", "brailleTypes='{0}'", string.Join(";", brailleTypes));
+                }
+            }
+
+            return string.Join(";", brailleTypes);
+        }
+
+        private class CompareBrailleType : IComparer<string>
+        {
+            public int Compare(string x, string y)
+            {
+                // Make "PRN" sort between "BRF" and "Embed"
+                if (x.StartsWith("PRN", StringComparison.Ordinal)) x = "C" + x.Substring(3);
+                if (y.StartsWith("PRN", StringComparison.Ordinal)) y = "C" + y.Substring(3);
+                return string.CompareOrdinal(x, y);
+            }
         }
 
         string GetWordlistId(ItemContext it, XmlDocument xml)

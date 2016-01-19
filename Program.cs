@@ -108,8 +108,7 @@ Validation Options:
 
                 if (rootPath == null)
                 {
-                    Console.Error.WriteLine(cSyntax);
-                    return;
+                    operation = 'h';
                 }
 
                 Tabulator tab = new Tabulator();
