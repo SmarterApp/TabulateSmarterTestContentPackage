@@ -744,8 +744,10 @@ namespace TabulateSmarterTestContentPackage
                 }
                 else
                 {
+                    // Ensure FirstWord() only contains integers
                     int points;
-                    if (!int.TryParse(itemPoint.FirstWord(), out points))
+                    string pointsString = Regex.Match(itemPoint.FirstWord(), "^([0-9])+").ToString();
+                    if (!int.TryParse(pointsString, out points))
                     {
                         ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Item Point attribute is not integer.", "itm_att_Item Point='{0}'", itemPoint);
                     }
