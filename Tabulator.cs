@@ -371,6 +371,11 @@ namespace TabulateSmarterTestContentPackage
             VerifyWordlistReferences();
         }
 
+        /// <summary>
+        /// Performs basic checks on each item to make sure the item xml exists, and that it is the correct type
+        /// Important: also adds each item to mIdToItemContext, as long as it passes these basic tests.
+        /// </summary>
+        /// <param name="ffItem"></param>
         private void TabulateItem_Pass1(FileFolder ffItem)
         {
             // Read the item XML
@@ -400,7 +405,7 @@ namespace TabulateSmarterTestContentPackage
             }
             else
             {
-            mIdToItemContext.Add(itemId, it);
+                mIdToItemContext.Add(itemId, it);
             }
 
             switch (itemType)
@@ -914,6 +919,13 @@ namespace TabulateSmarterTestContentPackage
                     CheckDependencyInManifest(it, tutorialFilename, "Tutorial");
                 }
             }
+
+            // Validate items with illustrations
+            if (ItemHasIllustration(it, document))
+            {
+                ValidateItemWithIllustration(it, xml);
+            }
+
         } // TablulateInteraction
 
         void TabulatePassage(ItemContext it, XmlDocument xml)
@@ -1120,6 +1132,17 @@ namespace TabulateSmarterTestContentPackage
                 return true;
             }
             return false;
+        }
+
+        // TODO: Implement
+        bool ItemHasIllustration(ItemContext itemContext, XmlDocument document)
+        {
+            return false;
+        }
+        // TODO: Implement
+        void ValidateItemWithIllustration(ItemContext itemContext, XmlDocument document)
+        {
+            
         }
 
         void ReportUnexpectedFiles(ItemContext it, string fileType, string regexPattern, params object[] args)
