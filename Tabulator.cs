@@ -54,8 +54,7 @@ namespace TabulateSmarterTestContentPackage
 
         // Filenames
         const string cSummaryReportFn = "SummaryReport.txt";
-        const string cTextGlossaryReportFn = "TextGlossaryReport.csv";
-        const string cAudioGlossaryReportFn = "AudioGlossaryReport.csv";
+        const string cGlossaryReportFn = "GlossaryReport.csv";
         const string cItemReportFn = "ItemReport.csv";
         const string cStimulusReportFn = "StimulusReport.csv";
         const string cErrorReportFn = "ErrorReport.csv";
@@ -83,8 +82,7 @@ namespace TabulateSmarterTestContentPackage
         Dictionary<string, ItemContext> mIdToItemContext = new Dictionary<string, ItemContext>();
 
         // Per report variables
-        TextWriter mTextGlossaryReport;
-        TextWriter mAudioGlossaryReport;
+        TextWriter mGlossaryReport;
         TextWriter mItemReport;
         TextWriter mStimulusReport;
         string mErrorReportPath;
@@ -221,11 +219,11 @@ namespace TabulateSmarterTestContentPackage
             mErrorReportPath = string.Concat(reportPrefix, cErrorReportFn);
             if (File.Exists(mErrorReportPath)) File.Delete(mErrorReportPath);
 
-            mTextGlossaryReport = new StreamWriter(string.Concat(reportPrefix, cTextGlossaryReportFn), false, sUtf8NoBomEncoding);
-            mTextGlossaryReport.WriteLine("Folder,WIT_ID,RefCount,Index,Term,Language,Length");
-
-            mAudioGlossaryReport = new StreamWriter(string.Concat(reportPrefix, cAudioGlossaryReportFn));
-            mAudioGlossaryReport.WriteLine("Folder,WIT_ID,RefCount,Index,Term,Language,Encoding,Size");
+            mGlossaryReport = new StreamWriter(string.Concat(reportPrefix, cGlossaryReportFn), false, sUtf8NoBomEncoding);
+            if (Program.gValidationOptions.IsEnabled("gtr"))
+                mGlossaryReport.WriteLine("Folder,WIT_ID,RefCount,Index,Term,Language,Length,Audio,AudioSize,Image,ImageSize,Text");
+            else
+                mGlossaryReport.WriteLine("Folder,WIT_ID,RefCount,Index,Term,Language,Length,Audio,AudioSize,Image,ImageSize");
 
             mItemReport = new StreamWriter(string.Concat(reportPrefix, cItemReportFn));
             mItemReport.WriteLine("Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation,Media,Size");
@@ -279,15 +277,10 @@ namespace TabulateSmarterTestContentPackage
                     mItemReport.Dispose();
                     mItemReport = null;
                 }
-                if (mAudioGlossaryReport != null)
+                if (mGlossaryReport != null)
                 {
-                    mAudioGlossaryReport.Dispose();
-                    mAudioGlossaryReport = null;
-                }
-                if (mTextGlossaryReport != null)
-                {
-                    mTextGlossaryReport.Dispose();
-                    mTextGlossaryReport = null;
+                    mGlossaryReport.Dispose();
+                    mGlossaryReport = null;
                 }
                 if (mErrorReport != null)
                 {
@@ -1520,7 +1513,8 @@ namespace TabulateSmarterTestContentPackage
             target = string.Empty;
         }
 
-        static readonly Regex sRxParseAudiofile = new Regex(@"Item_(\d+)_v(\d+)_(\w+)_(\d+)([a-zA-Z]+)_glossary_", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+        static readonly Regex sRxAudioAttachment = new Regex(@"<a[^>]*href=""([^""]*)""[^>]*>", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+        static readonly Regex sRxImageAttachment = new Regex(@"<img[^>]*src=""([^""]*)""[^>]*>", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
         private void TabulateWordList(ItemContext it)
         {
@@ -1542,7 +1536,20 @@ namespace TabulateSmarterTestContentPackage
                 ReportError(it, ErrCat.Wordlist, ErrSeverity.Benign, "Wordlist is not referenced by any item.");
             }
 
-            // Enumerate up the terms in the wordlist
+            Dictionary<string, long> attachmentFiles = new Dictionary<string, long>();
+
+            // Enumerate audio and image files
+            foreach (FileFile fi in it.FfItem.Files)
+            {
+                // If Audio or image file
+                string extension = fi.Extension.ToLowerInvariant();
+                if (!string.Equals(extension, ".xml", StringComparison.Ordinal))
+                {
+                    attachmentFiles.Add(fi.Name, fi.Length);
+                }
+            }
+
+            // Enumerate all the terms in the wordlist
             List<string> terms = new List<string>();
             ++mWordlistCount;
             foreach (XmlNode kwNode in xml.SelectNodes("itemrelease/item/keywordList/keyword"))
@@ -1560,52 +1567,82 @@ namespace TabulateSmarterTestContentPackage
                     string language = htmlNode.XpEval("@listType");
                     mTranslationCounts.Increment(language);
 
-                    // Folder,WIT_ID,RefCount,Index,Term,Language,Length
-                    mTextGlossaryReport.WriteLine(string.Join(",", it.Folder, CsvEncode(it.ItemId), refCount.ToString(), index.ToString(), CsvEncodeExcel(term), CsvEncode(language), htmlNode.InnerXml.Length.ToString()));
+                    // Get the embedded HTML
+                    string html = htmlNode.InnerText;
+
+                    string audioType = string.Empty;
+                    long audioSize = 0;
+                    string imageType = string.Empty;
+                    long imageSize = 0;
+
+                    // Look for an audio glossary entry
+                    Match match = sRxAudioAttachment.Match(html);
+                    if (match.Success)
+                    {
+                        // Use RegEx to find the audio glossary entry in the contents.
+                        string filename = match.Groups[1].Value;
+                        ProcessGlossaryAttachment(it, filename, attachmentFiles, ref audioType, ref audioSize);
+
+                        // Check for dual types
+                        if (string.Equals(Path.GetExtension(filename), ".ogg", StringComparison.OrdinalIgnoreCase))
+                        {
+                            filename = Path.GetFileNameWithoutExtension(filename) + ".m4a";
+                            ProcessGlossaryAttachment(it, filename, attachmentFiles, ref audioType, ref audioSize);
+                        }
+                        else if (string.Equals(Path.GetExtension(filename), ".m4a", StringComparison.OrdinalIgnoreCase))
+                        {
+                            filename = Path.GetFileNameWithoutExtension(filename) + ".ogg";
+                            ProcessGlossaryAttachment(it, filename, attachmentFiles, ref audioType, ref audioSize);
+                        }
+                    }
+
+                    // Look for an image glossary entry
+                    match = sRxImageAttachment.Match(html);
+                    if (match.Success)
+                    {
+                        // Use RegEx to find the audio glossary entry in the contents.
+                        string filename = match.Groups[1].Value;
+                        ProcessGlossaryAttachment(it, filename, attachmentFiles, ref imageType, ref imageSize);
+                    }
+
+                    // Folder,WIT_ID,RefCount,Index,Term,Language,Length,Audio,AudioSize,Image,ImageSize
+                    if (Program.gValidationOptions.IsEnabled("gtr"))
+                        mGlossaryReport.WriteLine(string.Join(",", it.Folder, CsvEncode(it.ItemId), refCount.ToString(), index.ToString(), CsvEncodeExcel(term), CsvEncode(language), html.Length.ToString(), audioType, audioSize.ToString(), imageType, imageSize.ToString(), CsvEncode(html)));
+                    else
+                        mGlossaryReport.WriteLine(string.Join(",", it.Folder, CsvEncode(it.ItemId), refCount.ToString(), index.ToString(), CsvEncodeExcel(term), CsvEncode(language), html.Length.ToString(), audioType, audioSize.ToString(), imageType, imageSize.ToString()));
                 }
             }
 
-            // Tablulate m4a audio translations
-            foreach (FileFile fi in it.FfItem.Files)
+            // Report unreferenced attachments
+            foreach (var pair in attachmentFiles)
             {
-                // If Audio file
-                string extension = fi.Extension.ToLowerInvariant();
-                if (extension.Length > 0) extension = extension.Substring(1);
-                if (string.Equals(extension, "m4a", StringComparison.Ordinal) || string.Equals(extension, "ogg", StringComparison.Ordinal))
-                {
-                    Match match = sRxParseAudiofile.Match(fi.Name);
-                    if (match.Success)
-                    {
-                        string language = match.Groups[5].Value;
-                        int index = int.Parse(match.Groups[4].Value);
+                ReportError(it, ErrCat.Wordlist, ErrSeverity.Benign, "Unreferenced wordlist attachment file.", "filename='{0}'", pair.Key);
+            }
+        }
 
-                        if (index == 0 || index >= terms.Count)
-                        {
-                            ReportError(it, ErrCat.Wordlist, ErrSeverity.Benign, "Audio file with no matching glossary term.", "filename='{0}' index='{1}'", fi.Name, index);
-                            continue;
-                        }
+        void ProcessGlossaryAttachment(ItemContext it, string filename, Dictionary<string, long> attachmentFiles, ref string type, ref long size)
+        {
+            long fileSize = 0;
+            if (!attachmentFiles.TryGetValue(filename, out fileSize))
+            {
+                ReportError(it, ErrCat.Wordlist, ErrSeverity.Severe, "WordList attachment not found.", "filename='{0}'", filename);
+                fileSize = 0;
+            }
+            else
+            {
+                attachmentFiles.Remove(filename);
+            }
 
-                        string term = terms[index];
-
-                        if (string.Equals(extension, "m4a", StringComparison.Ordinal))
-                        {
-                            mM4aTranslationCounts.Increment(language);
-                            ++mGlossaryM4aCount;
-                        }
-                        else
-                        {
-                            mOggTranslationCounts.Increment(language);
-                            ++mGlossaryOggCount;
-                        }
-
-                        // Folder,WIT_ID,RefCount,Index,Term,Language,Encoding,Size
-                        mAudioGlossaryReport.WriteLine(String.Join(",", it.Folder, CsvEncode(it.ItemId), refCount.ToString(), index.ToString(), CsvEncodeExcel(term), CsvEncode(language), CsvEncode(extension), fi.Length.ToString()));
-                    }
-                    else
-                    {
-                        ReportError(it, ErrCat.Unsupported, ErrSeverity.Degraded, "Audio Glossary Filename in unrecognized format: {0}", fi.Name);
-                    }
-                }
+            size += fileSize;
+            string extension = Path.GetExtension(filename);
+            if (extension.Length > 1) extension = extension.Substring(1);
+            if (string.IsNullOrEmpty(type))
+            {
+                type = extension.ToLower();
+            }
+            else
+            {
+                type = string.Concat(type, ";", extension.ToLower());
             }
         }
 

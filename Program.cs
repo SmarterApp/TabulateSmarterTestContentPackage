@@ -55,6 +55,8 @@ Validation Options:
             a target matches the grade alignment in the item attributes.
     -v+umf  Unreferenced Media File: Enables checking whether media files are
             referenced in the corresponding item or passage.
+    -v+gtr  Glossary Text Report: Include glossary text in the Glossary
+            Report output file.
 ";
 // 78 character margin                                                       |
 
@@ -70,6 +72,7 @@ Validation Options:
                 gValidationOptions.Disable("ebt");  // Disable EmptyBrailleText test.
                 gValidationOptions.Disable("tgs");  // Disable Target Grade Suffix
                 gValidationOptions.Disable("umf");  // Disable checking for Unreferenced Media Files
+                gValidationOptions.Disable("gtr");  // Disable Glossary Text Report
 
                 string rootPath = null;
                 char operation = 'o'; // o=one, s=packages in Subdirectories, a=aggregate packages in subdirectories
