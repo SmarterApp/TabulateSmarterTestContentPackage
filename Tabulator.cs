@@ -918,9 +918,9 @@ namespace TabulateSmarterTestContentPackage
             }
 
             // Validate items with illustrations
-            if (ItemHasIllustration(it, document))
+            if (ItemReferencesWordList(it, xml))
             {
-                ValidateItemWithIllustration(it, xml);
+                ValidateItemWithWordList(it, xml);
             }
 
         } // TablulateInteraction
@@ -1131,15 +1131,30 @@ namespace TabulateSmarterTestContentPackage
             return false;
         }
 
-        // TODO: Implement
-        bool ItemHasIllustration(ItemContext itemContext, XmlDocument document)
+        bool ItemReferencesWordList(ItemContext itemContext, XmlDocument xmlDocument)
         {
-            return false;
+            XmlElement wordlist = xmlDocument.SelectSingleNode("itemrelease/item/resourceslist/resource[@type = 'wordList']") as XmlElement;
+            if (wordlist != null)
+                return true;
+            else
+                return false;
         }
-        // TODO: Implement
-        void ValidateItemWithIllustration(ItemContext itemContext, XmlDocument document)
+
+        void ValidateItemWithWordList(ItemContext itemContext, XmlDocument xmlDocument)
         {
-            
+            XmlElement wordlist = xmlDocument.SelectSingleNode("itemrelease/item/resourceslist/resource[@type = 'wordList']") as XmlElement;
+            if (!wordlist.HasAttribute("id"))
+            {
+                ReportError(itemContext, ErrCat.Item, ErrSeverity.Severe, "Wordlist is missing id");
+            }
+            if (!wordlist.HasAttribute("index"))
+            {
+                ReportError(itemContext, ErrCat.Item, ErrSeverity.Degraded, "Wordlist is missing index");
+            }
+            if (!wordlist.HasAttribute("bankkey"))
+            {
+                ReportError(itemContext, ErrCat.Item, ErrSeverity.Benign, "Wordlist is missing bankkey");
+            }
         }
 
         void ReportUnexpectedFiles(ItemContext it, string fileType, string regexPattern, params object[] args)
