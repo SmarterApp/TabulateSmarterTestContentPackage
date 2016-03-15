@@ -1584,21 +1584,49 @@ namespace TabulateSmarterTestContentPackage
             ++mWordlistCount;
             foreach (XmlNode kwNode in xml.SelectNodes("itemrelease/item/keywordList/keyword"))
             {
+                XmlElement kwElement = kwNode as XmlElement;
                 ++mGlossaryTermCount;
-                string term = kwNode.XpEval("@text");
-                int index = int.Parse(kwNode.XpEval("@index"));
+                string term = kwElement.XpEval("@text");
+                int index = int.Parse(kwElement.XpEval("@index"));
                 mTermCounts.Increment(term);
 
                 while (terms.Count < index + 1) terms.Add(string.Empty);
                 terms[index] = term;
 
-                foreach(XmlNode htmlNode in kwNode.SelectNodes("html"))
+                // Ensure each keyword element has the correct attributes
+                if (!kwElement.HasAttribute("text"))
                 {
-                    string language = htmlNode.XpEval("@listType");
+                    ReportError(it, ErrCat.Wordlist, ErrSeverity.Severe, "Wordlist's keyword is missing text attribute");
+                }
+                if (!kwElement.HasAttribute("index"))
+                {
+                    ReportError(it, ErrCat.Wordlist, ErrSeverity.Benign, "Wordlist's keyword is missing index attribute");
+                }
+
+                foreach (XmlNode htmlNode in kwElement.SelectNodes("html"))
+                {
+                    XmlElement htmlElement = htmlNode as XmlElement;
+                    string language = htmlElement.XpEval("@listType");
                     mTranslationCounts.Increment(language);
 
+                    // Ensure each keyword's child html elements has the correct attributes
+                    if (!htmlElement.HasAttribute("listType"))
+                    {
+                        ReportError(it, ErrCat.Wordlist, ErrSeverity.Degraded, "Wordlist's keyword html is missing listType attribute");
+                    }
+                    if (!htmlElement.HasAttribute("listCode"))
+                    {
+                        ReportError(it, ErrCat.Wordlist, ErrSeverity.Severe, "Wordlist's keyword html is missing listCode attribute");
+                    }
+
+                    // Check the value of the html's listCode attribute
+                    if (htmlElement.InnerText == null)
+                    {
+                        ReportError(it, ErrCat.Wordlist, ErrSeverity.Tolerable, "Wordlist's keyword html is empty");
+                    }
+
                     // Folder,WIT_ID,RefCount,Index,Term,Language,Length
-                    mTextGlossaryReport.WriteLine(string.Join(",", it.Folder, CsvEncode(it.ItemId), refCount.ToString(), index.ToString(), CsvEncodeExcel(term), CsvEncode(language), htmlNode.InnerXml.Length.ToString()));
+                    mTextGlossaryReport.WriteLine(string.Join(",", it.Folder, CsvEncode(it.ItemId), refCount.ToString(), index.ToString(), CsvEncodeExcel(term), CsvEncode(language), htmlElement.InnerXml.Length.ToString()));
                 }
             }
 
