@@ -737,13 +737,17 @@ namespace TabulateSmarterTestContentPackage
                 }
                 else
                 {
-                    int points;
-                    if (!int.TryParse(itemPoint.FirstWord(), out points))
+                    // Item Point attribute may have a suffix such as "pt", "pt.", " pt", " pts" and other variations.
+                    // TODO: In seeking consistency, we may make this more picky in the future.
+                    itemPoint = itemPoint.Trim();
+                    if (!char.IsDigit(itemPoint[0]))
                     {
-                        ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Item Point attribute is not integer.", "itm_att_Item Point='{0}'", itemPoint);
+                        ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Item Point attribute does not begin with an integer.", "itm_att_Item Point='{0}'", itemPoint);
                     }
                     else
                     {
+                        int points = itemPoint.ParseLeadingInteger();
+
                         // See if matches MaximumNumberOfPoints (defined as optional in metadata)
                         string metaPoint = xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:MaximumNumberOfPoints", sXmlNs);
                         if (metaPoint == null)
@@ -2001,6 +2005,18 @@ namespace TabulateSmarterTestContentPackage
             str = str.Trim();
             int space = str.IndexOfAny(cWhitespace);
             return (space > 0) ? str.Substring(0, space) : str;
+        }
+
+        public static int ParseLeadingInteger(this string str)
+        {
+            str = str.Trim();
+            int i = 0;
+            foreach (char c in str)
+            {
+                if (!char.IsDigit(c)) return i;
+                i = (i * 10) + (c - '0');
+            }
+            return 0;
         }
     }
 }
