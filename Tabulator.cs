@@ -796,7 +796,7 @@ namespace TabulateSmarterTestContentPackage
                                 }
                                 else if (spoints < 0 || spoints > points)
                                 {
-                                    ReportError(it, ErrCat.Metadata, ErrSeverity.Severe, "Metadata ScorePoints value is out of range (0 - {1}).", "ScorePoints='{0}' value='{1}' min='0' max='{2}'", scorePoints, spoints, points);
+                                    ReportError(it, ErrCat.Metadata, ErrSeverity.Severe, "Metadata ScorePoints value is out of range.", "ScorePoints='{0}' value='{1}' min='0' max='{2}'", scorePoints, spoints, points);
                                 }
                                 else
                                 {
@@ -2016,7 +2016,7 @@ namespace TabulateSmarterTestContentPackage
                 if (!char.IsDigit(c)) return i;
                 i = (i * 10) + (c - '0');
             }
-            return 0;
+            return i;
         }
     }
 }
