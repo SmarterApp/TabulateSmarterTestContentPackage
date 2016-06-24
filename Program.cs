@@ -48,6 +48,8 @@ Validation Options:
             tutorial references and dependencies. This is valuable when
             tutorials are packaged separately from the balance of the
             content.
+    -v-uwt  Unreferenced Wordlist Terms: Disables reporting an error when
+            a wordlist term is not referenced by the corresponding item.
 
     -v+ebt  Empty Braille Text: Enables checking for empty <brailleText>
             elements in items.
@@ -57,6 +59,9 @@ Validation Options:
             referenced in the corresponding item or passage.
     -v+gtr  Glossary Text Report: Include glossary text in the Glossary
             Report output file.
+    -v+mwa  Missing Wordlist Attachments: Reports errors for missing wordlist
+            attachments (audio and images) even when the corresponding term
+            is not referenced by any item.
 ";
 // 78 character margin                                                       |
 
@@ -73,6 +78,7 @@ Validation Options:
                 gValidationOptions.Disable("tgs");  // Disable Target Grade Suffix
                 gValidationOptions.Disable("umf");  // Disable checking for Unreferenced Media Files
                 gValidationOptions.Disable("gtr");  // Disable Glossary Text Report
+                gValidationOptions.Disable("mwa");  // Disable checking for attachments on unreferenced wordlist terms
 
                 string rootPath = null;
                 char operation = 'o'; // o=one, s=packages in Subdirectories, a=aggregate packages in subdirectories
