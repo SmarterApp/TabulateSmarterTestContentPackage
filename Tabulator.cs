@@ -1355,7 +1355,6 @@ namespace TabulateSmarterTestContentPackage
                 ? "itemrelease/passage/resourceslist/resource[@type='wordList']/@id"
                 : "itemrelease/item/resourceslist/resource[@type='wordList']/@id";
             string wordlistId = xml.XpEval(xp);
-            if (string.IsNullOrEmpty(wordlistId)) return string.Empty;
 
             // Compose lists of referenced term Indices and Names
             List<int> termIndices = new List<int>();
@@ -1364,6 +1363,15 @@ namespace TabulateSmarterTestContentPackage
             // Process all CDATA (embedded HTML) sections in the content
             ExtractWordlistRefsFromXmlSubtree(it, xml.SelectSingleNode(it.IsPassage ? "itemrelease/passage/content" : "itemrelease/item/content"),
                 termIndices, terms);
+
+            if (string.IsNullOrEmpty(wordlistId))
+            {
+                if (termIndices.Count > 0)
+                {
+                    ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Item has terms marked for glossary but does not reference a wordlist.");
+                }
+                return string.Empty;
+            }
 
             ValidateWordlistVocabulary(wordlistId, it, termIndices, terms);
             
