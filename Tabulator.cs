@@ -307,6 +307,7 @@ namespace TabulateSmarterTestContentPackage
             mResourceDependencies.Clear();
             mWordlistRefCounts.Clear();
             mIdToItemContext.Clear();
+            mStimContexts.Clear();
 
             // Validate manifest
             try
@@ -1405,6 +1406,8 @@ namespace TabulateSmarterTestContentPackage
         */
         static readonly Regex sRxWordlistReference = new Regex(@"<span[^>]*data-word-index=[""']([^""']*)[""'][^>]*></span>([^<]*)<span[^>]*data-tag-boundary=[""']end[""'][^>]*>", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
+        static readonly char[] s_WhiteAndPunct = { '\t', '\n', '\r', ' ', '!', '"', '#', '$', '%', '&', '\'', '(', ')', '*', '+', ',', '-', '.', '/', ':', ';', '<', '=', '>', '?', '@', '[', '\\', ']', '^', '_', '`', '{', '|', '~' };
+
         void ExtractWordlistRefsFromHtml(ItemContext it, string html, List<int> termIndices, List<string> terms)
         {
             foreach (Match match in sRxWordlistReference.Matches(html))
@@ -1415,7 +1418,7 @@ namespace TabulateSmarterTestContentPackage
                     ReportError(it, ErrCat.Item, ErrSeverity.Severe, "WordList reference term index is not integer", "Ref='{0}'", match.Value);
                 }
                 termIndices.Add(termIndex);
-                terms.Add(match.Groups[2].Value.Trim());
+                terms.Add(match.Groups[2].Value.Trim(s_WhiteAndPunct));
             }
         }
 
@@ -1723,7 +1726,7 @@ namespace TabulateSmarterTestContentPackage
 
             // Keep track of term information for error checks
             List<string> wordlistTerms = new List<string>();
-            Dictionary<string, int> attachmentToIndex = new Dictionary<string, int>();
+            Dictionary<string, TermAttachmentReference> attachmentToReference = new Dictionary<string, TermAttachmentReference>();
 
             // Enumerate all the terms in the wordlist
             foreach (XmlNode kwNode in xml.SelectNodes("itemrelease/item/keywordList/keyword"))
@@ -1753,8 +1756,8 @@ namespace TabulateSmarterTestContentPackage
                 // Find the attachment references
                 foreach (XmlNode htmlNode in kwNode.SelectNodes("html"))
                 {
-                    string language = htmlNode.XpEval("@listType");
-                    mTranslationCounts.Increment(language);
+                    string listType = htmlNode.XpEval("@listType");
+                    mTranslationCounts.Increment(listType);
 
                     // Get the embedded HTML
                     string html = htmlNode.InnerText;
@@ -1770,18 +1773,18 @@ namespace TabulateSmarterTestContentPackage
                     {
                         // Use RegEx to find the audio glossary entry in the contents.
                         string filename = match.Groups[1].Value;
-                        ProcessGlossaryAttachment(filename, it, index, termReferenced, wordlistTerms, attachmentFiles, attachmentToIndex, ref audioType, ref audioSize);
+                        ProcessGlossaryAttachment(filename, it, index, listType, termReferenced, wordlistTerms, attachmentFiles, attachmentToReference, ref audioType, ref audioSize);
 
                         // Check for dual types
                         if (string.Equals(Path.GetExtension(filename), ".ogg", StringComparison.OrdinalIgnoreCase))
                         {
                             filename = Path.GetFileNameWithoutExtension(filename) + ".m4a";
-                            ProcessGlossaryAttachment(filename, it, index, termReferenced, wordlistTerms, attachmentFiles, attachmentToIndex, ref audioType, ref audioSize);
+                            ProcessGlossaryAttachment(filename, it, index, listType, termReferenced, wordlistTerms, attachmentFiles, attachmentToReference, ref audioType, ref audioSize);
                         }
                         else if (string.Equals(Path.GetExtension(filename), ".m4a", StringComparison.OrdinalIgnoreCase))
                         {
                             filename = Path.GetFileNameWithoutExtension(filename) + ".ogg";
-                            ProcessGlossaryAttachment(filename, it, index, termReferenced, wordlistTerms, attachmentFiles, attachmentToIndex, ref audioType, ref audioSize);
+                            ProcessGlossaryAttachment(filename, it, index, listType, termReferenced, wordlistTerms, attachmentFiles, attachmentToReference, ref audioType, ref audioSize);
                         }
                     }
 
@@ -1791,14 +1794,14 @@ namespace TabulateSmarterTestContentPackage
                     {
                         // Use RegEx to find the audio glossary entry in the contents.
                         string filename = match.Groups[1].Value;
-                        ProcessGlossaryAttachment(filename, it, index, termReferenced, wordlistTerms, attachmentFiles, attachmentToIndex, ref audioType, ref audioSize);
+                        ProcessGlossaryAttachment(filename, it, index, listType, termReferenced, wordlistTerms, attachmentFiles, attachmentToReference, ref audioType, ref audioSize);
                     }
 
                     // Folder,WIT_ID,ItemId,Index,Term,Language,Length,Audio,AudioSize,Image,ImageSize
                     if (Program.gValidationOptions.IsEnabled("gtr"))
-                        mGlossaryReport.WriteLine(string.Join(",", it.Folder, CsvEncode(it.ItemId), itemIt.ItemId.ToString(), index.ToString(), CsvEncodeExcel(term), CsvEncode(language), html.Length.ToString(), audioType, audioSize.ToString(), imageType, imageSize.ToString(), CsvEncode(html)));
+                        mGlossaryReport.WriteLine(string.Join(",", it.Folder, CsvEncode(it.ItemId), itemIt.ItemId.ToString(), index.ToString(), CsvEncodeExcel(term), CsvEncode(listType), html.Length.ToString(), audioType, audioSize.ToString(), imageType, imageSize.ToString(), CsvEncode(html)));
                     else
-                        mGlossaryReport.WriteLine(string.Join(",", it.Folder, CsvEncode(it.ItemId), itemIt.ItemId.ToString(), index.ToString(), CsvEncodeExcel(term), CsvEncode(language), html.Length.ToString(), audioType, audioSize.ToString(), imageType, imageSize.ToString()));
+                        mGlossaryReport.WriteLine(string.Join(",", it.Folder, CsvEncode(it.ItemId), itemIt.ItemId.ToString(), index.ToString(), CsvEncodeExcel(term), CsvEncode(listType), html.Length.ToString(), audioType, audioSize.ToString(), imageType, imageSize.ToString()));
                 }
             }
 
@@ -1810,25 +1813,28 @@ namespace TabulateSmarterTestContentPackage
                 int index = termIndices[i];
                 if (index >= wordlistTerms.Count || string.IsNullOrEmpty(wordlistTerms[index]))
                 {
-                    ReportError(itemIt, ErrCat.Item, ErrSeverity.Degraded, "Item references non-existent wordlist term.", "text='{0}', termIndex='{1}'", terms[i], index);
+                    ReportError(itemIt, ErrCat.Item, ErrSeverity.Degraded, "Item references non-existent wordlist term.", "text='{0}' wordlistId='{1}' termIndex='{2}'", terms[i], wordlistId, index);
                 }
                 else
                 {
-                    string stemmedText = stemmer.StemWord(terms[i]);
-                    string stemmedTerm = stemmer.StemWord(wordlistTerms[index]);
-                    if (!stemmedText.Equals(stemmedTerm, StringComparison.OrdinalIgnoreCase))
+                    string stemmedText = stemmer.StemWord(terms[i].ToLowerInvariant());
+                    string stemmedTerm = stemmer.StemWord(wordlistTerms[index].ToLowerInvariant());
+                    if (!stemmedText.Equals(stemmedTerm, StringComparison.Ordinal))
                     {
-                        ReportError(itemIt, ErrCat.Item, ErrSeverity.Degraded, "Item text does not match wordlist term.", "text='{0}' term='{1}' termIndex='{2}'", terms[i], wordlistTerms[index], index);
+                        ReportError(itemIt, ErrCat.Item, ErrSeverity.Degraded, "Item text does not match wordlist term.", "text='{0}' term='{1}' wordlistId='{2}' termIndex='{3}'", terms[i], wordlistTerms[index], wordlistId, index);
                     }
                 }
             }
 
             // Report unreferenced attachments
-            foreach (var pair in attachmentFiles)
+            if (Program.gValidationOptions.IsEnabled("umf"))
             {
-                if (!attachmentToIndex.ContainsKey(pair.Key))
+                foreach (var pair in attachmentFiles)
                 {
-                    ReportError(it, ErrCat.Wordlist, ErrSeverity.Benign, "Unreferenced wordlist attachment file.", "filename='{0}'", pair.Key);
+                    if (!attachmentToReference.ContainsKey(pair.Key))
+                    {
+                        ReportError(it, ErrCat.Wordlist, ErrSeverity.Benign, "Unreferenced wordlist attachment file.", "filename='{0}'", pair.Key);
+                    }
                 }
             }
         }
@@ -1836,8 +1842,8 @@ namespace TabulateSmarterTestContentPackage
 
         // This is kind of ugly with so many parameters but it's the cleanest way to handle this task that's repeated multiple times
         void ProcessGlossaryAttachment(string filename,
-            ItemContext it, int termIndex, bool termReferenced,
-            List<string> wordlistTerms, Dictionary<string, long> attachmentFiles, Dictionary<string, int> attachmentToIndex,
+            ItemContext it, int termIndex, string listType, bool termReferenced,
+            List<string> wordlistTerms, Dictionary<string, long> attachmentFiles, Dictionary<string, TermAttachmentReference> attachmentToTerm,
             ref string type, ref long size)
         {
             long fileSize = 0;
@@ -1850,26 +1856,34 @@ namespace TabulateSmarterTestContentPackage
                 }
                 else if (Program.gValidationOptions.IsEnabled("mwa"))
                 {
-                    ReportError(it, ErrCat.Wordlist, ErrSeverity.Benign, "Wordlist attachment not found but corresponding term is not referenced.",
+                    ReportError(it, ErrCat.Wordlist, ErrSeverity.Benign, "Wordlist attachment not found. Benign because corresponding term is not referenced.",
                         "filename='{0}' term='{1} termIndex='{2}", filename, wordlistTerms[termIndex], termIndex);
                 }
             }
 
             // See if this attachment has previously been referenced
-            int previousTermIndex = -1;
-            if (attachmentToIndex.TryGetValue(filename, out previousTermIndex))
+            TermAttachmentReference previousTerm = null;
+            if (attachmentToTerm.TryGetValue(filename, out previousTerm))
             {
-                // Only an error if the terms differ in more than case.
-                if (!string.Equals(wordlistTerms[termIndex], wordlistTerms[previousTermIndex], StringComparison.InvariantCultureIgnoreCase))
+                // Error if different terms (case insensitive)
+                if (!string.Equals(wordlistTerms[termIndex], wordlistTerms[previousTerm.TermIndex], StringComparison.InvariantCultureIgnoreCase))
                 {
                     ReportError(it, ErrCat.Wordlist, ErrSeverity.Severe, "Two different wordlist terms reference the same attachment.",
                         "filename='{0}' termA='{1}' termB='{2}' termIndexA='{3}' termIndexB='{4}",
-                        filename, wordlistTerms[previousTermIndex], wordlistTerms[termIndex], previousTermIndex, termIndex);
+                        filename, wordlistTerms[previousTerm.TermIndex], wordlistTerms[termIndex], previousTerm.TermIndex, termIndex);
+                }
+
+                // Error if different listTypes (language or image)
+                if (!string.Equals(listType, previousTerm.ListType, StringComparison.Ordinal))
+                {
+                    ReportError(it, ErrCat.Wordlist, ErrSeverity.Severe, "Same wordlist attachment used for different languages or types.",
+                        "filename='{0}' term='{1}' typeA='{2}' typeB='{3}' termIndexA='{4}' termIndexB='{5}",
+                        filename, wordlistTerms[termIndex], previousTerm.ListType, listType, previousTerm.TermIndex, termIndex);
                 }
             }
             else
             {
-                attachmentToIndex.Add(filename, termIndex);
+                attachmentToTerm.Add(filename, new TermAttachmentReference(termIndex, listType, filename));
             }
 
             size += fileSize;
@@ -2196,6 +2210,20 @@ namespace TabulateSmarterTestContentPackage
                 dict.Add(value.WitId, list);
             }
             list.AddLast(value);
+        }
+
+        class TermAttachmentReference
+        {
+            public TermAttachmentReference(int termIndex, string listType, string filename)
+            {
+                TermIndex = termIndex;
+                ListType = listType;
+                Filename = filename;
+            }
+
+            public int TermIndex { get; private set; }
+            public string ListType { get; private set; }
+            public string Filename { get; private set; }
         }
     }
 
