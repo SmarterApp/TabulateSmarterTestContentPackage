@@ -1355,7 +1355,7 @@ namespace TabulateSmarterTestContentPackage
                 ? "itemrelease/passage/resourceslist/resource[@type='wordList']/@id"
                 : "itemrelease/item/resourceslist/resource[@type='wordList']/@id";
             string wordlistId = xml.XpEval(xp);
-            if (string.IsNullOrEmpty(wordlistId)) return null;
+            if (string.IsNullOrEmpty(wordlistId)) return string.Empty;
 
             // Compose lists of referenced term Indices and Names
             List<int> termIndices = new List<int>();
@@ -1407,7 +1407,7 @@ namespace TabulateSmarterTestContentPackage
                     ReportError(it, ErrCat.Item, ErrSeverity.Severe, "WordList reference term index is not integer", "Ref='{0}'", match.Value);
                 }
                 termIndices.Add(termIndex);
-                terms.Add(match.Groups[2].Value);
+                terms.Add(match.Groups[2].Value.Trim());
             }
         }
 
@@ -1794,6 +1794,27 @@ namespace TabulateSmarterTestContentPackage
                 }
             }
 
+            Porter.Stemmer stemmer = new Porter.Stemmer();
+
+            // Make sure terms match references
+            for (int i=0; i<termIndices.Count; ++i)
+            {
+                int index = termIndices[i];
+                if (index >= wordlistTerms.Count || string.IsNullOrEmpty(wordlistTerms[index]))
+                {
+                    ReportError(itemIt, ErrCat.Item, ErrSeverity.Degraded, "Item references non-existent wordlist term.", "text='{0}', termIndex='{1}'", terms[i], index);
+                }
+                else
+                {
+                    string stemmedText = stemmer.StemWord(terms[i]);
+                    string stemmedTerm = stemmer.StemWord(wordlistTerms[index]);
+                    if (!stemmedText.Equals(stemmedTerm, StringComparison.OrdinalIgnoreCase))
+                    {
+                        ReportError(itemIt, ErrCat.Item, ErrSeverity.Degraded, "Item text does not match wordlist term.", "text='{0}' term='{1}' termIndex='{2}'", terms[i], wordlistTerms[index], index);
+                    }
+                }
+            }
+
             // Report unreferenced attachments
             foreach (var pair in attachmentFiles)
             {
@@ -1803,6 +1824,7 @@ namespace TabulateSmarterTestContentPackage
                 }
             }
         }
+
 
         // This is kind of ugly with so many parameters but it's the cleanest way to handle this task that's repeated multiple times
         void ProcessGlossaryAttachment(string filename,
