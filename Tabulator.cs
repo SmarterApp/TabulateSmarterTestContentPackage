@@ -1287,7 +1287,7 @@ namespace TabulateSmarterTestContentPackage
                 }
 
                 if (emptyBrailleTextFound && Program.gValidationOptions.IsEnabled("ebt"))
-                    ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "brailleTextString and/or brailleCode element is empty.");
+                    ReportError(it, ErrCat.Item, ErrSeverity.Benign, "brailleTextString and/or brailleCode element is empty.");
             }
 
             // Check for match with metadata
@@ -1688,6 +1688,10 @@ namespace TabulateSmarterTestContentPackage
         static readonly Regex sRxAudioAttachment = new Regex(@"<a[^>]*href=""([^""]*)""[^>]*>", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
         static readonly Regex sRxImageAttachment = new Regex(@"<img[^>]*src=""([^""]*)""[^>]*>", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
+        // Attachments don't have to follow the naming convention but they usually do. When they match then we compare values.
+        // Sample: item_116605_v1_116605_01btagalog_glossary_ogg_m4a.m4a
+        static readonly Regex sRxAttachmentNamingConvention = new Regex(@"^item_(\d+)_v\d+_(\d+)_(\d+)([a-zA-Z]+)_glossary(?:_ogg)?(?:_m4a)?(?:_ogg)?\.(?:ogg|m4a)$", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+
         private void ValidateWordlistVocabulary(string wordlistId, ItemContext itemIt, List<int> termIndices, List<string> terms)
         {
             // Read the wordlist XML
@@ -1724,11 +1728,8 @@ namespace TabulateSmarterTestContentPackage
             // Create a hashset of all wordlist terms that are referenced by the item
             HashSet<int> referencedIndices = new HashSet<int>(termIndices);
 
-            // Keep track of term information for error checks
+            // Load up the list of wordlist terms
             List<string> wordlistTerms = new List<string>();
-            Dictionary<string, TermAttachmentReference> attachmentToReference = new Dictionary<string, TermAttachmentReference>();
-
-            // Enumerate all the terms in the wordlist
             foreach (XmlNode kwNode in xml.SelectNodes("itemrelease/item/keywordList/keyword"))
             {
                 // Get the term and its index
@@ -1745,6 +1746,20 @@ namespace TabulateSmarterTestContentPackage
                 {
                     wordlistTerms[index] = term;
                 }
+            }
+
+            // Keep track of term information for error checks   
+            Dictionary<string, TermAttachmentReference> attachmentToReference = new Dictionary<string, TermAttachmentReference>();
+
+            // Enumerate all the terms in the wordlist (second pass)
+            int ordinal = 0;
+            foreach (XmlNode kwNode in xml.SelectNodes("itemrelease/item/keywordList/keyword"))
+            {
+                ++ordinal;
+
+                // Get the term and its index
+                string term = kwNode.XpEval("@text");
+                int index = int.Parse(kwNode.XpEval("@index"));
 
                 // See if this term is referenced by the item.
                 bool termReferenced = referencedIndices.Contains(index);
@@ -1786,6 +1801,70 @@ namespace TabulateSmarterTestContentPackage
                             filename = Path.GetFileNameWithoutExtension(filename) + ".ogg";
                             ProcessGlossaryAttachment(filename, it, index, listType, termReferenced, wordlistTerms, attachmentFiles, attachmentToReference, ref audioType, ref audioSize);
                         }
+
+                        // If filename matches the naming convention, ensure that values are correct
+                        Match match2 = sRxAttachmentNamingConvention.Match(filename);
+                        if (match2.Success)
+                        {
+                            // Sample attachment filename that follows the convention:
+                            // item_116605_v1_116605_01btagalog_glossary_ogg_m4a.m4a
+
+                            // Check both instances of the wordlist ID
+                            if (!wordlistId.Equals(match2.Groups[1].Value, StringComparison.Ordinal))
+                            {
+                                ReportError(it, ErrCat.Wordlist, ErrSeverity.Degraded, "Wordlist attachment filename indicates item ID mismatch.", "filename='{0}' filenameItemId='{1}' expectedItemId='{2}'", filename, match2.Groups[1].Value, wordlistId);
+                            }
+                            else if (!wordlistId.Equals(match2.Groups[2].Value, StringComparison.Ordinal))
+                            {
+                                ReportError(it, ErrCat.Wordlist, ErrSeverity.Degraded, "Wordlist attachment filename indicates item ID mismatch.", "filename='{0}' filenameItemId='{1}' expectedItemId='{2}'", filename, match2.Groups[2].Value, wordlistId);
+                            }
+
+                            // Check that the wordlist term index matches
+                            /* While most filename indices match. It's quite common for them not to match and still be the correct audio
+                               Disabling this check because it's mostly false alarms.
+
+                            int filenameIndex;
+                            if (!int.TryParse(match2.Groups[3].Value, out filenameIndex)) filenameIndex = -1;
+                            if (filenameIndex != index && filenameIndex != ordinal
+                                && (filenameIndex >= wordlistTerms.Count || !string.Equals(wordlistTerms[filenameIndex], term, StringComparison.OrdinalIgnoreCase)))
+                            {
+                                ReportError(it, ErrCat.Wordlist, ErrSeverity.Degraded, "Wordlist attachment filename indicates term index mismatch.", "filename='{0}' filenameIndex='{1}' expectedIndex='{2}'", filename, filenameIndex, index);
+                            }
+                            */
+
+                            // Translate from language in the naming convention to listType value
+                            string filenameListType = match2.Groups[4].Value.ToLower();
+                            switch (filenameListType)
+                            {
+                                // Special cases
+                                case "spanish":
+                                    filenameListType = "esnGlossary";
+                                    break;
+
+                                case "tagalog":
+                                case "atagalog":
+                                case "btagalog":
+                                case "ilocano":
+                                    filenameListType = "tagalGlossary";
+                                    break;
+
+                                case "apunjabi":
+                                case "bpunjabi":
+                                case "punjabiwest":
+                                    filenameListType = "punjabiGlossary";
+                                    break;
+
+                                // Conventional case
+                                default:
+                                    filenameListType = string.Concat(filenameListType.ToLower(), "Glossary");
+                                    break;
+                            }
+                            if (!filenameListType.Equals(listType))
+                            {
+                                ReportError(it, ErrCat.Wordlist, ErrSeverity.Degraded, "Wordlist attachment filename indicates attachment type mismatch.", "filename='{0}' filenameListType='{1}' expectedListType='{2}'", filename, filenameListType, listType);
+                            }
+                        }
+
                     }
 
                     // Look for an image glossary entry
