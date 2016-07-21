@@ -479,11 +479,15 @@ namespace TabulateSmarterTestContentPackage
                 case "mc":          // Multiple Choice
                 case "mi":          // Match Interaction
                 case "ms":          // Multi-Select
-                //case "nl":          // Natural Language
                 case "sa":          // Short Answer
-                case "SIM":         // Simulation
                 case "ti":          // Table Interaction
                 case "wer":         // Writing Extended Response
+                    TabulateInteraction(it);
+                    break;
+
+                case "nl":          // Natural Language
+                case "SIM":         // Simulation
+                    ReportError(it, ErrCat.Unsupported, ErrSeverity.Severe, "Item type is not fully supported by the open source TDS.", "itemType='{0}'", it.ItemType);
                     TabulateInteraction(it);
                     break;
 
@@ -500,7 +504,7 @@ namespace TabulateSmarterTestContentPackage
                     break;
 
                 default:
-                    ReportError(it, ErrCat.Unsupported, ErrSeverity.Benign, "Unexpected item type: " + it.ItemType);
+                    ReportError(it, ErrCat.Unsupported, ErrSeverity.Severe, "Unexpected item type: " + it.ItemType);
                     break;
             }
         }
@@ -754,7 +758,7 @@ namespace TabulateSmarterTestContentPackage
             {
                 string answerKeyValue = string.Empty;
                 string itemPoint = xml.XpEval("itemrelease/item/attriblist/attrib[@attid='itm_att_Item Point']/val");
-                if (itemPoint == null)
+                if (string.IsNullOrEmpty(itemPoint))
                 {
                     ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Item Point attribute (item_att_Item Point) not found.");
                 }
@@ -1810,13 +1814,10 @@ namespace TabulateSmarterTestContentPackage
                             // item_116605_v1_116605_01btagalog_glossary_ogg_m4a.m4a
 
                             // Check both instances of the wordlist ID
-                            if (!wordlistId.Equals(match2.Groups[1].Value, StringComparison.Ordinal))
+                            if (!wordlistId.Equals(match2.Groups[1].Value, StringComparison.Ordinal)
+                                && !wordlistId.Equals(match2.Groups[2].Value, StringComparison.Ordinal))
                             {
                                 ReportError(it, ErrCat.Wordlist, ErrSeverity.Degraded, "Wordlist attachment filename indicates item ID mismatch.", "filename='{0}' filenameItemId='{1}' expectedItemId='{2}'", filename, match2.Groups[1].Value, wordlistId);
-                            }
-                            else if (!wordlistId.Equals(match2.Groups[2].Value, StringComparison.Ordinal))
-                            {
-                                ReportError(it, ErrCat.Wordlist, ErrSeverity.Degraded, "Wordlist attachment filename indicates item ID mismatch.", "filename='{0}' filenameItemId='{1}' expectedItemId='{2}'", filename, match2.Groups[2].Value, wordlistId);
                             }
 
                             // Check that the wordlist term index matches
