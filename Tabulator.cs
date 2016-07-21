@@ -1703,6 +1703,7 @@ namespace TabulateSmarterTestContentPackage
             if (!mIdToItemContext.TryGetValue(wordlistId, out it))
             {
                 ReportError(itemIt, ErrCat.Item, ErrSeverity.Degraded, "Item references non-existent wordlist (WIT)", "wordlistId='{0}'", wordlistId);
+                return;
             }
             XmlDocument xml = new XmlDocument(sXmlNt);
             if (!TryLoadXml(it.FfItem, it.FfItem.Name + ".xml", xml))
