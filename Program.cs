@@ -63,6 +63,22 @@ Validation Options:
     -v+mwa  Missing Wordlist Attachments: Reports errors for missing wordlist
             attachments (audio and images) even when the corresponding term
             is not referenced by any item.
+
+Error severity definitions:
+    Severe     The error will prevent the test item from functioning properly
+               or from being scored properly.
+    Degraded   The item will display and accept a student response but
+               certain features will not work properly. For example, an
+               accessibility feature may not function properly.
+    Tolerable  The test delivery system can tolerate the problem and function
+               without the student noticing anything. However, certain
+               features may not be available to the student. For example, a
+               glossary may be valuable for a term but it doesn’t appear (and
+               the associated text is not highlighted).
+    Benign     A problem that doesn’t impact test delivery in any way but may
+               affect future item development. For example, a wordlist term
+               may be missing data but if that term isn’t referenced in an
+               item then it is benign.
 ";
 // 78 character margin                                                       |
 
