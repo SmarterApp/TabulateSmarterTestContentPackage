@@ -35,7 +35,6 @@ namespace Porter
         // Index of the (potential) end of the stem word in the char array.
         private int stemIndex;
 
-
         /// <summary>
         /// Stem the passed in word.
         /// </summary>
@@ -43,7 +42,6 @@ namespace Porter
         /// <returns></returns>
         public string StemWord(string word)
         {
-
             // Do nothing for empty strings or short words.
             if (string.IsNullOrWhiteSpace(word) || word.Length <= 2) return word;
 
@@ -84,6 +82,16 @@ namespace Porter
 			   meetings  ->  meet  		*/
 private void Step1()
         {
+            // Get rid of possessives (including accidental variants of the apostrophe) (added by Brandt Redd)
+            if (IsApostrophe(wordArray[endIndex]))
+            {
+                --endIndex;
+            }
+            else if (endIndex > 1 && wordArray[endIndex] == 's' && IsApostrophe(wordArray[endIndex-1]))
+            {
+                endIndex -= 2;
+            }
+
             // If the word ends with s take that off
             if (wordArray[endIndex] == 's')
             {
@@ -382,6 +390,83 @@ private void Step1()
         private void ReplaceEnd(string s)
         {
             if (MeasureConsontantSequence() > 0) SetEnd(s);
+        }
+
+        // Checks for the real apostrophe plus ASCII accent and single-quote variants
+        private static bool IsApostrophe(char c)
+        {
+            return c == '\'' || c == '`' || c == '\u2018' || c == '\u2019' || c == '\u201b';
+        }
+
+        // Fold to lower case, trim, and reduce embedded whitespace to single spaces.
+        private static string NormalizeTerm(string term)
+        {
+            int len = term.Length;
+            char[] termArray = new char[len];
+
+            int iout = 0;
+            for (int iin = 0; iin < len; /* do nothing */)
+            {
+                // Reduce whitespace to a single character
+                if (char.IsWhiteSpace(term[iin]))
+                {
+                    if (iout > 0)
+                    {
+                        termArray[iout++] = ' ';
+
+                    }
+                    do
+                    {
+                        ++iin;
+                    } while (iin < len && char.IsWhiteSpace(term[iin]));
+                }
+                else
+                {
+                    termArray[iout++] = Char.ToLowerInvariant(term[iin++]);
+                }
+            }
+            return new string(termArray, 0, iout);
+        }
+
+        // Stem each word in a term
+        // Assumes that the term has already been normalized
+        private string StemTerm(string term)
+        {
+            string[] words = term.Split(' ');
+            for (int i=0; i < words.Length; ++i)
+            {
+                words[i] = StemWord(words[i]);
+            }
+            return string.Concat(words);
+        }
+
+        /// <summary>
+        /// Aggressively test whether two terms match using stemming and multiple methods.
+        /// </summary>
+        /// <param name="term1"></param>
+        /// <param name="term2"></param>
+        /// <returns>True if the terms match.</returns>
+        public bool TermsMatch(string term1, string term2)
+        {
+            // Trim, normalize spaces
+            term1 = NormalizeTerm(term1);
+            term2 = NormalizeTerm(term2);
+
+            // See if that's enough for a match
+            if (string.Equals(term1, term2, StringComparison.Ordinal)
+                || term1.Contains(term2)
+                || term2.Contains(term1)) return true;
+
+            // Stem every word in the two terms and drop spaces. Then try again.
+            term1 = StemTerm(term1);
+            term2 = StemTerm(term2);
+
+            // See if that's enough for a match
+            if (string.Equals(term1, term2, StringComparison.Ordinal)
+                || term1.Contains(term2)
+                || term2.Contains(term1)) return true;
+
+            return false;
         }
     }
 }
