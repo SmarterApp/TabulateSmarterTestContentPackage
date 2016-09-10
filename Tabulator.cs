@@ -1311,6 +1311,7 @@ namespace TabulateSmarterTestContentPackage
             }
 
             // Check for match with metadata
+            // Metadata MUST take precedence over contents.
             if (string.Equals(brailleTypeMeta, "Not Braillable", StringComparison.OrdinalIgnoreCase))
             {
                 if (brailleTypes.Count != 0)
@@ -1319,6 +1320,10 @@ namespace TabulateSmarterTestContentPackage
                 }
                 brailleTypes.Clear();
                 brailleTypes.Add("NotBraillable");
+            }
+            else if (string.IsNullOrEmpty(brailleTypeMeta))
+            {
+                brailleTypes.Clear();   // Don't report embedded braille markup if there is no attachment
             }
 
             return string.Join(";", brailleTypes);
@@ -1444,8 +1449,6 @@ namespace TabulateSmarterTestContentPackage
 
         string GetTranslation(ItemContext it, XmlDocument xml, XmlDocument xmlMetadata)
         {
-            string translation = string.Empty;
-
             // Find non-english content and the language value
             HashSet<string> languages = new HashSet<string>();
             foreach (XmlElement xmlEle in xml.SelectNodes(it.IsPassage ? "itemrelease/passage/content" : "itemrelease/item/content"))
@@ -1471,16 +1474,12 @@ namespace TabulateSmarterTestContentPackage
                 // Add to hashset
                 languages.Add(language.ToLowerInvariant());
 
-                // If not english, add to result
-                if (!string.Equals(language, "eng", StringComparison.Ordinal))
-                {
-                    translation = (translation.Length > 0) ? string.Concat(translation, " ", language) : language;
-                }
-
                 // See if metadata agrees
                 XmlNode node = xmlMetadata.SelectSingleNode(string.Concat("metadata/sa:smarterAppMetadata/sa:Language[. = '", language, "']"), sXmlNs);
-                if (node == null) ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Item content includes language but metadata does not have a corresponding <Language> entry.", "Language='{0}'", language);
+                if (node == null) ReportError(it, ErrCat.Metadata, ErrSeverity.Benign, "Item content includes language but metadata does not have a corresponding <Language> entry.", "Language='{0}'", language);
             }
+
+            string translation = string.Empty;
 
             // Now, search the metadata for translations and make sure all exist in the content
             foreach (XmlElement xmlEle in xmlMetadata.SelectNodes("metadata/sa:smarterAppMetadata/sa:Language", sXmlNs))
@@ -1488,7 +1487,13 @@ namespace TabulateSmarterTestContentPackage
                 string language = xmlEle.InnerText;
                 if (!languages.Contains(language))
                 {
-                    ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "Item metadata indicates language but item content does not include that language.", "Language='{0}'", language);
+                    ReportError(it, ErrCat.Metadata, ErrSeverity.Severe, "Item metadata indicates language but item content does not include that language.", "Language='{0}'", language);
+                }
+
+                // If not english, add to result
+                if (!string.Equals(language, "eng", StringComparison.Ordinal))
+                {
+                    translation = (translation.Length > 0) ? string.Concat(translation, " ", language) : language;
                 }
             }
 
