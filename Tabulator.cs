@@ -1902,7 +1902,7 @@ namespace TabulateSmarterTestContentPackage
                     {
                         // Use RegEx to find the audio glossary entry in the contents.
                         string filename = match.Groups[1].Value;
-                        ProcessGlossaryAttachment(filename, itemIt, it, index, listType, termReferenced, wordlistTerms, attachmentFiles, attachmentToReference, ref audioType, ref audioSize);
+                        ProcessGlossaryAttachment(filename, itemIt, it, index, listType, termReferenced, wordlistTerms, attachmentFiles, attachmentToReference, ref imageType, ref imageSize);
                     }
 
                     // Folder,WIT_ID,ItemId,Index,Term,Language,Length,Audio,AudioSize,Image,ImageSize
