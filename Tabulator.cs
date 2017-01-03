@@ -322,7 +322,15 @@ namespace TabulateSmarterTestContentPackage
         {
             mPackageName = packageName;
 
-            if (!packageFolder.FileExists(cImsManifest)) throw new ArgumentException("Not a valid content package path. File imsmanifest.xml not found!");
+            FileFolder dummy;
+            if (!packageFolder.FileExists(cImsManifest)
+                && !packageFolder.TryGetFolder("Items", out dummy)
+                && !packageFolder.TryGetFolder("Stimuli", out dummy))
+            {
+                throw new ArgumentException("Not a valid content package path. Should have 'Items' and 'Stimuli' folders.");
+            }
+
+            if (!packageFolder.FileExists(cImsManifest)) 
 
             // Initialize package-specific collections
             mPackageFolder = packageFolder;
@@ -408,7 +416,7 @@ namespace TabulateSmarterTestContentPackage
             XmlDocument xml = new XmlDocument(sXmlNt);
             if (!TryLoadXml(ffItem, ffItem.Name + ".xml", xml))
             {
-                ReportError(new ItemContext(this, ffItem, null, null), ErrCat.Item, ErrSeverity.Severe, "Item folder missing item file.");
+                ReportError(new ItemContext(this, ffItem, null, null), ErrCat.Item, ErrSeverity.Severe, "Invalid item file.", LoadXmlErrorDetail);
                 return;
             }
 
@@ -451,7 +459,7 @@ namespace TabulateSmarterTestContentPackage
             XmlDocument xml = new XmlDocument(sXmlNt);
             if (!TryLoadXml(ffItem, ffItem.Name + ".xml", xml))
             {
-                ReportError(new ItemContext(this, ffItem, null, null), ErrCat.Item, ErrSeverity.Severe, "Stimulus folder missing stimulus file.");
+                ReportError(new ItemContext(this, ffItem, null, null), ErrCat.Item, ErrSeverity.Severe, "Invalid stimulus file.", LoadXmlErrorDetail);
                 return;
             }
 
@@ -520,7 +528,7 @@ namespace TabulateSmarterTestContentPackage
                     break;
 
                 default:
-                    ReportError(it, ErrCat.Unsupported, ErrSeverity.Severe, "Unexpected item type: " + it.ItemType);
+                    ReportError(it, ErrCat.Unsupported, ErrSeverity.Severe, "Unexpected item type.", "itemType='{0}'", it.ItemType);
                     break;
             }
         }
@@ -531,7 +539,7 @@ namespace TabulateSmarterTestContentPackage
             XmlDocument xml = new XmlDocument(sXmlNt);
             if (!TryLoadXml(it.FfItem, it.FfItem.Name + ".xml", xml))
             {
-                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Item folder missing item file.");
+                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Invalid item file.", LoadXmlErrorDetail);
                 return;
             }
 
@@ -539,7 +547,7 @@ namespace TabulateSmarterTestContentPackage
             XmlDocument xmlMetadata = new XmlDocument(sXmlNt);
             if (!TryLoadXml(it.FfItem, "metadata.xml", xmlMetadata))
             {
-                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Item metadata file not found.");
+                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Invalid metadata.xml.", LoadXmlErrorDetail);
             }
 
             // Check interaction type
@@ -599,7 +607,7 @@ namespace TabulateSmarterTestContentPackage
                     machineRubricType = Path.GetExtension(machineRubricFilename).ToLowerInvariant();
                     if (machineRubricType.Length > 0) machineRubricType = machineRubricType.Substring(1);
                     if (!it.FfItem.FileExists(machineRubricFilename))
-                        ReportError(it, ErrCat.Rubric, ErrSeverity.Degraded, "Machine rubric not found.", "Filename='{0}'", machineRubricFilename);
+                        ReportError(it, ErrCat.AnswerKey, ErrSeverity.Degraded, "Machine rubric not found.", "Filename='{0}'", machineRubricFilename);
                 }
 
                 string metadataScoringEngine = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:ScoringEngine", sXmlNs);
@@ -616,7 +624,7 @@ namespace TabulateSmarterTestContentPackage
                         rubric = "Embedded";
                         metadataExpected = "Automatic with Key";
                         if (answerKeyValue.Length != 1 || answerKeyValue[0] < 'A' || answerKeyValue[0] > 'Z')
-                            ReportError(it, ErrCat.Rubric, ErrSeverity.Severe, "Unexpected MC answer key attribute.", "itm_att_Answer Key='{0}'", answerKeyValue);
+                            ReportError(it, ErrCat.AnswerKey, ErrSeverity.Severe, "Unexpected MC answer key attribute.", "itm_att_Answer Key='{0}'", answerKeyValue);
                         break;
 
                     case "ms":      // Multi-select
@@ -629,7 +637,7 @@ namespace TabulateSmarterTestContentPackage
                             {
                                 if (answer.Length != 1 || answer[0] < 'A' || answer[0] > 'Z') validAnswer = false;
                             }
-                            if (!validAnswer) ReportError(it, ErrCat.Rubric, ErrSeverity.Severe, "Unexpected MS answer attribute: '{0}'", answerKeyValue);
+                            if (!validAnswer) ReportError(it, ErrCat.AnswerKey, ErrSeverity.Severe, "Unexpected MS answer attribute.", "itm_att_Answer Key='{0}'", answerKeyValue);
                         }
                         break;
 
@@ -638,7 +646,7 @@ namespace TabulateSmarterTestContentPackage
                         usesMachineRubric = true;
                         metadataExpected = "Automatic with Key(s)";
                         if (answerKeyValue.Length != 1 || answerKeyValue[0] < 'A' || answerKeyValue[0] > 'Z')
-                            ReportError(it, ErrCat.Rubric, ErrSeverity.Severe, "Unexpected EBSR answer key attribute.", "itm_att_Answer Key='{0}'", answerKeyValue);
+                            ReportError(it, ErrCat.AnswerKey, ErrSeverity.Severe, "Unexpected EBSR answer key attribute.", "itm_att_Answer Key='{0}'", answerKeyValue);
                         break;
                     // TODO: Add check for part 1 of EBSR (in "itm_att_Item Format")
 
@@ -651,7 +659,7 @@ namespace TabulateSmarterTestContentPackage
                         usesMachineRubric = true;
                         rubric = machineRubricType;
                         if (!string.Equals(answerKeyValue, it.ItemType.ToUpperInvariant()))
-                            ReportError(it, ErrCat.Rubric, ErrSeverity.Tolerable, "Unexpected answer key attribute.", "Value='{0}' Expected='{1}'", answerKeyValue, it.ItemType.ToUpperInvariant());
+                            ReportError(it, ErrCat.AnswerKey, ErrSeverity.Tolerable, "Unexpected answer key attribute.", "Value='{0}' Expected='{1}'", answerKeyValue, it.ItemType.ToUpperInvariant());
                         break;
 
                     case "er":          // Extended-Response
@@ -659,7 +667,7 @@ namespace TabulateSmarterTestContentPackage
                     case "wer":         // Writing Extended Response
                         metadataExpected = "HandScored";
                         if (!string.Equals(answerKeyValue, it.ItemType.ToUpperInvariant()))
-                            ReportError(it, ErrCat.Rubric, ErrSeverity.Tolerable, "Unexpected answer key attribute.", "Value='{0}' Expected='{1}'", answerKeyValue, it.ItemType.ToUpperInvariant());
+                            ReportError(it, ErrCat.AnswerKey, ErrSeverity.Tolerable, "Unexpected answer key attribute.", "Value='{0}' Expected='{1}'", answerKeyValue, it.ItemType.ToUpperInvariant());
                         break;
 
                     default:
@@ -689,7 +697,7 @@ namespace TabulateSmarterTestContentPackage
                 }
 
                 if (!string.IsNullOrEmpty(machineRubricFilename) && !usesMachineRubric)
-                    ReportError(it, ErrCat.Rubric, ErrSeverity.Benign, "Unexpected machine rubric found for HandScored item type.", "Filename='{0}'", machineRubricFilename);
+                    ReportError(it, ErrCat.AnswerKey, ErrSeverity.Benign, "Unexpected machine rubric found for HandScored item type.", "Filename='{0}'", machineRubricFilename);
 
                 // Check for unreferenced machine rubrics
                 foreach (FileFile fi in it.FfItem.Files)
@@ -697,7 +705,7 @@ namespace TabulateSmarterTestContentPackage
                     if (string.Equals(fi.Extension, ".qrx", StringComparison.OrdinalIgnoreCase)
                         && (machineRubricFilename == null || !string.Equals(fi.Name, machineRubricFilename, StringComparison.OrdinalIgnoreCase)))
                     {
-                        ReportError(it, ErrCat.Rubric, ErrSeverity.Degraded, "Machine rubric file found but not referenced in <MachineRubric> element.", "Filename='{0}'", fi.Name);
+                        ReportError(it, ErrCat.AnswerKey, ErrSeverity.Degraded, "Machine rubric file found but not referenced in <MachineRubric> element.", "Filename='{0}'", fi.Name);
                     }
                 }
             }
@@ -854,7 +862,7 @@ namespace TabulateSmarterTestContentPackage
                                     if (minspoints > spoints) minspoints = spoints;
                                 }
                             }
-                            if (minspoints > 0) ReportError(it, ErrCat.Metadata, ErrSeverity.Benign, "Metadata ScorePoints doesn't include a zero score", "ScorePoints='{0}'", scorePoints);
+                            if (minspoints > 0) ReportError(it, ErrCat.Metadata, ErrSeverity.Benign, "Metadata ScorePoints doesn't include a zero score.", "ScorePoints='{0}'", scorePoints);
                             if (maxspoints < points) ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Metadata ScorePoints doesn't include a maximum score.", "ScorePoints='{0}' max='{1}'", scorePoints, points);
                         }
                     }
@@ -960,7 +968,7 @@ namespace TabulateSmarterTestContentPackage
             XmlDocument xml = new XmlDocument(sXmlNt);
             if (!TryLoadXml(it.FfItem, it.FfItem.Name + ".xml", xml))
             {
-                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Item folder missing item file.");
+                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Invalid item file.", LoadXmlErrorDetail);
                 return;
             }
 
@@ -968,7 +976,7 @@ namespace TabulateSmarterTestContentPackage
             XmlDocument xmlMetadata = new XmlDocument(sXmlNt);
             if (!TryLoadXml(it.FfItem, "metadata.xml", xmlMetadata))
             {
-                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Passage metadata file not found.");
+                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Invalid metadata.xml.", LoadXmlErrorDetail);
             }
 
             // Check interaction type
@@ -1059,7 +1067,7 @@ namespace TabulateSmarterTestContentPackage
             XmlDocument xml = new XmlDocument(sXmlNt);
             if (!TryLoadXml(it.FfItem, it.FfItem.Name + ".xml", xml))
             {
-                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Item folder missing item file.");
+                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Invalid item file.", LoadXmlErrorDetail);
                 return;
             }
 
@@ -1067,7 +1075,7 @@ namespace TabulateSmarterTestContentPackage
             XmlDocument xmlMetadata = new XmlDocument(sXmlNt);
             if (!TryLoadXml(it.FfItem, "metadata.xml", xmlMetadata))
             {
-                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Tutorial metadata file not found.");
+                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Invalid metadata.xml.", LoadXmlErrorDetail);
             }
 
             // Get the version
@@ -1129,18 +1137,29 @@ namespace TabulateSmarterTestContentPackage
 
         } // TabulateTutorial
 
+        string LoadXmlErrorDetail { get; set; }
+
         bool TryLoadXml(FileFolder ff, string filename, XmlDocument xml)
         {
             FileFile ffXml;
             if (!ff.TryGetFile(filename, out ffXml))
             {
+                LoadXmlErrorDetail = string.Format("filename='{0}' detail='File not found'", Path.GetFileName(filename));
                 return false;
             }
             else
             {
                 using (StreamReader reader = new StreamReader(ffXml.Open(), Encoding.UTF8, true, 1024, false))
                 {
-                    xml.Load(reader);
+                    try
+                    {
+                        xml.Load(reader);
+                    }
+                    catch (Exception err)
+                    {
+                        LoadXmlErrorDetail = string.Format("filename='{0}' detail='{1}'", Path.GetFileName(filename), err.Message);
+                        return false;
+                    }
                 }
             }
             return true;
@@ -1193,6 +1212,9 @@ namespace TabulateSmarterTestContentPackage
 
         void CheckDependencyInManifest(ItemContext it, string dependencyFilename, string dependencyType)
         {
+            // Suppress manifest checks if the manifest is empty
+            if (mFilenameToResourceId.Count == 0) return;
+
             // Look up item in manifest
             string itemResourceId = null;
             string itemFilename = string.Concat(it.FfItem.RootedName, "/", it.FfItem.Name, ".xml");
@@ -1663,7 +1685,7 @@ namespace TabulateSmarterTestContentPackage
             XmlDocument xml = new XmlDocument(sXmlNt);
             if (!TryLoadXml(it.FfItem, it.FfItem.Name + ".xml", xml))
             {
-                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Wordlist folder missing item file.");
+                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Invalid wordlist file.", LoadXmlErrorDetail);
                 return;
             }
 
@@ -1729,7 +1751,7 @@ namespace TabulateSmarterTestContentPackage
             XmlDocument xml = new XmlDocument(sXmlNt);
             if (!TryLoadXml(it.FfItem, it.FfItem.Name + ".xml", xml))
             {
-                ReportWitError(itemIt, it, ErrSeverity.Severe, "Wordlist folder missing xml file.", string.Empty);
+                ReportWitError(itemIt, it, ErrSeverity.Severe, "Invalid wordlist file.", LoadXmlErrorDetail);
                 return;
             }
 
@@ -2054,7 +2076,7 @@ namespace TabulateSmarterTestContentPackage
             XmlDocument xmlManifest = new XmlDocument(sXmlNt);
             if (!TryLoadXml(mPackageFolder, cImsManifest, xmlManifest))
             {
-                ReportError(it, ErrCat.Manifest, ErrSeverity.Severe, "Manifest not found.");
+                ReportError(it, ErrCat.Manifest, ErrSeverity.Tolerable, "Invalid manifest.", LoadXmlErrorDetail);
                 return;
             }
 
@@ -2119,6 +2141,12 @@ namespace TabulateSmarterTestContentPackage
                     }
 
                 }
+            }
+
+            if (mFilenameToResourceId.Count == 0)
+            {
+                ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, "Manifest is empty.");
+                return;
             }
 
             // Enumerate all files and check for them in the manifest
@@ -2225,7 +2253,7 @@ namespace TabulateSmarterTestContentPackage
             Exception,
             Unsupported,
             Attribute,
-            Rubric,
+            AnswerKey,
             Metadata,
             Item,
             Wordlist,
