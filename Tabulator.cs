@@ -423,9 +423,18 @@ namespace TabulateSmarterTestContentPackage
             // Get the details
             string itemType = xml.XpEval("itemrelease/item/@format");
             if (itemType == null) itemType = xml.XpEval("itemrelease/item/@type");
-            if (itemType == null) throw new InvalidDataException("Item type not found");
+            if (itemType == null)
+            {
+                ReportError(new ItemContext(this, ffItem, null, null), ErrCat.Item, ErrSeverity.Severe, "Item type not specified.", LoadXmlErrorDetail);
+                return;
+            }
             string itemId = xml.XpEval("itemrelease/item/@id");
-            if (string.IsNullOrEmpty(itemId)) throw new InvalidDataException("Item id not found");
+            if (string.IsNullOrEmpty(itemId))
+            {
+                ReportError(new ItemContext(this, ffItem, null, null), ErrCat.Item, ErrSeverity.Severe, "Item ID not specified.", LoadXmlErrorDetail);
+                return;
+            }
+
             string bankKey = xml.XpEvalE("itemrelease/item/@bankkey");
 
             // Add to the item count and the type count
@@ -1409,8 +1418,17 @@ namespace TabulateSmarterTestContentPackage
             List<string> terms = new List<string>();
 
             // Process all CDATA (embedded HTML) sections in the content
-            ExtractWordlistRefsFromXmlSubtree(it, xml.SelectSingleNode(it.IsPassage ? "itemrelease/passage/content" : "itemrelease/item/content"),
-                termIndices, terms);
+            {
+                XmlNode contentNode = xml.SelectSingleNode(it.IsPassage ? "itemrelease/passage/content" : "itemrelease/item/content");
+                if (contentNode == null)
+                {
+                    ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Item has no content element.");
+                }
+                else
+                {
+                    ExtractWordlistRefsFromXmlSubtree(it, contentNode, termIndices, terms);
+                }
+            }
 
             if (string.IsNullOrEmpty(wordlistId))
             {
