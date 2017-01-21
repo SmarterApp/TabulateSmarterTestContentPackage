@@ -7,6 +7,7 @@ using System.IO;
 using System.Xml;
 using System.Text.RegularExpressions;
 using System.Diagnostics;
+using System.Collections;
 
 namespace TabulateSmarterTestContentPackage
 {
@@ -92,8 +93,6 @@ namespace TabulateSmarterTestContentPackage
         Dictionary<string, int> mTypeCounts = new Dictionary<string, int>();
         Dictionary<string, int> mTermCounts = new Dictionary<string, int>();
         Dictionary<string, int> mTranslationCounts = new Dictionary<string, int>();
-        Dictionary<string, int> mM4aTranslationCounts = new Dictionary<string, int>();
-        Dictionary<string, int> mOggTranslationCounts = new Dictionary<string, int>();
         Dictionary<string, int> mRubricCounts = new Dictionary<string, int>();
 
         // Per Package variables
@@ -272,8 +271,6 @@ namespace TabulateSmarterTestContentPackage
             mTypeCounts.Clear();
             mTermCounts.Clear();
             mTranslationCounts.Clear();
-            mM4aTranslationCounts.Clear();
-            mOggTranslationCounts.Clear();
             mRubricCounts.Clear();
         }
 
@@ -324,13 +321,10 @@ namespace TabulateSmarterTestContentPackage
 
             FileFolder dummy;
             if (!packageFolder.FileExists(cImsManifest)
-                && !packageFolder.TryGetFolder("Items", out dummy)
-                && !packageFolder.TryGetFolder("Stimuli", out dummy))
+                && (!packageFolder.TryGetFolder("Items", out dummy) || !packageFolder.TryGetFolder("Stimuli", out dummy)))
             {
                 throw new ArgumentException("Not a valid content package path. Should have 'Items' and 'Stimuli' folders.");
             }
-
-            if (!packageFolder.FileExists(cImsManifest)) 
 
             // Initialize package-specific collections
             mPackageFolder = packageFolder;
@@ -755,8 +749,8 @@ namespace TabulateSmarterTestContentPackage
                 }
             }
 
-            // WordList ID
-            string wordlistId = ValidateWordlistReferences(it, xml);
+            // Validate content segments
+            string wordlistId = ValidateContentAndWordlist(it, xml);
 
             // ASL
             string asl = string.Empty;
@@ -1032,10 +1026,10 @@ namespace TabulateSmarterTestContentPackage
                     ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "PerformanceTaskComponentItem metadata should be 'Y' or 'N'.", "Value='{0}'", meta);
                 }
             }
-            */ 
+            */
 
-            // WordList ID
-            string wordlistId = ValidateWordlistReferences(it, xml);
+            // Validate content segments
+            string wordlistId = ValidateContentAndWordlist(it, xml);
 
             // ASL
             string asl = string.Empty;
@@ -1120,8 +1114,8 @@ namespace TabulateSmarterTestContentPackage
             string claim = string.Empty;
             string target = string.Empty;
 
-            // WordList ID
-            string wordlistId = ValidateWordlistReferences(it, xml);
+            // Validate content segments
+            string wordlistId = ValidateContentAndWordlist(it, xml);
 
             // ASL
             string asl = string.Empty;
@@ -1313,6 +1307,7 @@ namespace TabulateSmarterTestContentPackage
             }
 
             // Enumerate all embedded braille.
+            if (Program.gValidationOptions.IsEnabled("ebt"))
             {
                 bool emptyBrailleTextFound = false;
                 foreach (XmlElement xmlBraille in xml.SelectNodes("//brailleText"))
@@ -1337,7 +1332,7 @@ namespace TabulateSmarterTestContentPackage
                     }
                 }
 
-                if (emptyBrailleTextFound && Program.gValidationOptions.IsEnabled("ebt"))
+                if (emptyBrailleTextFound)
                     ReportError(it, ErrCat.Item, ErrSeverity.Benign, "brailleTextString and/or brailleCode element is empty.");
             }
 
@@ -1405,7 +1400,7 @@ namespace TabulateSmarterTestContentPackage
         }
 
         // Returns the Wordlist ID
-        string ValidateWordlistReferences(ItemContext it, XmlDocument xml)
+        string ValidateContentAndWordlist(ItemContext it, XmlDocument xml)
         {
             // Get the wordlist ID
             string xp = it.IsPassage
@@ -1426,7 +1421,13 @@ namespace TabulateSmarterTestContentPackage
                 }
                 else
                 {
-                    ExtractWordlistRefsFromXmlSubtree(it, contentNode, termIndices, terms);
+                    foreach(XmlNode node in new XmlSubtreeEnumerable(contentNode))
+                    {
+                        if (node.NodeType == XmlNodeType.CDATA)
+                        {
+                            ValidateContentCData(it, node, termIndices, terms);
+                        }
+                    }
                 }
             }
 
@@ -1440,51 +1441,104 @@ namespace TabulateSmarterTestContentPackage
             }
 
             ValidateWordlistVocabulary(wordlistId, it, termIndices, terms);
-            
+
             return wordlistId;
         }
 
-        // Recursively traverse an XML subtree, find any CDATA sections and pass the inner text (which is presumably HTML)
-        // to ExtractWordlistRefsFromHtml.
-        void ExtractWordlistRefsFromXmlSubtree(ItemContext it, XmlNode node, List<int> termIndices, List<string> terms)
-        {
-            if (node.NodeType == XmlNodeType.CDATA)
-            {
-                ExtractWordlistRefsFromHtml(it, node.InnerText, termIndices, terms);
-            }
-            else
-            {
-                foreach(XmlNode subnode in node.ChildNodes)
-                {
-                    ExtractWordlistRefsFromXmlSubtree(it, subnode, termIndices, terms);
-                }
-            }
-        }
-
-        /*
-        This search is more picky than what is theoretically acceptable. In practice, however, we find that items match this pattern. Most
-        likely because they are auto-generated.
-
-        Areas of excessive pickiness:
-            * Assumes no text between <span> and </span>
-            * Assumes no HTML tags embedded within the wordlist term.
-        */
-        static readonly Regex sRxWordlistReference = new Regex(@"<span[^>]*data-word-index=[""']([^""']*)[""'][^>]*></span>([^<]*)<span[^>]*data-tag-boundary=[""']end[""'][^>]*>", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
-
         static readonly char[] s_WhiteAndPunct = { '\t', '\n', '\r', ' ', '!', '"', '#', '$', '%', '&', '\'', '(', ')', '*', '+', ',', '-', '.', '/', ':', ';', '<', '=', '>', '?', '@', '[', '\\', ']', '^', '_', '`', '{', '|', '~' };
 
-        void ExtractWordlistRefsFromHtml(ItemContext it, string html, List<int> termIndices, List<string> terms)
+        void ValidateContentCData(ItemContext it, XmlNode cdata, List<int> termIndices, List<string> terms)
         {
-            foreach (Match match in sRxWordlistReference.Matches(html))
+            // Parse the HTML into an XML DOM
+            XmlDocument html = null;
+            try
             {
-                int termIndex;
-                if (!int.TryParse(match.Groups[1].Value, out termIndex))
+                Html.HtmlReaderSettings settings = new Html.HtmlReaderSettings();
+                settings.CloseInput = true;
+                settings.EmitHtmlNamespace = false;
+                settings.IgnoreComments = true;
+                settings.IgnoreProcessingInstructions = true;
+                settings.IgnoreInsignificantWhitespace = true;
+                using (var reader = new Html.HtmlReader(new StringReader(cdata.InnerText), settings))
                 {
-                    ReportError(it, ErrCat.Item, ErrSeverity.Severe, "WordList reference term index is not integer", "Ref='{0}'", match.Value);
+                    html = new XmlDocument();
+                    html.Load(reader);
                 }
-                termIndices.Add(termIndex);
-                terms.Add(match.Groups[2].Value.Trim(s_WhiteAndPunct));
             }
+            catch(Exception err)
+            {
+                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Invalid html content.", "context='{0}' error='{1}'", GetXmlContext(cdata), err.Message);
+            }
+
+            /* Word list references look like this:
+            <span id="item_998_TAG_2" class="its-tag" data-tag="word" data-tag-boundary="start" data-word-index="1"></span>
+            What
+            <span class="its-tag" data-tag-ref="item_998_TAG_2" data-tag-boundary="end"></span>
+            */
+
+            // Extract all wordlist references
+            foreach (XmlElement node in html.SelectNodes("//span[@data-tag='word' and @data-tag-boundary='start']"))
+            {
+
+                // For a word reference, get attributes and look for the end tag
+                string id = node.GetAttribute("id");
+                if (string.IsNullOrEmpty(id))
+                {
+                    ReportError(it, ErrCat.Item, ErrSeverity.Severe, "WordList reference lacks an ID");
+                    continue;
+                }
+                string scratch = node.GetAttribute("data-word-index");
+                int termIndex;
+                if (!int.TryParse(scratch, out termIndex))
+                {
+                    ReportError(it, ErrCat.Item, ErrSeverity.Severe, "WordList reference term index is not integer", "id='{0} index='{1}'", id, scratch);
+                    continue;
+                }
+
+                string term = string.Empty;
+                var snode = node.NextNode();
+                for (;;)
+                {
+                    // If no more siblings but didn't find end tag, report.
+                    if (snode == null)
+                    {
+                        ReportError(it, ErrCat.Item, ErrSeverity.Tolerable, "WordList reference missing end tag.", "id='{0}' index='{1}' term='{2}'", id, termIndex, term);
+                        break;
+                    }
+
+                    // Look for end tag
+                    XmlElement enode = snode as XmlElement;
+                    if (enode != null
+                        && enode.GetAttribute("data-tag-boundary").Equals("end", StringComparison.Ordinal)
+                        && enode.GetAttribute("data-tag-ref").Equals(id, StringComparison.Ordinal))
+                    {
+                        break;
+                    }
+
+                    // Collect term plain text
+                    if (snode.NodeType == XmlNodeType.Text || snode.NodeType == XmlNodeType.SignificantWhitespace)
+                    {
+                        term += snode.Value;
+                    }
+
+                    snode = snode.NextNode();
+                }
+                term = term.Trim(s_WhiteAndPunct);
+                termIndices.Add(termIndex);
+                terms.Add(term);
+            }
+
+        }
+
+        static string GetXmlContext(XmlNode node)
+        {
+            string context = string.Empty;
+            while (node != null && node.NodeType != XmlNodeType.Document)
+            {
+                context = string.Concat("/", node.Name, context);
+                node = node.ParentNode;
+            }
+            return context;
         }
 
         string GetTranslation(ItemContext it, XmlDocument xml, XmlDocument xmlMetadata)
@@ -2251,12 +2305,6 @@ namespace TabulateSmarterTestContentPackage
             writer.WriteLine("Translation Counts:");
             mTranslationCounts.Dump(writer);
             writer.WriteLine();
-            writer.WriteLine("M4a Translation Counts:");
-            mM4aTranslationCounts.Dump(writer);
-            writer.WriteLine();
-            writer.WriteLine("Ogg Translation Counts:");
-            mOggTranslationCounts.Dump(writer);
-            writer.WriteLine();
             writer.WriteLine("Rubric Counts:");
             mRubricCounts.Dump(writer);
             writer.WriteLine();
@@ -2441,6 +2489,36 @@ namespace TabulateSmarterTestContentPackage
             return node.InnerText;
         }
 
+        public static XmlNode NextNode(this XmlNode node, XmlNode withinSubtree = null)
+        {
+            if (node == null) throw new NullReferenceException("Null passed to NextNode.");
+
+            // Try first child
+            XmlNode next = node.FirstChild;
+            if (next != null) return next;
+
+            // Try next sibling
+            next = node.NextSibling;
+            if (next != null) return next;
+
+            // Find nearest parent that has a sibling
+            next = node;
+            for (;;)
+            {
+                next = next.ParentNode;
+                if (next == null) return null;
+
+                // Apply subtree limit
+                if (withinSubtree != null && Object.ReferenceEquals(withinSubtree, next))
+                {
+                    return null;
+                }
+
+                // Found?
+                if (next.NextSibling != null) return next.NextSibling;
+            }
+        }
+
         public static void Increment(this Dictionary<string, int> dict, string key)
         {
             int count;
@@ -2488,5 +2566,108 @@ namespace TabulateSmarterTestContentPackage
             }
             return i;
         }
+    }
+
+    class XmlSubtreeEnumerable : IEnumerable<XmlNode>
+    {
+        XmlNode m_root;
+
+        public XmlSubtreeEnumerable(XmlNode root)
+        {
+            m_root = root;
+        }
+
+        public IEnumerator<XmlNode> GetEnumerator()
+        {
+            return new XmlSubtreeEnumerator(m_root);
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return new XmlSubtreeEnumerator(m_root);
+        }
+    }
+
+    class XmlSubtreeEnumerator : IEnumerator<XmlNode>
+    {
+        XmlNode m_root;
+        XmlNode m_current;
+        bool m_atEnd;
+
+        public XmlSubtreeEnumerator(XmlNode root)
+        {
+            m_root = root;
+            Reset();
+        }
+
+        public void Reset()
+        {
+            m_current = null;
+            m_atEnd = false;
+        }
+        public XmlNode Current
+        {
+            get
+            {
+                if (m_current == null) throw new InvalidOperationException("");
+                return m_current;
+            }
+        }
+
+        object IEnumerator.Current
+        {
+            get
+            {
+                return Current;
+            }
+        }
+
+        public bool MoveNext()
+        {
+            if (m_atEnd) return false;
+            if (m_current == null)
+            {
+                m_current = m_root.FirstChild;
+                if (m_current == null)
+                {
+                    m_atEnd = true;
+                }
+            }
+            else
+            {
+                XmlNode next = m_current.FirstChild;
+                if (next == null)
+                {
+                    next = m_current.NextSibling;
+                }
+                if (next == null)
+                {
+                    next = m_current;
+                    for (;;)
+                    {
+                        next = next.ParentNode;
+                        if (Object.ReferenceEquals(m_root, next))
+                        {
+                            next = null;
+                            m_atEnd = true;
+                            break;
+                        }
+                        if (next.NextSibling != null)
+                        {
+                            next = next.NextSibling;
+                            break;
+                        }
+                    }
+                }
+                m_current = next;
+            }
+            return m_current != null;
+        }
+
+        public void Dispose()
+        {
+            // Nothing to dispose.
+        }
+
     }
 }
