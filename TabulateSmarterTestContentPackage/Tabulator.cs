@@ -4,7 +4,6 @@ using System.Text;
 using System.IO;
 using System.Xml;
 using System.Text.RegularExpressions;
-using System.Collections;
 
 namespace TabulateSmarterTestContentPackage
 {
@@ -1749,6 +1748,13 @@ namespace TabulateSmarterTestContentPackage
             standard = string.Empty;
             claim = string.Empty;
             target = string.Empty;
+        }
+
+        string DepthOfKnowledgeFromMetadata(XmlDocument xmlMetadata, XmlNamespaceManager xmlNamespaceManager)
+        {
+            var nodeValue = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:DepthOfKnowledge", xmlNamespaceManager);
+            //TODO: Greg - Apply appropriate validation
+            return nodeValue;
         }
 
         string DepthOfKnowledgeFromMetadata(XmlDocument xmlMetadata, XmlNamespaceManager xmlNamespaceManager)
