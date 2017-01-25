@@ -1,12 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.IO;
 using System.Xml;
 using System.Text.RegularExpressions;
-using System.Diagnostics;
 
 namespace TabulateSmarterTestContentPackage
 {
@@ -563,6 +560,9 @@ namespace TabulateSmarterTestContentPackage
             string metaItemType = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:InteractionType", sXmlNs);
             if (!string.Equals(metaItemType, it.ItemType.ToUpperInvariant(), StringComparison.Ordinal))
                 ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Incorrect metadata <InteractionType>.", "InteractionType='{0}' Expected='{1}'", metaItemType, it.ItemType.ToUpperInvariant());
+
+            // DepthOfKnowledge
+            var depthOfKnowledge = DepthOfKnowledgeFromMetadata(xmlMetadata, sXmlNs);
 
             // Get the version
             string version = xml.XpEvalE("itemrelease/item/@version");
@@ -1695,6 +1695,13 @@ namespace TabulateSmarterTestContentPackage
             standard = string.Empty;
             claim = string.Empty;
             target = string.Empty;
+        }
+
+        string DepthOfKnowledgeFromMetadata(XmlDocument xmlMetadata, XmlNamespaceManager xmlNamespaceManager)
+        {
+            var nodeValue = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:DepthOfKnowledge", xmlNamespaceManager);
+            //TODO: Greg - Apply appropriate validation
+            return nodeValue;
         }
 
         private void TabulateWordList(ItemContext it)
