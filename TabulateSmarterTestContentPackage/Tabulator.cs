@@ -4,6 +4,7 @@ using System.Text;
 using System.IO;
 using System.Xml;
 using System.Text.RegularExpressions;
+using System.Linq;
 
 namespace TabulateSmarterTestContentPackage
 {
@@ -442,6 +443,14 @@ namespace TabulateSmarterTestContentPackage
                 mIdToItemContext.Add(itemId, it);
             }
 
+            // Find and report any missing img alt tags
+            var qtiStemElements = xml.SelectNodes("itemrelease/item/content/qti").Cast<XmlElement>()
+                .Concat(xml.SelectNodes("itemrelease/item/content/stem").Cast<XmlElement>());
+            if (qtiStemElements.Any(q => ReportMissingImgAltTags(q.InnerText)))
+            {
+                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Img tag missing alt text in qti or stem element (item)", "bankKey='{0}' itemId='{1}' foldername='{2}'", bankKey, itemId, ffItem);
+            }
+
             // Check for filename match
             if (!ffItem.Name.Equals(string.Format("item-{0}-{1}", bankKey, itemId), StringComparison.OrdinalIgnoreCase))
             {
@@ -485,6 +494,13 @@ namespace TabulateSmarterTestContentPackage
             {
                 ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Stimulus ID doesn't match file/folder name", "bankKey='{0}' itemId='{1}' foldername='{2}'", bankKey, itemId, ffItem);
             }
+
+            // Find and report any missing img alt tags
+            var stemElement = xml.SelectSingleNode("itemrelease/passage/content/stem") as XmlElement;
+            if (ReportMissingImgAltTags(stemElement.InnerText))
+            {
+                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Img tag missing alt text in stem element (stim)", "bankKey='{0}' itemId='{1}' foldername='{2}'", bankKey, itemId, ffItem);
+            }  
 
             // count wordlist reference
             CountWordlistReferences(it, xml);
@@ -2316,6 +2332,17 @@ namespace TabulateSmarterTestContentPackage
         static string ToDependsOnString(string itemId, string dependsOnId)
         {
             return string.Concat(itemId, "~", dependsOnId);
+        }
+
+        bool ReportMissingImgAltTags(string input)
+        {
+            const string imgAltMatcherPattern = @"<img[^>]*>";
+            var result = Regex.Match(input, imgAltMatcherPattern);
+            return result.Success
+                && !string.IsNullOrEmpty(result.Value) 
+                && (!result.Value.Contains("alt=")                         // There is an img tag, but not alt tag
+                || result.Value.Contains("alt=\"\"")                       // Empty alt tag with double quotes
+                || result.Value.Contains("alt=\'\'"));                     // Empty alt tag with single quotes
         }
 
         void SummaryReport(TextWriter writer)
