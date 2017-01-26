@@ -240,7 +240,7 @@ namespace TabulateSmarterTestContentPackage
             if (File.Exists(mErrorReportPath)) File.Delete(mErrorReportPath);
 
             mItemReport = new StreamWriter(string.Concat(reportPrefix, cItemReportFn), false, Encoding.UTF8); // DOK is "Depth of Knowledge"
-            mItemReport.WriteLine("Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation,Media,Size,DOK");
+            mItemReport.WriteLine("Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation,Media,Size,DOK,AllowCalculator");
 
             mStimulusReport = new StreamWriter(string.Concat(reportPrefix, cStimulusReportFn), false, Encoding.UTF8);
             mStimulusReport.WriteLine("Folder,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,Media,Size,WordCount");
@@ -576,6 +576,15 @@ namespace TabulateSmarterTestContentPackage
                     ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Subject mismatch between item and metadata.", "ItemSubject='{0}' MetadataSubject='{1}'", subject, metaSubject);
             }
 
+            // AllowCalculator
+            var allowCalculator = AllowCalculatorFromMetadata(xmlMetadata, sXmlNs);
+            if (string.IsNullOrEmpty(allowCalculator) && 
+                (string.Equals(metaSubject, "MATH", StringComparison.OrdinalIgnoreCase) || 
+                string.Equals(subject, "MATH", StringComparison.OrdinalIgnoreCase)))
+            {
+                ReportError(it, ErrCat.Metadata, ErrSeverity.Severe, "Allow Calculator field not present for MATH subject item", "ItemSubject='{0}' MetadataSubject='{1}'", subject, metaSubject);
+            }
+
             // Grade
             string grade = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='itm_att_Grade']/val").Trim();
             string metaGrade = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:IntendedGrade", sXmlNs);
@@ -775,10 +784,10 @@ namespace TabulateSmarterTestContentPackage
             // Size
             long size = GetItemSize(it);
 
-            // Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge
+            // Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator
             mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(version), CsvEncode(subject), 
                 CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), CsvEncode(wordlistId), 
-                CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), CsvEncode(media), size.ToString(), CsvEncode(depthOfKnowledge)));
+                CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), CsvEncode(media), size.ToString(), CsvEncode(depthOfKnowledge), CsvEncode(allowCalculator)));
 
             // === Tabulation is complete, check for other errors
 
@@ -1755,7 +1764,12 @@ namespace TabulateSmarterTestContentPackage
         string DepthOfKnowledgeFromMetadata(XmlDocument xmlMetadata, XmlNamespaceManager xmlNamespaceManager)
         {
             var nodeValue = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:DepthOfKnowledge", xmlNamespaceManager);
-            //TODO: Greg - Apply appropriate validation
+            return nodeValue;
+        }
+
+        string AllowCalculatorFromMetadata(XmlDocument xmlMetadata, XmlNamespaceManager xmlNamespaceManager)
+        {
+            var nodeValue = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:AllowCalculator", xmlNamespaceManager);
             return nodeValue;
         }
 
