@@ -50,8 +50,9 @@ Validation Options:
             content.
 
     -v+all  Enable all optional validation and tabulation features.
-    -v+ebt  Empty Braille Text: Enables checking for empty <brailleText>
-            elements in items.
+    -v+ebt  Embedded Braille Text: Enables checking embedded <brailleText>
+            elements. Without this option, only braille embossing attachments
+            are checked.
     -v+tgs  Target Grade Suffix: Enables checking whether the grade suffix in
             a target matches the grade alignment in the item attributes.
     -v+umf  Unreferenced Media File: Enables checking whether media files are

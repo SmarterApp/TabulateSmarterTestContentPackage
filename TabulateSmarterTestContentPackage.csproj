@@ -46,6 +46,7 @@
   <ItemGroup>
     <Compile Include="ConsoleHelper.cs" />
     <Compile Include="FileFolder.cs" />
+    <Compile Include="HtmlReader.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Tabulator.cs" />
