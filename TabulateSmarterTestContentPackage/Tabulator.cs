@@ -241,7 +241,8 @@ namespace TabulateSmarterTestContentPackage
             mErrorReportPath = string.Concat(reportPrefix, cErrorReportFn);
             if (File.Exists(mErrorReportPath)) File.Delete(mErrorReportPath);
 
-            mItemReport = new StreamWriter(string.Concat(reportPrefix, cItemReportFn), false, Encoding.UTF8); // DOK is "Depth of Knowledge"
+            mItemReport = new StreamWriter(string.Concat(reportPrefix, cItemReportFn), false, Encoding.UTF8); 
+            // DOK is "Depth of Knowledge"
             mItemReport.WriteLine("Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation,Media,Size,DOK,AllowCalculator");
 
             mStimulusReport = new StreamWriter(string.Concat(reportPrefix, cStimulusReportFn), false, Encoding.UTF8);
@@ -2332,11 +2333,10 @@ namespace TabulateSmarterTestContentPackage
         {
             const string imgAltMatcherPattern = @"<\w*img[^>]*>";
             var result = Regex.Match(input, imgAltMatcherPattern);
+
+            const string imgAltPattern = @"alt(\s*\t*)=(\s*\t*)['""]\w+['""]";
             return result.Success
-                && !string.IsNullOrEmpty(result.Value) 
-                && (!result.Value.Contains("alt=")                         // There is an img tag, but not alt tag
-                || result.Value.Contains("alt=\"\"")                       // Empty alt tag with double quotes
-                || result.Value.Contains("alt=\'\'"));                     // Empty alt tag with single quotes
+                && !Regex.Match(result.Value, imgAltPattern).Success;                     // Empty alt tag with single quotes
         }
 
         void SummaryReport(TextWriter writer)
