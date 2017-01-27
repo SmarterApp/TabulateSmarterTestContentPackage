@@ -2331,10 +2331,10 @@ namespace TabulateSmarterTestContentPackage
 
         internal bool ReportMissingImgAltTags(string input)
         {
-            const string imgAltMatcherPattern = @"<\w*img[^>]*>";
+            const string imgAltMatcherPattern = @"<\s*img[^>]*>";
             var result = Regex.Match(input, imgAltMatcherPattern);
 
-            const string imgAltPattern = @"alt(\s*\t*)=(\s*\t*)['""]\w+['""]";
+            const string imgAltPattern = @"alt\s*=\s*['""]\s*\w+\s*['""]";
             return result.Success
                 && !Regex.Match(result.Value, imgAltPattern).Success;                     // Empty alt tag with single quotes
         }
