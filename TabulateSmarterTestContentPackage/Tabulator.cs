@@ -2328,9 +2328,9 @@ namespace TabulateSmarterTestContentPackage
             return string.Concat(itemId, "~", dependsOnId);
         }
 
-        bool ReportMissingImgAltTags(string input)
+        internal bool ReportMissingImgAltTags(string input)
         {
-            const string imgAltMatcherPattern = @"<img[^>]*>";
+            const string imgAltMatcherPattern = @"<\w*img[^>]*>";
             var result = Regex.Match(input, imgAltMatcherPattern);
             return result.Success
                 && !string.IsNullOrEmpty(result.Value) 
