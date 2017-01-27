@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 using System.IO;
@@ -8,7 +9,7 @@ using System.Linq;
 
 namespace TabulateSmarterTestContentPackage
 {
-    class Tabulator
+    internal class Tabulator
     {
         const string cImsManifest = "imsmanifest.xml";
         static NameTable sXmlNt;
@@ -1789,13 +1790,6 @@ namespace TabulateSmarterTestContentPackage
             return nodeValue;
         }
 
-        string DepthOfKnowledgeFromMetadata(XmlDocument xmlMetadata, XmlNamespaceManager xmlNamespaceManager)
-        {
-            var nodeValue = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:DepthOfKnowledge", xmlNamespaceManager);
-            //TODO: Greg - Apply appropriate validation
-            return nodeValue;
-        }
-
         private void TabulateWordList(ItemContext it)
         {
             // Read the item XML
@@ -2334,7 +2328,7 @@ namespace TabulateSmarterTestContentPackage
             return string.Concat(itemId, "~", dependsOnId);
         }
 
-        bool ReportMissingImgAltTags(string input)
+        internal bool ReportMissingImgAltTags(string input)
         {
             const string imgAltMatcherPattern = @"<img[^>]*>";
             var result = Regex.Match(input, imgAltMatcherPattern);
