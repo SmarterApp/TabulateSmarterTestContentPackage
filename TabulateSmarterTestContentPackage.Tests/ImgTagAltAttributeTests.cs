@@ -50,7 +50,7 @@ namespace TabulateSmarterTestContentPackage.Tests
         {
             // arrange
             const string element = "<img id = \"item_1434_graphics1\" src = \"item_1434_v45_graphics1_png256.png\" " +
-                                   "width = \"888\" height = \"865\" style = \"vertical-align:baseline;\" alt=\'\' />";
+                                   "width = \"888\" height = \"865\" style = \"vertical-align:baseline;\" alt='' />";
 
             //act/assert
             RunValidation(element);
