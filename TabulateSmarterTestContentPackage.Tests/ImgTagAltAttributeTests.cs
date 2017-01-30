@@ -31,7 +31,7 @@ namespace TabulateSmarterTestContentPackage.Tests
                                    "width = \"888\" height = \"865\" style = \"vertical-align:baseline;\" alt=\"graphics1\" />";
 
             //act/assert
-            RunValidation(element, false);
+            RunValidation(element, isTrue: false);
         }
 
         [Test]
@@ -75,7 +75,7 @@ namespace TabulateSmarterTestContentPackage.Tests
                                    "width = \"888\" height = \"865\" style = \"vertical-align:baseline;\" alt= \" item1 \" />";
 
             //act/assert
-            RunValidation(element, false);
+            RunValidation(element, isTrue: false);
         }
 
         [Test]
@@ -86,7 +86,7 @@ namespace TabulateSmarterTestContentPackage.Tests
                                    "width = \"888\" height = \"865\" style = \"vertical-align:baseline;\" alt= \" item1 \" />";
 
             //act/assert
-            RunValidation(element, false);
+            RunValidation(element, isTrue: false);
         }
 
         [Test]
@@ -97,7 +97,7 @@ namespace TabulateSmarterTestContentPackage.Tests
                                    "width = \"888\" height = \"865\" style = \"vertical-align:baseline;\" alt=\"graphics1\" />TTTADXDFV";
 
             //act/assert
-            RunValidation(element, false);
+            RunValidation(element, isTrue: false);
         }
     }
 }
