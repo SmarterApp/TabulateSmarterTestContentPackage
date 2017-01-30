@@ -1,17 +1,15 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.IO;
 using System.Xml;
 using System.Text.RegularExpressions;
-using System.Diagnostics;
-using System.Collections;
+using System.Linq;
 
 namespace TabulateSmarterTestContentPackage
 {
-    class Tabulator
+    internal class Tabulator
     {
         const string cImsManifest = "imsmanifest.xml";
         static NameTable sXmlNt;
@@ -243,8 +241,9 @@ namespace TabulateSmarterTestContentPackage
             mErrorReportPath = string.Concat(reportPrefix, cErrorReportFn);
             if (File.Exists(mErrorReportPath)) File.Delete(mErrorReportPath);
 
-            mItemReport = new StreamWriter(string.Concat(reportPrefix, cItemReportFn), false, Encoding.UTF8);
-            mItemReport.WriteLine("Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation,Media,Size");
+            mItemReport = new StreamWriter(string.Concat(reportPrefix, cItemReportFn), false, Encoding.UTF8); 
+            // DOK is "Depth of Knowledge"
+            mItemReport.WriteLine("Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation,Media,Size,DOK,AllowCalculator");
 
             mStimulusReport = new StreamWriter(string.Concat(reportPrefix, cStimulusReportFn), false, Encoding.UTF8);
             mStimulusReport.WriteLine("Folder,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,Media,Size,WordCount");
@@ -446,6 +445,14 @@ namespace TabulateSmarterTestContentPackage
                 mIdToItemContext.Add(itemId, it);
             }
 
+            // Find and report any missing img alt tags
+            var qtiStemElements = xml.SelectNodes("itemrelease/item/content/qti").Cast<XmlElement>()
+                .Concat(xml.SelectNodes("itemrelease/item/content/stem").Cast<XmlElement>());
+            if (qtiStemElements.Any(q => ReportMissingImgAltTags(q.InnerText)))
+            {
+                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Img tag missing alt text in qti or stem element (item)", "bankKey='{0}' itemId='{1}' foldername='{2}'", bankKey, itemId, ffItem);
+            }
+
             // Check for filename match
             if (!ffItem.Name.Equals(string.Format("item-{0}-{1}", bankKey, itemId), StringComparison.OrdinalIgnoreCase))
             {
@@ -489,6 +496,13 @@ namespace TabulateSmarterTestContentPackage
             {
                 ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Stimulus ID doesn't match file/folder name", "bankKey='{0}' itemId='{1}' foldername='{2}'", bankKey, itemId, ffItem);
             }
+
+            // Find and report any missing img alt tags
+            var stemElement = xml.SelectSingleNode("itemrelease/passage/content/stem") as XmlElement;
+            if (ReportMissingImgAltTags(stemElement.InnerText))
+            {
+                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Img tag missing alt text in stem element (stim)", "bankKey='{0}' itemId='{1}' foldername='{2}'", bankKey, itemId, ffItem);
+            }  
 
             // count wordlist reference
             CountWordlistReferences(it, xml);
@@ -558,6 +572,9 @@ namespace TabulateSmarterTestContentPackage
             if (!string.Equals(metaItemType, it.ItemType.ToUpperInvariant(), StringComparison.Ordinal))
                 ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Incorrect metadata <InteractionType>.", "InteractionType='{0}' Expected='{1}'", metaItemType, it.ItemType.ToUpperInvariant());
 
+            // DepthOfKnowledge
+            var depthOfKnowledge = DepthOfKnowledgeFromMetadata(xmlMetadata, sXmlNs);
+
             // Get the version
             string version = xml.XpEvalE("itemrelease/item/@version");
 
@@ -575,6 +592,15 @@ namespace TabulateSmarterTestContentPackage
             {
                 if (!string.Equals(subject, metaSubject, StringComparison.Ordinal))
                     ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Subject mismatch between item and metadata.", "ItemSubject='{0}' MetadataSubject='{1}'", subject, metaSubject);
+            }
+
+            // AllowCalculator
+            var allowCalculator = AllowCalculatorFromMetadata(xmlMetadata, sXmlNs);
+            if (string.IsNullOrEmpty(allowCalculator) && 
+                (string.Equals(metaSubject, "MATH", StringComparison.OrdinalIgnoreCase) || 
+                string.Equals(subject, "MATH", StringComparison.OrdinalIgnoreCase)))
+            {
+                ReportError(it, ErrCat.Metadata, ErrSeverity.Severe, "Allow Calculator field not present for MATH subject item", "ItemSubject='{0}' MetadataSubject='{1}'", subject, metaSubject);
             }
 
             // Grade
@@ -776,8 +802,10 @@ namespace TabulateSmarterTestContentPackage
             // Size
             long size = GetItemSize(it);
 
-            // Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation,Media,Size
-            mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(version), CsvEncode(subject), CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), CsvEncode(media), size.ToString()));
+            // Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator
+            mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(version), CsvEncode(subject), 
+                CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), CsvEncode(wordlistId), 
+                CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), CsvEncode(media), size.ToString(), CsvEncode(depthOfKnowledge), CsvEncode(allowCalculator)));
 
             // === Tabulation is complete, check for other errors
 
@@ -1751,6 +1779,18 @@ namespace TabulateSmarterTestContentPackage
             target = string.Empty;
         }
 
+        string DepthOfKnowledgeFromMetadata(XmlDocument xmlMetadata, XmlNamespaceManager xmlNamespaceManager)
+        {
+            var nodeValue = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:DepthOfKnowledge", xmlNamespaceManager);
+            return nodeValue;
+        }
+
+        string AllowCalculatorFromMetadata(XmlDocument xmlMetadata, XmlNamespaceManager xmlNamespaceManager)
+        {
+            var nodeValue = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:AllowCalculator", xmlNamespaceManager);
+            return nodeValue;
+        }
+
         private void TabulateWordList(ItemContext it)
         {
             // Read the item XML
@@ -2287,6 +2327,16 @@ namespace TabulateSmarterTestContentPackage
         static string ToDependsOnString(string itemId, string dependsOnId)
         {
             return string.Concat(itemId, "~", dependsOnId);
+        }
+
+        internal bool ReportMissingImgAltTags(string input)
+        {
+            const string imgAltMatcherPattern = @"<\s*img[^>]*>";
+            var result = Regex.Match(input, imgAltMatcherPattern);
+
+            const string imgAltPattern = @"alt\s*=\s*['""]\s*\w+\s*['""]";
+            return result.Success
+                && !Regex.Match(result.Value, imgAltPattern).Success;
         }
 
         void SummaryReport(TextWriter writer)
