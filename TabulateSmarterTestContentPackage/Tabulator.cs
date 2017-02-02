@@ -450,7 +450,7 @@ namespace TabulateSmarterTestContentPackage
                 .Concat(xml.SelectNodes("itemrelease/item/content/stem").Cast<XmlElement>());
             if (qtiStemElements.Any(q => ReportMissingImgAltTags(q.InnerText)))
             {
-                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Img tag missing alt text in qti or stem element (item)", "bankKey='{0}' itemId='{1}' foldername='{2}'", bankKey, itemId, ffItem);
+                ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Img tag missing alt text in qti or stem element (item)", "bankKey='{0}' itemId='{1}' foldername='{2}'", bankKey, itemId, ffItem);
             }
 
             // Check for filename match
@@ -501,7 +501,7 @@ namespace TabulateSmarterTestContentPackage
             var stemElement = xml.SelectSingleNode("itemrelease/passage/content/stem") as XmlElement;
             if (ReportMissingImgAltTags(stemElement.InnerText))
             {
-                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Img tag missing alt text in stem element (stim)", "bankKey='{0}' itemId='{1}' foldername='{2}'", bankKey, itemId, ffItem);
+                ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Img tag missing alt text in stem element (stim)", "bankKey='{0}' itemId='{1}' foldername='{2}'", bankKey, itemId, ffItem);
             }  
 
             // count wordlist reference
