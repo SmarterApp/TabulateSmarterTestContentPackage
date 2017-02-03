@@ -3,9 +3,10 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 using System.IO;
+using System.Linq;
 using System.Xml;
 using System.Text.RegularExpressions;
-using System.Linq;
+using TabulateSmarterTestContentPackage.Models;
 
 namespace TabulateSmarterTestContentPackage
 {
@@ -445,14 +446,6 @@ namespace TabulateSmarterTestContentPackage
                 mIdToItemContext.Add(itemId, it);
             }
 
-            // Find and report any missing img alt tags
-            var qtiStemElements = xml.SelectNodes("itemrelease/item/content/qti").Cast<XmlElement>()
-                .Concat(xml.SelectNodes("itemrelease/item/content/stem").Cast<XmlElement>());
-            if (qtiStemElements.Any(q => ReportMissingImgAltTags(q.InnerText)))
-            {
-                ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Img tag missing alt text in qti or stem element (item)", "bankKey='{0}' itemId='{1}' foldername='{2}'", bankKey, itemId, ffItem);
-            }
-
             // Check for filename match
             if (!ffItem.Name.Equals(string.Format("item-{0}-{1}", bankKey, itemId), StringComparison.OrdinalIgnoreCase))
             {
@@ -496,13 +489,6 @@ namespace TabulateSmarterTestContentPackage
             {
                 ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Stimulus ID doesn't match file/folder name", "bankKey='{0}' itemId='{1}' foldername='{2}'", bankKey, itemId, ffItem);
             }
-
-            // Find and report any missing img alt tags
-            var stemElement = xml.SelectSingleNode("itemrelease/passage/content/stem") as XmlElement;
-            if (ReportMissingImgAltTags(stemElement.InnerText))
-            {
-                ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Img tag missing alt text in stem element (stim)", "bankKey='{0}' itemId='{1}' foldername='{2}'", bankKey, itemId, ffItem);
-            }  
 
             // count wordlist reference
             CountWordlistReferences(it, xml);
@@ -600,7 +586,7 @@ namespace TabulateSmarterTestContentPackage
                 (string.Equals(metaSubject, "MATH", StringComparison.OrdinalIgnoreCase) || 
                 string.Equals(subject, "MATH", StringComparison.OrdinalIgnoreCase)))
             {
-                ReportError(it, ErrCat.Metadata, ErrSeverity.Severe, "Allow Calculator field not present for MATH subject item", "ItemSubject='{0}' MetadataSubject='{1}'", subject, metaSubject);
+                ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "Allow Calculator field not present for MATH subject item");
             }
 
             // Grade
@@ -1453,7 +1439,8 @@ namespace TabulateSmarterTestContentPackage
                     {
                         if (node.NodeType == XmlNodeType.CDATA)
                         {
-                            ValidateContentCData(it, node, termIndices, terms);
+                            var html = LoadHtml(it, node);
+                            ValidateContentCData(it, xml, termIndices, terms, html);
                         }
                     }
                 }
@@ -1475,29 +1462,8 @@ namespace TabulateSmarterTestContentPackage
 
         static readonly char[] s_WhiteAndPunct = { '\t', '\n', '\r', ' ', '!', '"', '#', '$', '%', '&', '\'', '(', ')', '*', '+', ',', '-', '.', '/', ':', ';', '<', '=', '>', '?', '@', '[', '\\', ']', '^', '_', '`', '{', '|', '~' };
 
-        void ValidateContentCData(ItemContext it, XmlNode cdata, List<int> termIndices, List<string> terms)
+        void ValidateContentCData(ItemContext it, XmlDocument xml, List<int> termIndices, List<string> terms, XmlDocument html)
         {
-            // Parse the HTML into an XML DOM
-            XmlDocument html = null;
-            try
-            {
-                Html.HtmlReaderSettings settings = new Html.HtmlReaderSettings();
-                settings.CloseInput = true;
-                settings.EmitHtmlNamespace = false;
-                settings.IgnoreComments = true;
-                settings.IgnoreProcessingInstructions = true;
-                settings.IgnoreInsignificantWhitespace = true;
-                using (var reader = new Html.HtmlReader(new StringReader(cdata.InnerText), settings))
-                {
-                    html = new XmlDocument();
-                    html.Load(reader);
-                }
-            }
-            catch(Exception err)
-            {
-                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Invalid html content.", "context='{0}' error='{1}'", GetXmlContext(cdata), err.Message);
-            }
-
             /* Word list references look like this:
             <span id="item_998_TAG_2" class="its-tag" data-tag="word" data-tag-boundary="start" data-word-index="1"></span>
             What
@@ -1555,7 +1521,77 @@ namespace TabulateSmarterTestContentPackage
                 termIndices.Add(termIndex);
                 terms.Add(term);
             }
+            // Img tag validation
+            ReportMissingImgAltTags(it, xml, ExtractImageList(html));
+        }
 
+        XmlDocument LoadHtml(ItemContext it, XmlNode content)
+        {
+            // Parse the HTML into an XML DOM
+            XmlDocument html = null;
+            try
+            {
+                var settings = new Html.HtmlReaderSettings
+                {
+                    CloseInput = true,
+                    EmitHtmlNamespace = false,
+                    IgnoreComments = true,
+                    IgnoreProcessingInstructions = true,
+                    IgnoreInsignificantWhitespace = true
+                };
+                using (var reader = new Html.HtmlReader(new StringReader(content.InnerText), settings))
+                {
+                    html = new XmlDocument();
+                    html.Load(reader);
+                }
+            }
+            catch (Exception err)
+            {
+                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Invalid html content.", "context='{0}' error='{1}'", GetXmlContext(content), err.Message);
+            }
+            return html;
+        }
+
+        List<HtmlImageTagModel> ExtractImageList(XmlDocument htmlDocument)
+        {
+            // Assemble img tags and map their src and id attributes for validation
+            var imgList = new List<HtmlImageTagModel>();
+            imgList.AddRange(htmlDocument.SelectNodes("//img")
+                .Cast<XmlNode>()
+                .Select(x => new HtmlImageTagModel
+                {
+                    Source = x.Attributes["src"]?.InnerText ?? string.Empty,
+                    Id = x.Attributes["id"]?.InnerText ?? string.Empty
+                }));
+            return imgList;
+        } 
+
+        void ReportMissingImgAltTags(ItemContext it, XmlDocument xml, List<HtmlImageTagModel> imgList)
+        {
+            foreach (var img in imgList)
+            {
+                if (string.IsNullOrEmpty(img.Source))
+                {
+                    ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Img tag is missing src attribute");
+                }
+                if (string.IsNullOrEmpty(img.Id))
+                {
+                    ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Img tag is missing id attribute");
+                }
+                else
+                {
+                    var xpAccessibility = it.IsPassage
+                        ? "itemrelease/passage/content/apipAccessibility/accessibilityInfo/accessElement/contentLinkInfo"
+                        : "itemrelease/item/content/apipAccessibility/accessibilityInfo/accessElement/contentLinkInfo";
+                    // Search for matching ID in the accessibility nodes. If none exist, record an error.
+                    if (!xml.SelectNodes(xpAccessibility)
+                        .Cast<XmlNode>()
+                        .Any(accessibilityNode => accessibilityNode.Attributes["itsLinkIdentifierRef"].Value.Equals(img.Id)))
+                    {
+                        ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Img tag does not have an alt attribute", "id='{0}' src='{1}'", img.Id, img.Source);
+                    }
+                }
+            }
         }
 
         static string GetXmlContext(XmlNode node)
@@ -2327,16 +2363,6 @@ namespace TabulateSmarterTestContentPackage
         static string ToDependsOnString(string itemId, string dependsOnId)
         {
             return string.Concat(itemId, "~", dependsOnId);
-        }
-
-        internal bool ReportMissingImgAltTags(string input)
-        {
-            const string imgAltMatcherPattern = @"<\s*img[^>]*>";
-            var result = Regex.Match(input, imgAltMatcherPattern);
-
-            const string imgAltPattern = @"alt\s*=\s*['""]\s*\w+\s*['""]";
-            return result.Success
-                && !Regex.Match(result.Value, imgAltPattern).Success;
         }
 
         void SummaryReport(TextWriter writer)
