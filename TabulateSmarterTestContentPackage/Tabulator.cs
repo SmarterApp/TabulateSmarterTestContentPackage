@@ -1440,9 +1440,7 @@ namespace TabulateSmarterTestContentPackage
                         if (node.NodeType == XmlNodeType.CDATA)
                         {
                             var html = LoadHtml(it, node);
-                            ValidateContentCData(it, node, termIndices, terms, html);
-                            // Img tag validation
-                            ReportMissingImgAltTags(it,xml,ExtractImageList(html));
+                            ValidateContentCData(it, xml, termIndices, terms, html);
                         }
                     }
                 }
@@ -1464,7 +1462,7 @@ namespace TabulateSmarterTestContentPackage
 
         static readonly char[] s_WhiteAndPunct = { '\t', '\n', '\r', ' ', '!', '"', '#', '$', '%', '&', '\'', '(', ')', '*', '+', ',', '-', '.', '/', ':', ';', '<', '=', '>', '?', '@', '[', '\\', ']', '^', '_', '`', '{', '|', '~' };
 
-        void ValidateContentCData(ItemContext it, XmlNode cdata, List<int> termIndices, List<string> terms, XmlDocument html)
+        void ValidateContentCData(ItemContext it, XmlDocument xml, List<int> termIndices, List<string> terms, XmlDocument html)
         {
             /* Word list references look like this:
             <span id="item_998_TAG_2" class="its-tag" data-tag="word" data-tag-boundary="start" data-word-index="1"></span>
@@ -1523,6 +1521,8 @@ namespace TabulateSmarterTestContentPackage
                 termIndices.Add(termIndex);
                 terms.Add(term);
             }
+            // Img tag validation
+            ReportMissingImgAltTags(it, xml, ExtractImageList(html));
         }
 
         XmlDocument LoadHtml(ItemContext it, XmlNode content)
