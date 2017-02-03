@@ -1439,9 +1439,10 @@ namespace TabulateSmarterTestContentPackage
                     {
                         if (node.NodeType == XmlNodeType.CDATA)
                         {
-                            var imgList = ValidateContentCData(it, node, termIndices, terms);
+                            var html = LoadHtml(it, node);
+                            ValidateContentCData(it, node, termIndices, terms, html);
                             // Img tag validation
-                            ReportMissingImgAltTags(it,xml,imgList);
+                            ReportMissingImgAltTags(it,xml,ExtractImageList(html));
                         }
                     }
                 }
@@ -1463,29 +1464,8 @@ namespace TabulateSmarterTestContentPackage
 
         static readonly char[] s_WhiteAndPunct = { '\t', '\n', '\r', ' ', '!', '"', '#', '$', '%', '&', '\'', '(', ')', '*', '+', ',', '-', '.', '/', ':', ';', '<', '=', '>', '?', '@', '[', '\\', ']', '^', '_', '`', '{', '|', '~' };
 
-        List<HtmlImageTagModel> ValidateContentCData(ItemContext it, XmlNode cdata, List<int> termIndices, List<string> terms)
+        void ValidateContentCData(ItemContext it, XmlNode cdata, List<int> termIndices, List<string> terms, XmlDocument html)
         {
-            // Parse the HTML into an XML DOM
-            XmlDocument html = null;
-            try
-            {
-                Html.HtmlReaderSettings settings = new Html.HtmlReaderSettings();
-                settings.CloseInput = true;
-                settings.EmitHtmlNamespace = false;
-                settings.IgnoreComments = true;
-                settings.IgnoreProcessingInstructions = true;
-                settings.IgnoreInsignificantWhitespace = true;
-                using (var reader = new Html.HtmlReader(new StringReader(cdata.InnerText), settings))
-                {
-                    html = new XmlDocument();
-                    html.Load(reader);
-                }
-            }
-            catch(Exception err)
-            {
-                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Invalid html content.", "context='{0}' error='{1}'", GetXmlContext(cdata), err.Message);
-            }
-
             /* Word list references look like this:
             <span id="item_998_TAG_2" class="its-tag" data-tag="word" data-tag-boundary="start" data-word-index="1"></span>
             What
@@ -1543,18 +1523,48 @@ namespace TabulateSmarterTestContentPackage
                 termIndices.Add(termIndex);
                 terms.Add(term);
             }
+        }
 
+        XmlDocument LoadHtml(ItemContext it, XmlNode content)
+        {
+            // Parse the HTML into an XML DOM
+            XmlDocument html = null;
+            try
+            {
+                var settings = new Html.HtmlReaderSettings
+                {
+                    CloseInput = true,
+                    EmitHtmlNamespace = false,
+                    IgnoreComments = true,
+                    IgnoreProcessingInstructions = true,
+                    IgnoreInsignificantWhitespace = true
+                };
+                using (var reader = new Html.HtmlReader(new StringReader(content.InnerText), settings))
+                {
+                    html = new XmlDocument();
+                    html.Load(reader);
+                }
+            }
+            catch (Exception err)
+            {
+                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Invalid html content.", "context='{0}' error='{1}'", GetXmlContext(content), err.Message);
+            }
+            return html;
+        }
+
+        List<HtmlImageTagModel> ExtractImageList(XmlDocument htmlDocument)
+        {
             // Assemble img tags and map their src and id attributes for validation
             var imgList = new List<HtmlImageTagModel>();
-            imgList.AddRange(html.SelectNodes("//img")
+            imgList.AddRange(htmlDocument.SelectNodes("//img")
                 .Cast<XmlNode>()
                 .Select(x => new HtmlImageTagModel
-                    {
-                        Source = x.Attributes["src"]?.InnerText ?? string.Empty,
-                        Id = x.Attributes["id"]?.InnerText ?? string.Empty
-                    }));
+                {
+                    Source = x.Attributes["src"]?.InnerText ?? string.Empty,
+                    Id = x.Attributes["id"]?.InnerText ?? string.Empty
+                }));
             return imgList;
-        }
+        } 
 
         void ReportMissingImgAltTags(ItemContext it, XmlDocument xml, List<HtmlImageTagModel> imgList)
         {
