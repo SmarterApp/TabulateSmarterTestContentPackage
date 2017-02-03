@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 using System.IO;
+using System.Linq;
 using System.Xml;
 using System.Text.RegularExpressions;
 using TabulateSmarterTestContentPackage.Models;
@@ -1571,17 +1572,10 @@ namespace TabulateSmarterTestContentPackage
                 var xpAccessibility = it.IsPassage
                     ? "itemrelease/passage/content/apipAccessibility/accessibilityInfo/accessElement/contentLinkInfo"
                     : "itemrelease/item/content/apipAccessibility/accessibilityInfo/accessElement/contentLinkInfo";
-                var accessibilityNodes = xml.SelectNodes(xpAccessibility);
-                var found = false;
-                foreach (XmlNode accessibilityNode in accessibilityNodes)
-                {
-                    if (accessibilityNode.Attributes["itsLinkIdentifierRef"].Value.Equals(img.Id))
-                    {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found)
+                // Search for matching ID in the accessibility nodes. If none exist, record an error.
+                if (!xml.SelectNodes(xpAccessibility)
+                    .Cast<XmlNode>()
+                    .Any(accessibilityNode => accessibilityNode.Attributes["itsLinkIdentifierRef"].Value.Equals(img.Id)))
                 {
                     ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Img tag does not have an alt attribute", "id='{0}' src='{1}'", img.Id, img.Source);
                 }
