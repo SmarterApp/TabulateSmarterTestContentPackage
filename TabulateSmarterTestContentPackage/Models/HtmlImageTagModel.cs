@@ -2,7 +2,7 @@
 {
     public class HtmlImageTagModel
     {
-        public string src { get; set; }
-        public string id { get; set; }
+        public string Source { get; set; }
+        public string Id { get; set; }
     }
 }

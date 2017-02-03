@@ -1549,8 +1549,8 @@ namespace TabulateSmarterTestContentPackage
             {
                     imgList.Add(new HtmlImageTagModel
                     {
-                        src = node.Attributes["src"]?.InnerText ?? string.Empty,
-                        id = node.Attributes["id"]?.InnerText ?? string.Empty
+                        Source = node.Attributes["src"]?.InnerText ?? string.Empty,
+                        Id = node.Attributes["id"]?.InnerText ?? string.Empty
                     });
             }
             return imgList;
@@ -1560,11 +1560,11 @@ namespace TabulateSmarterTestContentPackage
         {
             foreach (var img in imgList)
             {
-                if (string.IsNullOrEmpty(img.id))
+                if (string.IsNullOrEmpty(img.Id))
                 {
                     ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Img tag is missing id attribute");
                 }
-                if (string.IsNullOrEmpty(img.src))
+                if (string.IsNullOrEmpty(img.Source))
                 {
                     ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Img tag is missing src attribute");
                 }
@@ -1575,7 +1575,7 @@ namespace TabulateSmarterTestContentPackage
                 var found = false;
                 foreach (XmlNode accessibilityNode in accessibilityNodes)
                 {
-                    if (accessibilityNode.Attributes["itsLinkIdentifierRef"].Value.Equals(img.id))
+                    if (accessibilityNode.Attributes["itsLinkIdentifierRef"].Value.Equals(img.Id))
                     {
                         found = true;
                         break;
@@ -1583,7 +1583,7 @@ namespace TabulateSmarterTestContentPackage
                 }
                 if (!found)
                 {
-                    ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Img tag does not have an alt attribute", "id='{0}' src='{1}'", img.id, img.src);
+                    ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Img tag does not have an alt attribute", "id='{0}' src='{1}'", img.Id, img.Source);
                 }
             }
         }
