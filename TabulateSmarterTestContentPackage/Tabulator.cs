@@ -1560,23 +1560,26 @@ namespace TabulateSmarterTestContentPackage
         {
             foreach (var img in imgList)
             {
-                if (string.IsNullOrEmpty(img.Id))
-                {
-                    ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Img tag is missing id attribute");
-                }
                 if (string.IsNullOrEmpty(img.Source))
                 {
                     ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Img tag is missing src attribute");
                 }
-                var xpAccessibility = it.IsPassage
-                    ? "itemrelease/passage/content/apipAccessibility/accessibilityInfo/accessElement/contentLinkInfo"
-                    : "itemrelease/item/content/apipAccessibility/accessibilityInfo/accessElement/contentLinkInfo";
-                // Search for matching ID in the accessibility nodes. If none exist, record an error.
-                if (!xml.SelectNodes(xpAccessibility)
-                    .Cast<XmlNode>()
-                    .Any(accessibilityNode => accessibilityNode.Attributes["itsLinkIdentifierRef"].Value.Equals(img.Id)))
+                if (string.IsNullOrEmpty(img.Id))
                 {
-                    ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Img tag does not have an alt attribute", "id='{0}' src='{1}'", img.Id, img.Source);
+                    ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Img tag is missing id attribute");
+                }
+                else
+                {
+                    var xpAccessibility = it.IsPassage
+                        ? "itemrelease/passage/content/apipAccessibility/accessibilityInfo/accessElement/contentLinkInfo"
+                        : "itemrelease/item/content/apipAccessibility/accessibilityInfo/accessElement/contentLinkInfo";
+                    // Search for matching ID in the accessibility nodes. If none exist, record an error.
+                    if (!xml.SelectNodes(xpAccessibility)
+                        .Cast<XmlNode>()
+                        .Any(accessibilityNode => accessibilityNode.Attributes["itsLinkIdentifierRef"].Value.Equals(img.Id)))
+                    {
+                        ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Img tag does not have an alt attribute", "id='{0}' src='{1}'", img.Id, img.Source);
+                    }
                 }
             }
         }
