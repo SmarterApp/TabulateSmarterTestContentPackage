@@ -1544,16 +1544,15 @@ namespace TabulateSmarterTestContentPackage
                 terms.Add(term);
             }
 
-            // For img tag validation
+            // Assemble img tags and map their src and id attributes for validation
             var imgList = new List<HtmlImageTagModel>();
-            foreach (XmlElement node in html.SelectNodes("//img"))
-            {
-                    imgList.Add(new HtmlImageTagModel
+            imgList.AddRange(html.SelectNodes("//img")
+                .Cast<XmlNode>()
+                .Select(x => new HtmlImageTagModel
                     {
-                        Source = node.Attributes["src"]?.InnerText ?? string.Empty,
-                        Id = node.Attributes["id"]?.InnerText ?? string.Empty
-                    });
-            }
+                        Source = x.Attributes["src"]?.InnerText ?? string.Empty,
+                        Id = x.Attributes["id"]?.InnerText ?? string.Empty
+                    }));
             return imgList;
         }
 
