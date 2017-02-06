@@ -1569,10 +1569,9 @@ namespace TabulateSmarterTestContentPackage
         // Acceptable sub-elements: textToSpeechPronunciation, textToSpeechPronunciationAlternate, audioText, audioSortDesc, audioLongDesc
         void CheckForNonEmptyReadAloudSubElement(ItemContext it, XmlNode xml)
         {
-            if(new List<string> {"textToSpeechPronunciation", "textToSpeechPronunciationAlternate", "audioText", "audioShortDesc", "audioLongDesc"}
+            if(!new List<string> {"textToSpeechPronunciation", "textToSpeechPronunciationAlternate", "audioText", "audioShortDesc", "audioLongDesc"}
                 .Select(t => $"relatedElementInfo/readAloud/{t}") // Select sub-elements from list above
-                .Select(element => ElementExistsAndIsNonEmpty(xml, element)) // Check if the sub-element exists and has a value
-                .All(x => x == false)) // If none of the elements exist with a value 
+                .Any(element => ElementExistsAndIsNonEmpty(xml, element))) // Check if the sub-element exists and has a value
             {
                 ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Img tag is missing alt tag content from the <readAloud> sub-element");
             }
