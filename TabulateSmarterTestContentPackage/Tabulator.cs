@@ -1564,7 +1564,25 @@ namespace TabulateSmarterTestContentPackage
                     Id = x.Attributes["id"]?.InnerText ?? string.Empty
                 }));
             return imgList;
-        } 
+        }
+
+        // Acceptable sub-elements: textToSpeechPronunciation, textToSpeechPronunciationAlternate, audioText, audioSortDesc, audioLongDesc
+        void CheckForNonEmptyReadAloudSubElement(ItemContext it, XmlNode xml)
+        {
+            if(!new List<string> {"textToSpeechPronunciation", "textToSpeechPronunciationAlternate", "audioText", "audioShortDesc", "audioLongDesc"}
+                .Select(t => $"relatedElementInfo/readAloud/{t}") // Select sub-elements from list above
+                .Any(element => ElementExistsAndIsNonEmpty(xml, element))) // Check if the sub-element exists and has a value
+            {
+                ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Img tag is missing alt tag content from the <readAloud> sub-element");
+            }
+
+        }
+
+        bool ElementExistsAndIsNonEmpty(XmlNode xml, string path)
+        {
+            var node = xml.SelectSingleNode(path);
+            return !string.IsNullOrEmpty(node?.InnerText);
+        }
 
         void ReportMissingImgAltTags(ItemContext it, XmlDocument xml, List<HtmlImageTagModel> imgList)
         {
@@ -1580,15 +1598,22 @@ namespace TabulateSmarterTestContentPackage
                 }
                 else
                 {
-                    var xpAccessibility = it.IsPassage
-                        ? "itemrelease/passage/content/apipAccessibility/accessibilityInfo/accessElement/contentLinkInfo"
-                        : "itemrelease/item/content/apipAccessibility/accessibilityInfo/accessElement/contentLinkInfo";
+                    var xpAccessibility = $"itemrelease/{(it.IsPassage ? "passage" : "item")}/content/apipAccessibility/accessibilityInfo/accessElement/contentLinkInfo";
                     // Search for matching ID in the accessibility nodes. If none exist, record an error.
-                    if (!xml.SelectNodes(xpAccessibility)
+                    var accessibilityNodes = xml.SelectNodes(xpAccessibility)
                         .Cast<XmlNode>()
-                        .Any(accessibilityNode => accessibilityNode.Attributes["itsLinkIdentifierRef"].Value.Equals(img.Id)))
+                        .Where(accessibilityNode => accessibilityNode.Attributes["itsLinkIdentifierRef"].Value.Equals(img.Id))
+                        .ToList();
+                    if (!accessibilityNodes.Any())
                     {
                         ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Img tag does not have an alt attribute", "id='{0}' src='{1}'", img.Id, img.Source);
+                    }
+                    else
+                    {
+                        foreach (var node in accessibilityNodes)
+                        {
+                            CheckForNonEmptyReadAloudSubElement(it, node.ParentNode);
+                        }
                     }
                 }
             }
