@@ -1541,25 +1541,29 @@ namespace TabulateSmarterTestContentPackage
         {
             // Assemble img tags and map their src and id attributes for validation
             var imgList = new List<HtmlImageTagModel>();
-            imgList.AddRange(htmlDocument.SelectNodes("//img")
-                .Cast<XmlNode>()
+            imgList.AddRange(htmlDocument.SelectNodes("//img").Cast<XmlNode>()
                 .Select(x => new HtmlImageTagModel
                 {
                     Source = x.Attributes["src"]?.InnerText ?? string.Empty,
-                    Id = x.Attributes["id"]?.InnerText ?? string.Empty
+                    Id = x.Attributes["id"]?.InnerText ?? string.Empty,
+                    // Check to see if the enclosing element is a span. If so, add the id
+                    EnclosingSpanId = x.ParentNode.Name.Equals("span") ?
+                        x.ParentNode.Attributes["id"]?.InnerText ?? string.Empty :
+                        string.Empty
                 }));
             return imgList;
         }
 
         // Acceptable sub-elements: textToSpeechPronunciation, textToSpeechPronunciationAlternate, audioText, audioSortDesc, audioLongDesc
-        void CheckForNonEmptyReadAloudSubElement(ItemContext it, XmlNode xml, string id, string src)
+        void CheckForNonEmptyReadAloudSubElement(ItemContext it, XmlNode xml, string id, string src, string enclosingSpanId)
         {
             if(!new List<string> {"textToSpeechPronunciation", "textToSpeechPronunciationAlternate", "audioText", "audioShortDesc", "audioLongDesc"}
                 .Select(t => $"relatedElementInfo/readAloud/{t}") // Select sub-elements from list above
                 .Any(element => ElementExistsAndIsNonEmpty(xml, element))) // Check if the sub-element exists and has a value
             {
                 ReportError(it, ErrCat.Item, ErrSeverity.Degraded, 
-                    "Img tag is missing alternative text in the <readAloud> accessibility element.", "id ='{0}' src='{1}'", id, src);
+                    "Img tag is missing alternative text in the <readAloud> accessibility element.", 
+                    "id ='{0}' src='{1}' spanId='{2}'", id, src, enclosingSpanId ?? string.Empty);
             }
 
         }
@@ -1589,7 +1593,9 @@ namespace TabulateSmarterTestContentPackage
                     // Search for matching ID in the accessibility nodes. If none exist, record an error.
                     var accessibilityNodes = xml.SelectNodes(xpAccessibility)
                         .Cast<XmlNode>()
-                        .Where(accessibilityNode => accessibilityNode.Attributes["itsLinkIdentifierRef"].Value.Equals(img.Id))
+                        .Where(accessibilityNode => accessibilityNode.Attributes["itsLinkIdentifierRef"].Value.Equals(img.Id)
+                            || (!string.IsNullOrEmpty(img.EnclosingSpanId) 
+                            && accessibilityNode.Attributes["itsLinkIdentifierRef"].Value.Equals(img.EnclosingSpanId)))
                         .ToList();
                     if (!accessibilityNodes.Any())
                     {
@@ -1600,7 +1606,7 @@ namespace TabulateSmarterTestContentPackage
                     {
                         foreach (var node in accessibilityNodes)
                         {
-                            CheckForNonEmptyReadAloudSubElement(it, node.ParentNode, img.Id, img.Source);
+                            CheckForNonEmptyReadAloudSubElement(it, node.ParentNode, img.Id, img.Source, img.EnclosingSpanId);
                         }
                     }
                 }
