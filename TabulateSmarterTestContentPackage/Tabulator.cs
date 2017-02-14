@@ -765,16 +765,7 @@ namespace TabulateSmarterTestContentPackage
             string wordlistId = ValidateContentAndWordlist(it, xml);
 
             // ASL
-            string asl = string.Empty;
-            {
-                bool aslFound = CheckForAttachment(it, xml, "ASL", "MP4");
-                if (aslFound) asl = "MP4";
-                if (!aslFound) ReportUnexpectedFiles(it, "ASL video", "^item_{0}_ASL", it.ItemId);
-
-                bool aslInMetadata = string.Equals(xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:AccessibilityTagsASLLanguage", sXmlNs), "Y", StringComparison.OrdinalIgnoreCase);
-                if (aslInMetadata && !aslFound) ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "Item metadata specifies ASL but no ASL in item.");
-                if (!aslInMetadata && aslFound) ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Item has ASL but not indicated in the metadata.");
-            }
+            string asl = GetAslType(it, xml, xmlMetadata);
 
             // BrailleType
             string brailleType = GetBrailleType(it, xml, xmlMetadata);
@@ -1046,16 +1037,7 @@ namespace TabulateSmarterTestContentPackage
             string wordlistId = ValidateContentAndWordlist(it, xml);
 
             // ASL
-            string asl = string.Empty;
-            {
-                bool aslFound = CheckForAttachment(it, xml, "ASL", "MP4");
-                if (aslFound) asl = "MP4";
-                if (!aslFound) ReportUnexpectedFiles(it, "ASL video", "^item_{0}_ASL", it.ItemId);
-
-                bool aslInMetadata = string.Equals(xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:AccessibilityTagsASLLanguage", sXmlNs), "Y", StringComparison.OrdinalIgnoreCase);
-                if (aslInMetadata && !aslFound) ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "Item metadata specifies ASL but no ASL in item.");
-                if (!aslInMetadata && aslFound) ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Item has ASL but not indicated in the metadata.");
-            }
+            string asl = GetAslType(it, xml, xmlMetadata);
 
             // BrailleType
             string brailleType = GetBrailleType(it, xml, xmlMetadata);
@@ -1132,16 +1114,7 @@ namespace TabulateSmarterTestContentPackage
             string wordlistId = ValidateContentAndWordlist(it, xml);
 
             // ASL
-            string asl = string.Empty;
-            {
-                bool aslFound = CheckForAttachment(it, xml, "ASL", "MP4");
-                if (aslFound) asl = "MP4";
-                if (!aslFound) ReportUnexpectedFiles(it, "ASL video", "^item_{0}_ASL*", it.ItemId);
-
-                bool aslInMetadata = string.Equals(xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:AccessibilityTagsASLLanguage", sXmlNs), "Y", StringComparison.OrdinalIgnoreCase);
-                if (aslInMetadata && !aslFound) ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "Item metadata specifies ASL but no ASL in item.");
-                if (!aslInMetadata && aslFound) ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Item has ASL but not indicated in the metadata.");
-            }
+            string asl = GetAslType(it, xml, xmlMetadata);
 
             // BrailleType
             string brailleType = GetBrailleType(it, xml, xmlMetadata);
@@ -1253,6 +1226,18 @@ namespace TabulateSmarterTestContentPackage
                 if (!mResourceDependencies.Contains(ToDependsOnString(itemResourceId, dependencyResourceId)))
                     ReportError("pmd", it, ErrCat.Manifest, ErrSeverity.Benign, string.Format("Manifest does not record dependency between item and {0}.", dependencyType), "ItemResourceId='{0}' {1}ResourceId='{2}'", itemResourceId, dependencyType, dependencyResourceId);
             }
+        }
+
+        string GetAslType(ItemContext it, XmlDocument xml, XmlDocument xmlMetadata)
+        {
+            bool aslFound = CheckForAttachment(it, xml, "ASL", "MP4");
+            if (!aslFound) ReportUnexpectedFiles(it, "ASL video", "^item_{0}_ASL", it.ItemId);
+
+            bool aslInMetadata = string.Equals(xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:AccessibilityTagsASLLanguage", sXmlNs), "Y", StringComparison.OrdinalIgnoreCase);
+            if (aslInMetadata && !aslFound) ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "Item metadata specifies ASL but no ASL in item.");
+            if (!aslInMetadata && aslFound) ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Item has ASL but not indicated in the metadata.");
+
+            return (aslFound && aslInMetadata) ? "MP4" : string.Empty;
         }
 
         string GetBrailleType(ItemContext it, XmlDocument xml, XmlDocument xmlMetadata)
