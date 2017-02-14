@@ -1552,13 +1552,14 @@ namespace TabulateSmarterTestContentPackage
         }
 
         // Acceptable sub-elements: textToSpeechPronunciation, textToSpeechPronunciationAlternate, audioText, audioSortDesc, audioLongDesc
-        void CheckForNonEmptyReadAloudSubElement(ItemContext it, XmlNode xml)
+        void CheckForNonEmptyReadAloudSubElement(ItemContext it, XmlNode xml, string id, string src)
         {
             if(!new List<string> {"textToSpeechPronunciation", "textToSpeechPronunciationAlternate", "audioText", "audioShortDesc", "audioLongDesc"}
                 .Select(t => $"relatedElementInfo/readAloud/{t}") // Select sub-elements from list above
                 .Any(element => ElementExistsAndIsNonEmpty(xml, element))) // Check if the sub-element exists and has a value
             {
-                ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Img tag is missing alt tag content from the <readAloud> sub-element");
+                ReportError(it, ErrCat.Item, ErrSeverity.Degraded, 
+                    "Img tag is missing alternative text in the <readAloud> accessibility element.", "id ='{0}' src='{1}'", id, src);
             }
 
         }
@@ -1579,7 +1580,8 @@ namespace TabulateSmarterTestContentPackage
                 }
                 if (string.IsNullOrEmpty(img.Id))
                 {
-                    ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Img tag is missing id attribute");
+                    ReportError(it, ErrCat.Item, ErrSeverity.Degraded, 
+                        "Img tag is missing id attribute to associate with alternative text.", "src = '{0}'", img.Source);
                 }
                 else
                 {
@@ -1591,13 +1593,14 @@ namespace TabulateSmarterTestContentPackage
                         .ToList();
                     if (!accessibilityNodes.Any())
                     {
-                        ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Img tag does not have an alt attribute", "id='{0}' src='{1}'", img.Id, img.Source);
+                        ReportError(it, ErrCat.Item, ErrSeverity.Degraded, 
+                            "Img tag does not have associated alternative text.", "id ='{0}' src='{1}'", img.Id, img.Source);
                     }
                     else
                     {
                         foreach (var node in accessibilityNodes)
                         {
-                            CheckForNonEmptyReadAloudSubElement(it, node.ParentNode);
+                            CheckForNonEmptyReadAloudSubElement(it, node.ParentNode, img.Id, img.Source);
                         }
                     }
                 }
