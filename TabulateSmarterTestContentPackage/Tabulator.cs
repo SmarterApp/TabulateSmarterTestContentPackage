@@ -1217,7 +1217,7 @@ namespace TabulateSmarterTestContentPackage
             string dependencyResourceId = null;
             if (!mFilenameToResourceId.TryGetValue(NormalizeFilenameInManifest(dependencyFilename), out dependencyResourceId))
             {
-                ReportError(it, ErrCat.Manifest, ErrSeverity.Tolerable, dependencyType + " not found in manifest.", "DependencyFilename='{0}'", dependencyFilename);
+                ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, dependencyType + " not found in manifest.", "DependencyFilename='{0}'", dependencyFilename);
             }
 
             // Check for dependency in manifest
@@ -1290,7 +1290,7 @@ namespace TabulateSmarterTestContentPackage
                     if (extension.Length > 0) extension = extension.Substring(1); // Strip leading "."
                     if (!string.Equals(extension, attachType, StringComparison.OrdinalIgnoreCase))
                     {
-                        ReportError(it, ErrCat.Item, ErrSeverity.Benign, "Unexpected extension for attached file.", "extension='{0}' expected='{1}' filename='{2}'", extension, attachType, filename);
+                        ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Unexpected extension for attached file.", "extension='{0}' expected='{1}' filename='{2}'", extension, attachType, filename);
                     }
 
                     // Get the subtype (if any)
@@ -2243,7 +2243,7 @@ namespace TabulateSmarterTestContentPackage
             XmlDocument xmlManifest = new XmlDocument(sXmlNt);
             if (!TryLoadXml(mPackageFolder, cImsManifest, xmlManifest))
             {
-                ReportError(it, ErrCat.Manifest, ErrSeverity.Tolerable, "Invalid manifest.", LoadXmlErrorDetail);
+                ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, "Invalid manifest.", LoadXmlErrorDetail);
                 return;
             }
 
