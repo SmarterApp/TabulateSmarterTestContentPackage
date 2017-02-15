@@ -622,7 +622,7 @@ namespace TabulateSmarterTestContentPackage
                     machineRubricType = Path.GetExtension(machineRubricFilename).ToLowerInvariant();
                     if (machineRubricType.Length > 0) machineRubricType = machineRubricType.Substring(1);
                     if (!it.FfItem.FileExists(machineRubricFilename))
-                        ReportError(it, ErrCat.AnswerKey, ErrSeverity.Degraded, "Machine rubric not found.", "Filename='{0}'", machineRubricFilename);
+                        ReportError(it, ErrCat.AnswerKey, ErrSeverity.Severe, "Machine rubric not found.", "Filename='{0}'", machineRubricFilename);
                 }
 
                 string metadataScoringEngine = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:ScoringEngine", sXmlNs);
@@ -674,7 +674,7 @@ namespace TabulateSmarterTestContentPackage
                         usesMachineRubric = true;
                         rubric = machineRubricType;
                         if (!string.Equals(answerKeyValue, it.ItemType.ToUpperInvariant()))
-                            ReportError(it, ErrCat.AnswerKey, ErrSeverity.Tolerable, "Unexpected answer key attribute.", "Value='{0}' Expected='{1}'", answerKeyValue, it.ItemType.ToUpperInvariant());
+                            ReportError(it, ErrCat.AnswerKey, ErrSeverity.Severe, "Unexpected answer key attribute.", "Value='{0}' Expected='{1}'", answerKeyValue, it.ItemType.ToUpperInvariant());
                         break;
 
                     case "er":          // Extended-Response
@@ -720,7 +720,7 @@ namespace TabulateSmarterTestContentPackage
                     if (string.Equals(fi.Extension, ".qrx", StringComparison.OrdinalIgnoreCase)
                         && (machineRubricFilename == null || !string.Equals(fi.Name, machineRubricFilename, StringComparison.OrdinalIgnoreCase)))
                     {
-                        ReportError(it, ErrCat.AnswerKey, ErrSeverity.Degraded, "Machine rubric file found but not referenced in <MachineRubric> element.", "Filename='{0}'", fi.Name);
+                        ReportError(it, ErrCat.AnswerKey, ErrSeverity.Severe, "Machine rubric file found but not referenced in <MachineRubric> element.", "Filename='{0}'", fi.Name);
                     }
                 }
             }
@@ -1172,7 +1172,7 @@ namespace TabulateSmarterTestContentPackage
                 }
                 if (!it.FfItem.FileExists(filename))
                 {
-                    ReportError(it, ErrCat.Item, ErrSeverity.Tolerable, "Dangling reference to attached file that does not exist.", "attachType='{0}' Filename='{1}'", attachType, filename);
+                    ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Dangling reference to attached file that does not exist.", "attachType='{0}' Filename='{1}'", attachType, filename);
                     return false;
                 }
 
@@ -1180,7 +1180,7 @@ namespace TabulateSmarterTestContentPackage
                 if (extension.Length > 0) extension = extension.Substring(1); // Strip leading "."
                 if (!string.Equals(extension, expectedExtension, StringComparison.OrdinalIgnoreCase))
                 {
-                    ReportError(it, ErrCat.Item, ErrSeverity.Benign, "Unexpected extension for attached file.", "attachType='{0}' extension='{1}' expected='{2}' filename='{3}'", attachType, extension, expectedExtension, filename);
+                    ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Unexpected extension for attached file.", "attachType='{0}' extension='{1}' expected='{2}' filename='{3}'", attachType, extension, expectedExtension, filename);
                 }
                 return true;
             }
@@ -1210,14 +1210,14 @@ namespace TabulateSmarterTestContentPackage
             string itemFilename = string.Concat(it.FfItem.RootedName, "/", it.FfItem.Name, ".xml");
             if (!mFilenameToResourceId.TryGetValue(NormalizeFilenameInManifest(itemFilename), out itemResourceId))
             {
-                ReportError(it, ErrCat.Manifest, ErrSeverity.Tolerable, "Item not found in manifest.");
+                ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, "Item not found in manifest.");
             }
 
             // Look up dependency in the manifest
             string dependencyResourceId = null;
             if (!mFilenameToResourceId.TryGetValue(NormalizeFilenameInManifest(dependencyFilename), out dependencyResourceId))
             {
-                ReportError(it, ErrCat.Manifest, ErrSeverity.Tolerable, dependencyType + " not found in manifest.", "DependencyFilename='{0}'", dependencyFilename);
+                ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, dependencyType + " not found in manifest.", "DependencyFilename='{0}'", dependencyFilename);
             }
 
             // Check for dependency in manifest
@@ -1234,7 +1234,7 @@ namespace TabulateSmarterTestContentPackage
             if (!aslFound) ReportUnexpectedFiles(it, "ASL video", "^item_{0}_ASL", it.ItemId);
 
             bool aslInMetadata = string.Equals(xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:AccessibilityTagsASLLanguage", sXmlNs), "Y", StringComparison.OrdinalIgnoreCase);
-            if (aslInMetadata && !aslFound) ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "Item metadata specifies ASL but no ASL in item.");
+            if (aslInMetadata && !aslFound) ReportError(it, ErrCat.Metadata, ErrSeverity.Severe, "Item metadata specifies ASL but no ASL in item.");
             if (!aslInMetadata && aslFound) ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Item has ASL but not indicated in the metadata.");
 
             return (aslFound && aslInMetadata) ? "MP4" : string.Empty;
@@ -1290,7 +1290,7 @@ namespace TabulateSmarterTestContentPackage
                     if (extension.Length > 0) extension = extension.Substring(1); // Strip leading "."
                     if (!string.Equals(extension, attachType, StringComparison.OrdinalIgnoreCase))
                     {
-                        ReportError(it, ErrCat.Item, ErrSeverity.Benign, "Unexpected extension for attached file.", "extension='{0}' expected='{1}' filename='{2}'", extension, attachType, filename);
+                        ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Unexpected extension for attached file.", "extension='{0}' expected='{1}' filename='{2}'", extension, attachType, filename);
                     }
 
                     // Get the subtype (if any)
@@ -1384,7 +1384,7 @@ namespace TabulateSmarterTestContentPackage
                 {
                     if (!string.IsNullOrEmpty(wordlistId))
                     {
-                        ReportError(it, ErrCat.Item, ErrSeverity.Tolerable, "Item references multiple wordlists.");
+                        ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Item references multiple wordlists.");
                     }
                     else
                     {
@@ -1435,7 +1435,7 @@ namespace TabulateSmarterTestContentPackage
             {
                 if (termIndices.Count > 0)
                 {
-                    ReportError(it, ErrCat.Item, ErrSeverity.Tolerable, "Item has terms marked for glossary but does not reference a wordlist.");
+                    ReportError(it, ErrCat.Item, ErrSeverity.Benign, "Item has terms marked for glossary but does not reference a wordlist.");
                 }
                 return string.Empty;
             }
@@ -1541,24 +1541,29 @@ namespace TabulateSmarterTestContentPackage
         {
             // Assemble img tags and map their src and id attributes for validation
             var imgList = new List<HtmlImageTagModel>();
-            imgList.AddRange(htmlDocument.SelectNodes("//img")
-                .Cast<XmlNode>()
+            imgList.AddRange(htmlDocument.SelectNodes("//img").Cast<XmlNode>()
                 .Select(x => new HtmlImageTagModel
                 {
                     Source = x.Attributes["src"]?.InnerText ?? string.Empty,
-                    Id = x.Attributes["id"]?.InnerText ?? string.Empty
+                    Id = x.Attributes["id"]?.InnerText ?? string.Empty,
+                    // Check to see if the enclosing element is a span. If so, add the id
+                    EnclosingSpanId = x.ParentNode.Name.Equals("span", StringComparison.OrdinalIgnoreCase) ?
+                        x.ParentNode.Attributes["id"]?.InnerText ?? string.Empty :
+                        string.Empty
                 }));
             return imgList;
         }
 
         // Acceptable sub-elements: textToSpeechPronunciation, textToSpeechPronunciationAlternate, audioText, audioSortDesc, audioLongDesc
-        void CheckForNonEmptyReadAloudSubElement(ItemContext it, XmlNode xml)
+        void CheckForNonEmptyReadAloudSubElement(ItemContext it, XmlNode xml, string id, string src, string enclosingSpanId)
         {
             if(!new List<string> {"textToSpeechPronunciation", "textToSpeechPronunciationAlternate", "audioText", "audioShortDesc", "audioLongDesc"}
                 .Select(t => $"relatedElementInfo/readAloud/{t}") // Select sub-elements from list above
                 .Any(element => ElementExistsAndIsNonEmpty(xml, element))) // Check if the sub-element exists and has a value
             {
-                ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Img tag is missing alt tag content from the <readAloud> sub-element");
+                ReportError(it, ErrCat.Item, ErrSeverity.Degraded, 
+                    "Img tag is missing alternative text in the <readAloud> accessibility element.", 
+                    "id ='{0}' src='{1}' spanId='{2}'", id, src, enclosingSpanId ?? string.Empty);
             }
 
         }
@@ -1579,7 +1584,8 @@ namespace TabulateSmarterTestContentPackage
                 }
                 if (string.IsNullOrEmpty(img.Id))
                 {
-                    ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Img tag is missing id attribute");
+                    ReportError(it, ErrCat.Item, ErrSeverity.Degraded, 
+                        "Img tag is missing id attribute to associate with alternative text.", "src = '{0}'", img.Source);
                 }
                 else
                 {
@@ -1587,17 +1593,20 @@ namespace TabulateSmarterTestContentPackage
                     // Search for matching ID in the accessibility nodes. If none exist, record an error.
                     var accessibilityNodes = xml.SelectNodes(xpAccessibility)
                         .Cast<XmlNode>()
-                        .Where(accessibilityNode => accessibilityNode.Attributes["itsLinkIdentifierRef"].Value.Equals(img.Id))
+                        .Where(accessibilityNode => accessibilityNode.Attributes["itsLinkIdentifierRef"].Value.Equals(img.Id)
+                            || (!string.IsNullOrEmpty(img.EnclosingSpanId) 
+                            && accessibilityNode.Attributes["itsLinkIdentifierRef"].Value.Equals(img.EnclosingSpanId)))
                         .ToList();
                     if (!accessibilityNodes.Any())
                     {
-                        ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Img tag does not have an alt attribute", "id='{0}' src='{1}'", img.Id, img.Source);
+                        ReportError(it, ErrCat.Item, ErrSeverity.Degraded, 
+                            "Img tag does not have associated alternative text.", "id ='{0}' src='{1}'", img.Id, img.Source);
                     }
                     else
                     {
                         foreach (var node in accessibilityNodes)
                         {
-                            CheckForNonEmptyReadAloudSubElement(it, node.ParentNode);
+                            CheckForNonEmptyReadAloudSubElement(it, node.ParentNode, img.Id, img.Source, img.EnclosingSpanId);
                         }
                     }
                 }
@@ -2234,7 +2243,7 @@ namespace TabulateSmarterTestContentPackage
             XmlDocument xmlManifest = new XmlDocument(sXmlNt);
             if (!TryLoadXml(mPackageFolder, cImsManifest, xmlManifest))
             {
-                ReportError(it, ErrCat.Manifest, ErrSeverity.Tolerable, "Invalid manifest.", LoadXmlErrorDetail);
+                ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, "Invalid manifest.", LoadXmlErrorDetail);
                 return;
             }
 
@@ -2246,20 +2255,20 @@ namespace TabulateSmarterTestContentPackage
             {
                 string id = xmlRes.GetAttribute("identifier");
                 if (string.IsNullOrEmpty(id))
-                    ReportError(it, ErrCat.Manifest, ErrSeverity.Tolerable, "Resource in manifest is missing id.", "Filename='{0}'", xmlRes.XpEvalE("ims:file/@href", sXmlNs));
+                    ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, "Resource in manifest is missing id.", "Filename='{0}'", xmlRes.XpEvalE("ims:file/@href", sXmlNs));
                 string filename = xmlRes.XpEval("ims:file/@href", sXmlNs);
                 if (string.IsNullOrEmpty(filename))
                 {
-                    ReportError(it, ErrCat.Manifest, ErrSeverity.Tolerable, "Resource specified in manifest has no filename.", "ResourceId='{0}'", id);
+                    ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, "Resource specified in manifest has no filename.", "ResourceId='{0}'", id);
                 }
                 else if (!mPackageFolder.FileExists(filename))
                 {
-                    ReportError(it, ErrCat.Manifest, ErrSeverity.Tolerable, "Resource specified in manifest does not exist.", "ResourceId='{0}' Filename='{1}'", id, filename);
+                    ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, "Resource specified in manifest does not exist.", "ResourceId='{0}' Filename='{1}'", id, filename);
                 }
 
                 if (ids.Contains(id))
                 {
-                    ReportError(it, ErrCat.Manifest, ErrSeverity.Tolerable, "Resource listed multiple times in manifest.", "ResourceId='{0}'", id);
+                    ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, "Resource listed multiple times in manifest.", "ResourceId='{0}'", id);
                 }
                 else
                 {
@@ -2270,7 +2279,7 @@ namespace TabulateSmarterTestContentPackage
                 filename = NormalizeFilenameInManifest(filename);
                 if (mFilenameToResourceId.ContainsKey(filename))
                 {
-                    ReportError(it, ErrCat.Manifest, ErrSeverity.Tolerable, "File listed multiple times in manifest.", "ResourceId='{0}' Filename='{1}'", id, filename);
+                    ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, "File listed multiple times in manifest.", "ResourceId='{0}' Filename='{1}'", id, filename);
                 }
                 else
                 {
@@ -2283,7 +2292,7 @@ namespace TabulateSmarterTestContentPackage
                     string dependsOnId = xmlDep.GetAttribute("identifierref");
                     if (string.IsNullOrEmpty(dependsOnId))
                     {
-                        ReportError(it, ErrCat.Manifest, ErrSeverity.Tolerable, "Dependency in manifest is missing identifierref attribute.", "ResourceId='{0}'", id);
+                        ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, "Dependency in manifest is missing identifierref attribute.", "ResourceId='{0}'", id);
                     }
                     else
                     {
@@ -2331,7 +2340,7 @@ namespace TabulateSmarterTestContentPackage
 
                 if (!mFilenameToResourceId.TryGetValue(itemFileName, out itemId))
                 {
-                        ReportError(it, ErrCat.Manifest, ErrSeverity.Degraded, "Item does not appear in the manifest.", "ItemFilename='{0}'", itemFileName);
+                        ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, "Item does not appear in the manifest.", "ItemFilename='{0}'", itemFileName);
                     itemFileName = null;
                     itemId = null;
                 }
@@ -2345,7 +2354,7 @@ namespace TabulateSmarterTestContentPackage
                 string resourceId;
                 if (!mFilenameToResourceId.TryGetValue(filename, out resourceId))
                 {
-                    ReportError(it, ErrCat.Manifest, ErrSeverity.Tolerable, "Resource does not appear in the manifest.", "Filename='{0}'", filename);
+                    ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, "Resource does not appear in the manifest.", "Filename='{0}'", filename);
                 }
 
                 // If in an item, see if dependency is expressed
@@ -2353,7 +2362,7 @@ namespace TabulateSmarterTestContentPackage
                 {
                     // Check for dependency
                     if (!mResourceDependencies.Contains(ToDependsOnString(itemId, resourceId)))
-                        ReportError(it, ErrCat.Manifest, ErrSeverity.Tolerable, "Manifest does not express resource dependency.", "ResourceId='{0}' DependesOnId='{1}'", itemId, resourceId);
+                        ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, "Manifest does not express resource dependency.", "ResourceId='{0}' DependesOnId='{1}'", itemId, resourceId);
                 }
             }
 
