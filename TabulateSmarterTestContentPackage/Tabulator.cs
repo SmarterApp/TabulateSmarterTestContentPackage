@@ -1506,8 +1506,12 @@ namespace TabulateSmarterTestContentPackage
                 termIndices.Add(termIndex);
                 terms.Add(term);
             }
+
             // Img tag validation
-            ReportMissingImgAltTags(it, xml, ExtractImageList(html));
+            if (Program.gValidationOptions.IsEnabled("iat"))
+            {
+                ReportMissingImgAltTags(it, xml, ExtractImageList(html));
+            }
         }
 
         XmlDocument LoadHtml(ItemContext it, XmlNode content)
