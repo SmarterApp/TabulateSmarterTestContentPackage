@@ -64,6 +64,8 @@ Validation Options:
     -v+mwa  Missing Wordlist Attachments: Reports errors for missing wordlist
             attachments (audio and images) even when the corresponding term
             is not referenced by any item.
+    -v+iat  Image Alternate Text: Reports errors when images are present
+            without alternate text.
 
 Error severity definitions:
     Severe     The error will prevent the test item from functioning properly
@@ -98,6 +100,7 @@ Error severity definitions:
                 gValidationOptions.Disable("gtr");  // Disable Glossary Text Report
                 gValidationOptions.Disable("uwt");  // Disable Glossary Text Report
                 gValidationOptions.Disable("mwa");  // Disable checking for attachments on unreferenced wordlist terms
+                gValidationOptions.Disable("iat");  // Disable checking for images without alternate text
 
                 string rootPath = null;
                 char operation = 'o'; // o=one, s=packages in Subdirectories, a=aggregate packages in subdirectories
