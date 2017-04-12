@@ -244,7 +244,8 @@ namespace TabulateSmarterTestContentPackage
 
             mItemReport = new StreamWriter(string.Concat(reportPrefix, cItemReportFn), false, Encoding.UTF8); 
             // DOK is "Depth of Knowledge"
-            mItemReport.WriteLine("Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice");
+            mItemReport.WriteLine("Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL," +
+                                  "BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice,MaxPoints");
 
             mStimulusReport = new StreamWriter(string.Concat(reportPrefix, cStimulusReportFn), false, Encoding.UTF8);
             mStimulusReport.WriteLine("Folder,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,Media,Size,WordCount");
@@ -253,10 +254,9 @@ namespace TabulateSmarterTestContentPackage
             mWordlistReport.WriteLine("Folder,WIT_ID,RefCount,TermCount,MaxGloss,MinGloss,AvgGloss");
 
             mGlossaryReport = new StreamWriter(string.Concat(reportPrefix, cGlossaryReportFn), false, Encoding.UTF8);
-            if (Program.gValidationOptions.IsEnabled("gtr"))
-                mGlossaryReport.WriteLine("Folder,WIT_ID,ItemId,Index,Term,Language,Length,Audio,AudioSize,Image,ImageSize,Text");
-            else
-                mGlossaryReport.WriteLine("Folder,WIT_ID,ItemId,Index,Term,Language,Length,Audio,AudioSize,Image,ImageSize");
+            mGlossaryReport.WriteLine(Program.gValidationOptions.IsEnabled("gtr")
+                ? "Folder,WIT_ID,ItemId,Index,Term,Language,Length,Audio,AudioSize,Image,ImageSize,Text"
+                : "Folder,WIT_ID,ItemId,Index,Term,Language,Length,Audio,AudioSize,Image,ImageSize");
 
             mSummaryReportPath = string.Concat(reportPrefix, cSummaryReportFn);
             if (File.Exists(mSummaryReportPath)) File.Delete(mSummaryReportPath);
@@ -280,7 +280,7 @@ namespace TabulateSmarterTestContentPackage
             {
                 if (mSummaryReportPath != null)
                 {
-                    using (StreamWriter summaryReport = new StreamWriter(mSummaryReportPath, false, Encoding.UTF8))
+                    using (var summaryReport = new StreamWriter(mSummaryReportPath, false, Encoding.UTF8))
                     {
                         SummaryReport(summaryReport);
                     }
@@ -536,10 +536,10 @@ namespace TabulateSmarterTestContentPackage
             }
         }
 
-        void TabulateInteraction(ItemContext it)
+        private void TabulateInteraction(ItemContext it)
         {
             // Read the item XML
-            XmlDocument xml = new XmlDocument(sXmlNt);
+            var xml = new XmlDocument(sXmlNt);
             if (!TryLoadXml(it.FfItem, it.FfItem.Name + ".xml", xml))
             {
                 ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Invalid item file.", LoadXmlErrorDetail);
@@ -547,14 +547,14 @@ namespace TabulateSmarterTestContentPackage
             }
 
             // Load metadata
-            XmlDocument xmlMetadata = new XmlDocument(sXmlNt);
+            var xmlMetadata = new XmlDocument(sXmlNt);
             if (!TryLoadXml(it.FfItem, "metadata.xml", xmlMetadata))
             {
                 ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Invalid metadata.xml.", LoadXmlErrorDetail);
             }
 
             // Check interaction type
-            string metaItemType = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:InteractionType", sXmlNs);
+            var metaItemType = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:InteractionType", sXmlNs);
             if (!string.Equals(metaItemType, it.ItemType.ToUpperInvariant(), StringComparison.Ordinal))
                 ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Incorrect metadata <InteractionType>.", "InteractionType='{0}' Expected='{1}'", metaItemType, it.ItemType.ToUpperInvariant());
 
@@ -562,11 +562,11 @@ namespace TabulateSmarterTestContentPackage
             var depthOfKnowledge = DepthOfKnowledgeFromMetadata(xmlMetadata, sXmlNs);
 
             // Get the version
-            string version = xml.XpEvalE("itemrelease/item/@version");
+            var version = xml.XpEvalE("itemrelease/item/@version");
 
             // Subject
-            string subject = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='itm_item_subject']/val");
-            string metaSubject = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:Subject", sXmlNs);
+            var subject = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='itm_item_subject']/val");
+            var metaSubject = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:Subject", sXmlNs);
             if (string.IsNullOrEmpty(subject))
             {
                 ReportError(it, ErrCat.Attribute, ErrSeverity.Tolerable, "Missing subject in item attributes (itm_item_subject).");
@@ -589,9 +589,26 @@ namespace TabulateSmarterTestContentPackage
                 ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "Allow Calculator field not present for MATH subject item");
             }
 
+            // MathematicalPractice
+            var mathematicalPractice = MathematicalPracticeFromMetadata(xmlMetadata, sXmlNs);
+            if (string.IsNullOrEmpty(mathematicalPractice) &&
+                (string.Equals(metaSubject, "MATH", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(subject, "MATH", StringComparison.OrdinalIgnoreCase)))
+            {
+                ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "Mathematical Practice field not present for MATH subject item");
+            }
+
+            // MaximumNumberOfPoints
+            int testInt;
+            var maximumNumberOfPoints = MaximumNumberOfPointsFromMetadata(xmlMetadata, sXmlNs);
+            if (string.IsNullOrEmpty(maximumNumberOfPoints) || !int.TryParse(maximumNumberOfPoints, out testInt))
+            {
+                ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "MaximumNumberOfPoints field not present in metadata");
+            }
+
             // Grade
-            string grade = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='itm_att_Grade']/val").Trim();
-            string metaGrade = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:IntendedGrade", sXmlNs);
+            var grade = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='itm_att_Grade']/val").Trim();
+            var metaGrade = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:IntendedGrade", sXmlNs);
             if (string.IsNullOrEmpty(grade))
             {
                 ReportError(it, ErrCat.Attribute, ErrSeverity.Tolerable, "Missing grade in item attributes (itm_att_Grade).");
@@ -606,17 +623,17 @@ namespace TabulateSmarterTestContentPackage
             }
 
             // Rubric
-            string rubric = string.Empty;
+            var rubric = string.Empty;
             {
-                string answerKeyValue = string.Empty;
-                XmlElement xmlEle = xml.SelectSingleNode("itemrelease/item/attriblist/attrib[@attid='itm_att_Answer Key']") as XmlElement;
+                var answerKeyValue = string.Empty;
+                var xmlEle = xml.SelectSingleNode("itemrelease/item/attriblist/attrib[@attid='itm_att_Answer Key']") as XmlElement;
                 if (xmlEle != null)
                 {
                     answerKeyValue = xmlEle.XpEvalE("val");
                 }
 
-                string machineRubricType = string.Empty;
-                string machineRubricFilename = xml.XpEval("itemrelease/item/MachineRubric/@filename");
+                var machineRubricType = string.Empty;
+                var machineRubricFilename = xml.XpEval("itemrelease/item/MachineRubric/@filename");
                 if (machineRubricFilename != null)
                 {
                     machineRubricType = Path.GetExtension(machineRubricFilename).ToLowerInvariant();
@@ -625,13 +642,13 @@ namespace TabulateSmarterTestContentPackage
                         ReportError(it, ErrCat.AnswerKey, ErrSeverity.Severe, "Machine rubric not found.", "Filename='{0}'", machineRubricFilename);
                 }
 
-                string metadataScoringEngine = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:ScoringEngine", sXmlNs);
+                var metadataScoringEngine = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:ScoringEngine", sXmlNs);
 
                 // Count the rubric types
                 mRubricCounts.Increment(string.Concat(it.ItemType, " '", xmlEle.XpEvalE("val"), "' ", machineRubricType));
 
                 // Rubric type is dictated by item type
-                bool usesMachineRubric = false;
+                var usesMachineRubric = false;
                 string metadataExpected = null;
                 switch (it.ItemType)
                 {
@@ -646,8 +663,8 @@ namespace TabulateSmarterTestContentPackage
                         rubric = "Embedded";
                         metadataExpected = "Automatic with Key(s)";
                         {
-                            string[] parts = answerKeyValue.Split(',');
-                            bool validAnswer = parts.Length > 0;
+                            var parts = answerKeyValue.Split(',');
+                            var validAnswer = parts.Length > 0;
                             foreach (string answer in parts)
                             {
                                 if (answer.Length != 1 || answer[0] < 'A' || answer[0] > 'Z') validAnswer = false;
@@ -715,7 +732,7 @@ namespace TabulateSmarterTestContentPackage
                     ReportError(it, ErrCat.AnswerKey, ErrSeverity.Benign, "Unexpected machine rubric found for HandScored item type.", "Filename='{0}'", machineRubricFilename);
 
                 // Check for unreferenced machine rubrics
-                foreach (FileFile fi in it.FfItem.Files)
+                foreach (var fi in it.FfItem.Files)
                 {
                     if (string.Equals(fi.Extension, ".qrx", StringComparison.OrdinalIgnoreCase)
                         && (machineRubricFilename == null || !string.Equals(fi.Name, machineRubricFilename, StringComparison.OrdinalIgnoreCase)))
@@ -728,7 +745,7 @@ namespace TabulateSmarterTestContentPackage
             // AssessmentType (PT or CAT)
             string assessmentType;
             {
-                string meta = xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:PerformanceTaskComponentItem", sXmlNs);
+                var meta = xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:PerformanceTaskComponentItem", sXmlNs);
                 if (meta == null || string.Equals(meta, "N", StringComparison.Ordinal)) assessmentType = "CAT";
                 else if (string.Equals(meta, "Y", StringComparison.Ordinal)) assessmentType = "PT";
                 else
@@ -754,7 +771,7 @@ namespace TabulateSmarterTestContentPackage
 
             // Validate target grade suffix (Generating lots of errors. Need to follow up.)
             {
-                string[] parts = target.Split('-');
+                var parts = target.Split('-');
                 if (parts.Length == 2 && !string.Equals(parts[1].Trim(), grade, StringComparison.OrdinalIgnoreCase))
                 {
                     ReportError("tgs", it, ErrCat.Metadata, ErrSeverity.Tolerable, "Target suffix indicates a different grade from item attribute.", "ItemAttributeGrade='{0}' TargetSuffixGrade='{1}'", grade, parts[1]);
@@ -762,36 +779,34 @@ namespace TabulateSmarterTestContentPackage
             }
 
             // Validate content segments
-            string wordlistId = ValidateContentAndWordlist(it, xml);
+            var wordlistId = ValidateContentAndWordlist(it, xml);
 
             // ASL
-            string asl = GetAslType(it, xml, xmlMetadata);
+            var asl = GetAslType(it, xml, xmlMetadata);
 
             // BrailleType
-            string brailleType = GetBrailleType(it, xml, xmlMetadata);
+            var brailleType = GetBrailleType(it, xml, xmlMetadata);
 
             // Translation
-            string translation = GetTranslation(it, xml, xmlMetadata);
+            var translation = GetTranslation(it, xml, xmlMetadata);
 
             // Media
-            string media = GetMedia(it, xml);
+            var media = GetMedia(it, xml);
 
             // Size
-            long size = GetItemSize(it);
+            var size = GetItemSize(it);
 
-            string mathematicalPractice = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:MathematicalPractice", sXmlNs);
-
-            // Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,MathematicalPractice
+            // Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,MathematicalPractice, MaxPoints
             mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(version), CsvEncode(subject), 
                 CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), CsvEncode(wordlistId), 
-                CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), CsvEncode(media), size.ToString(), CsvEncode(depthOfKnowledge), CsvEncode(allowCalculator), CsvEncode(mathematicalPractice)));
+                CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), CsvEncode(media), size.ToString(), CsvEncode(depthOfKnowledge), CsvEncode(allowCalculator), 
+                CsvEncode(mathematicalPractice), CsvEncode(maximumNumberOfPoints)));
 
             // === Tabulation is complete, check for other errors
 
             // Points
             {
-                string answerKeyValue = string.Empty;
-                string itemPoint = xml.XpEval("itemrelease/item/attriblist/attrib[@attid='itm_att_Item Point']/val");
+                var itemPoint = xml.XpEval("itemrelease/item/attriblist/attrib[@attid='itm_att_Item Point']/val");
                 if (string.IsNullOrEmpty(itemPoint))
                 {
                     ReportError(it, ErrCat.Item, ErrSeverity.Tolerable, "Item Point attribute (item_att_Item Point) not found.");
@@ -807,10 +822,10 @@ namespace TabulateSmarterTestContentPackage
                     }
                     else
                     {
-                        int points = itemPoint.ParseLeadingInteger();
+                        var points = itemPoint.ParseLeadingInteger();
 
                         // See if matches MaximumNumberOfPoints (defined as optional in metadata)
-                        string metaPoint = xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:MaximumNumberOfPoints", sXmlNs);
+                        var metaPoint = xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:MaximumNumberOfPoints", sXmlNs);
                         if (metaPoint == null)
                         {
                             ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "MaximumNumberOfPoints not found in metadata.");
@@ -829,7 +844,7 @@ namespace TabulateSmarterTestContentPackage
                         }
 
                         // See if matches ScorePoints (defined as optional in metadata)
-                        string scorePoints = xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:ScorePoints", sXmlNs);
+                        var scorePoints = xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:ScorePoints", sXmlNs);
                         if (scorePoints == null)
                         {
                             ReportError(it, ErrCat.Metadata, ErrSeverity.Benign, "ScorePoints not found in metadata.");
@@ -846,8 +861,8 @@ namespace TabulateSmarterTestContentPackage
                             else
                                 ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "ScorePoints value missing trailing quote.");
 
-                            int maxspoints = -1;
-                            int minspoints = 100000;
+                            var maxspoints = -1;
+                            var minspoints = 100000;
                             foreach (string sp in scorePoints.Split(','))
                             {
                                 int spoints;
@@ -884,7 +899,7 @@ namespace TabulateSmarterTestContentPackage
             {
                 // PtSequence
                 int seq;
-                string ptSequence = xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:PtSequence", sXmlNs);
+                var ptSequence = xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:PtSequence", sXmlNs);
                 if (ptSequence == null)
                     ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "Metadata for PT item is missing <PtSequence> element.");
                 else if (!int.TryParse(ptSequence.Trim(), out seq))
@@ -893,7 +908,7 @@ namespace TabulateSmarterTestContentPackage
                 // PtWritingType Metadata (defined as optional in metadata but we'll still report a benign error if it's not on PT WER items)
                 if (string.Equals(it.ItemType, "wer", StringComparison.OrdinalIgnoreCase))
                 {
-                    string ptWritingType = xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:PtWritingType", sXmlNs);
+                    var ptWritingType = xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:PtWritingType", sXmlNs);
                     if (ptWritingType == null)
                     {
                         ReportError(it, ErrCat.Metadata, ErrSeverity.Benign, "Metadata for PT item is missing <PtWritingType> element.");
@@ -904,7 +919,7 @@ namespace TabulateSmarterTestContentPackage
                         if (!sValidWritingTypes.Contains(ptWritingType))
                         {
                             // Fix capitalization
-                            string normalized = string.Concat(ptWritingType.Substring(0, 1).ToUpperInvariant(), ptWritingType.Substring(1).ToLowerInvariant());
+                            var normalized = string.Concat(ptWritingType.Substring(0, 1).ToUpperInvariant(), ptWritingType.Substring(1).ToLowerInvariant());
 
                             // Report according to type of error
                             if (!sValidWritingTypes.Contains(normalized))
@@ -916,14 +931,14 @@ namespace TabulateSmarterTestContentPackage
                 }
 
                 // Stimulus (Passage) ID
-                string stimId = xml.XpEval("itemrelease/item/attriblist/attrib[@attid='stm_pass_id']/val");
+                var stimId = xml.XpEval("itemrelease/item/attriblist/attrib[@attid='stm_pass_id']/val");
                 if (stimId == null)
                 {
                     ReportError(it, ErrCat.Item, ErrSeverity.Severe, "PT Item missing associated passage ID (stm_pass_id).");
                 }
                 else
                 {
-                    string metaStimId = xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:AssociatedStimulus", sXmlNs);
+                    var metaStimId = xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:AssociatedStimulus", sXmlNs);
                     if (metaStimId == null)
                     {
                         ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "PT Item metatadata missing AssociatedStimulus.");
@@ -934,10 +949,10 @@ namespace TabulateSmarterTestContentPackage
                     }
 
                     // Get the bankKey
-                    string bankKey = xml.XpEvalE("itemrelease/item/@bankkey");
+                    var bankKey = xml.XpEvalE("itemrelease/item/@bankkey");
 
                     // Look for the stimulus
-                    string stimulusFilename = string.Format(@"Stimuli\stim-{1}-{0}\stim-{1}-{0}.xml", stimId, bankKey);
+                    var stimulusFilename = string.Format(@"Stimuli\stim-{1}-{0}\stim-{1}-{0}.xml", stimId, bankKey);
                     if (!mPackageFolder.FileExists(stimulusFilename))
                     {
                         ReportError(it, ErrCat.Item, ErrSeverity.Severe, "PT item stimulus not found.", "StimulusId='{0}'", stimId);
@@ -950,17 +965,17 @@ namespace TabulateSmarterTestContentPackage
 
             // Check for tutorial
             {
-                string tutorialId = xml.XpEval("itemrelease/item/tutorial/@id");
+                var tutorialId = xml.XpEval("itemrelease/item/tutorial/@id");
                 if (tutorialId == null)
                 {
                     ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Tutorial id missing from item.");
                 }
                 else if (Program.gValidationOptions.IsEnabled("trd"))
                 {
-                    string bankKey = xml.XpEval("itemrelease/item/tutorial/@bankkey");
+                    var bankKey = xml.XpEval("itemrelease/item/tutorial/@bankkey");
 
                     // Look for the tutorial
-                    string tutorialFilename = string.Format(@"Items\item-{1}-{0}\item-{1}-{0}.xml", tutorialId, bankKey);
+                    var tutorialFilename = string.Format(@"Items\item-{1}-{0}\item-{1}-{0}.xml", tutorialId, bankKey);
                     if (!mPackageFolder.FileExists(tutorialFilename))
                     {
                         ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Tutorial not found.", "TutorialId='{0}'", tutorialId);
@@ -1124,8 +1139,9 @@ namespace TabulateSmarterTestContentPackage
             // Translation
             string translation = GetTranslation(it, xml, xmlMetadata);
 
-            // Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,MathematicalPractice
-            mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(version), CsvEncode(subject), CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), string.Empty, string.Empty, string.Empty, string.Empty, string.Empty));
+            // Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation
+            mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(version),
+                CsvEncode(subject), CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation)));
 
         } // TabulateTutorial
 
@@ -1840,16 +1856,25 @@ namespace TabulateSmarterTestContentPackage
             target = string.Empty;
         }
 
-        string DepthOfKnowledgeFromMetadata(XmlDocument xmlMetadata, XmlNamespaceManager xmlNamespaceManager)
+        private static string DepthOfKnowledgeFromMetadata(XmlNode xmlMetadata, XmlNamespaceManager xmlNamespaceManager)
         {
-            var nodeValue = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:DepthOfKnowledge", xmlNamespaceManager);
-            return nodeValue;
+            return xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:DepthOfKnowledge", xmlNamespaceManager);
         }
 
-        string AllowCalculatorFromMetadata(XmlDocument xmlMetadata, XmlNamespaceManager xmlNamespaceManager)
+        private static string MathematicalPracticeFromMetadata(XmlNode xmlMetadata, XmlNamespaceManager xmlNamespaceManager)
         {
-            var nodeValue = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:AllowCalculator", xmlNamespaceManager);
-            return nodeValue;
+           return xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:MathematicalPractice", xmlNamespaceManager);
+        }
+
+        private static string AllowCalculatorFromMetadata(XmlNode xmlMetadata, XmlNamespaceManager xmlNamespaceManager)
+        {
+            return xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:AllowCalculator", xmlNamespaceManager);
+        }
+
+        private static string MaximumNumberOfPointsFromMetadata(XmlNode xmlMetadata,
+            XmlNamespaceManager xmlNamespaceManager)
+        {
+            return xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:MaximumNumberOfPoints", xmlNamespaceManager);
         }
 
         private void TabulateWordList(ItemContext it)
