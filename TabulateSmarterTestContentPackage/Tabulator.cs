@@ -244,7 +244,7 @@ namespace TabulateSmarterTestContentPackage
 
             mItemReport = new StreamWriter(string.Concat(reportPrefix, cItemReportFn), false, Encoding.UTF8); 
             // DOK is "Depth of Knowledge"
-            mItemReport.WriteLine("Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice");
+            mItemReport.WriteLine("Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,ContentDomain,ContentCategory,TargetSet,Emphasis,CCSS,WordlistId,ASL,BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice");
 
             mStimulusReport = new StreamWriter(string.Concat(reportPrefix, cStimulusReportFn), false, Encoding.UTF8);
             mStimulusReport.WriteLine("Folder,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,Media,Size,WordCount");
@@ -738,26 +738,32 @@ namespace TabulateSmarterTestContentPackage
                 }
             }
 
-            // Standard, Claim and Target
+            // Standard, Claim, Target, ContentDomain, ContentCategory, TargetSet, Emphasis, CCSS
             string standard;
-            string claim;
-            string target;
-            StandardFromMetadata(it, xmlMetadata, out standard, out claim, out target);
+            string[] standardParts;
+            standard = StandardFromMetadata(it, xmlMetadata, out standardParts);
             if (string.IsNullOrEmpty(standard))
             {
                 ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "No PrimaryStandard specified in metadata.");
             }
 
             // Validate claim
-            if (!sValidClaims.Contains(claim))
-                ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "Unexpected claim value.", "Claim='{0}'", claim);
+            if (!sValidClaims.Contains(standardParts[(int)StandardPart.Claim]))
+                ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "Unexpected claim value.", "Claim='{0}'", standardParts[(int)StandardPart.Claim]);
 
             // Validate target grade suffix (Generating lots of errors. Need to follow up.)
             {
-                string[] parts = target.Split('-');
-                if (parts.Length == 2 && !string.Equals(parts[1].Trim(), grade, StringComparison.OrdinalIgnoreCase))
+                string[] parts = standardParts[(int)StandardPart.Target].Split('-');
+                if (parts.Length == 2)
                 {
-                    ReportError("tgs", it, ErrCat.Metadata, ErrSeverity.Tolerable, "Target suffix indicates a different grade from item attribute.", "ItemAttributeGrade='{0}' TargetSuffixGrade='{1}'", grade, parts[1]);
+                    if (!string.Equals(parts[1].Trim(), grade, StringComparison.OrdinalIgnoreCase))
+                    {
+                        ReportError("tgs", it, ErrCat.Metadata, ErrSeverity.Tolerable, "Target suffix indicates a different grade from item attribute.", "ItemAttributeGrade='{0}' TargetSuffixGrade='{1}'", grade, parts[1]);
+                    }
+                    else
+                    {
+                        standardParts[(int)StandardPart.Target] = parts[0];
+                    }
                 }
             }
 
@@ -781,10 +787,10 @@ namespace TabulateSmarterTestContentPackage
 
             string mathematicalPractice = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:MathematicalPractice", sXmlNs);
 
-            // Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,MathematicalPractice
+            // Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,ContentDomain,ContentCategory,TargetSet,Emphasis,CCSS,WordlistId,ASL,BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice
             mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(version), CsvEncode(subject), 
-                CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), CsvEncode(wordlistId), 
-                CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), CsvEncode(media), size.ToString(), CsvEncode(depthOfKnowledge), CsvEncode(allowCalculator), CsvEncode(mathematicalPractice)));
+                CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(standardParts[(int)StandardPart.Claim]), CsvEncodeExcel(standardParts[(int)StandardPart.Target]), CsvEncodeExcel(standardParts[(int)StandardPart.ContentDomain]), CsvEncodeExcel(standardParts[(int)StandardPart.ContentCategory]), CsvEncodeExcel(standardParts[(int)StandardPart.TargetSet]), CsvEncodeExcel(standardParts[(int)StandardPart.Emphasis]), CsvEncodeExcel(standardParts[(int)StandardPart.Ccss]),
+                CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), CsvEncode(media), size.ToString(), CsvEncode(depthOfKnowledge), CsvEncode(allowCalculator), CsvEncode(mathematicalPractice)));
 
             // === Tabulation is complete, check for other errors
 
@@ -1124,8 +1130,8 @@ namespace TabulateSmarterTestContentPackage
             // Translation
             string translation = GetTranslation(it, xml, xmlMetadata);
 
-            // Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,MathematicalPractice
-            mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(version), CsvEncode(subject), CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), string.Empty, string.Empty, string.Empty, string.Empty, string.Empty));
+            // Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,ContentDomain,ContentCategory,TargetSet,Emphasis,WordlistId,ASL,BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice
+            mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(version), CsvEncode(subject), CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), string.Empty, string.Empty, string.Empty, string.Empty, string.Empty));
 
         } // TabulateTutorial
 
@@ -1778,6 +1784,7 @@ namespace TabulateSmarterTestContentPackage
             }
             return wordCount;
         }
+
         /* 
          * Locate and parse the standard, claim, and target from the metadata
          * 
@@ -1791,30 +1798,51 @@ namespace TabulateSmarterTestContentPackage
          * SBAC-MA-v4 (Math, based on the content specifications hierarchy primary alignment to the standard level)
          *     Claim|Content Domain|Target|Emphasis|Common Core Standard
          */
+        private enum StandardPart : int
+        {
+            Claim = 0,
+            Target = 1,
+            ContentDomain = 2,
+            ContentCategory = 3,
+            TargetSet = 4,
+            Emphasis = 5,
+            Ccss = 6,
+            Cardinality = 7
+        }
+
         private class StandardCoding
         {
-            public StandardCoding(string publication, int claimPart, int targetPart)
+            public StandardCoding(string publication, int[] partMapping)
             {
                 Publication = publication;
-                ClaimPart = claimPart;
-                TargetPart = targetPart;
+                PartMapping = partMapping;
             }
 
             public string Publication;
-            public int ClaimPart;
-            public int TargetPart;
+            public int[] PartMapping;
         }
 
+        // Codings are in reverse order of priority.
+        // Index of 99 means means value is not available in this format
+        // Mappings are according to the StandardPart enumeration
+        // Claim, Target, ContentDomain, ContentCategory, TargetSet, Emphasis, Ccss
         private static readonly StandardCoding[] sStandardCodings = new StandardCoding[]
         {
-            new StandardCoding("SBAC-ELA-v1", 0, 1),
-            new StandardCoding("SBAC-MA-v6", 0, 3),
-            new StandardCoding("SBAC-MA-v5", 0, 2),
-            new StandardCoding("SBAC-MA-v4", 0, 2)
+            new StandardCoding("SBAC-MA-v5", new int[] { 0, 2, 1, 99, 99, 3, 4 }),
+            new StandardCoding("SBAC-MA-v4", new int[] { 0, 2, 1, 99, 99, 3, 4 }),
+            new StandardCoding("SBAC-MA-v6", new int[] { 0, 3, 99, 1, 2, 99, 99 }),
+            new StandardCoding("SBAC-ELA-v1", new int[] { 0, 1, 99, 99, 99, 99, 2 })
         };
 
-        void StandardFromMetadata(ItemContext it, XmlDocument xmlMetadata, out string standard, out string claim, out string target)
+        string StandardFromMetadata(ItemContext it, XmlDocument xmlMetadata, out string[] standardParts)
         {
+            string standard = string.Empty;
+            string[] resultParts = new string[(int)StandardPart.Cardinality];
+            for (int i=0; i<resultParts.Length; ++i)
+            {
+                resultParts[i] = string.Empty;
+            }
+
             // Try each coding
             foreach(StandardCoding coding in sStandardCodings)
             {
@@ -1827,17 +1855,26 @@ namespace TabulateSmarterTestContentPackage
                         continue;   // See if another coding works
                     }
 
-                    string[] parts = std.Substring(coding.Publication.Length + 1).Split('|');
                     standard = std;
-                    claim = (parts.Length > coding.ClaimPart) ? parts[coding.ClaimPart] : string.Empty;
-                    target = (parts.Length > coding.TargetPart) ? parts[coding.TargetPart] : string.Empty;
-                    return;
+                    string[] parts = std.Substring(coding.Publication.Length + 1).Split('|');
+                    for (int i=0; i<coding.PartMapping.Length; ++i)
+                    {
+                        if (coding.PartMapping[i] < parts.Length)
+                        {
+                            string value = parts[coding.PartMapping[i]];
+                            if (!string.IsNullOrEmpty(resultParts[i]) && !string.Equals(resultParts[i], value))
+                            {
+                                ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Standard values from different publications don't match", "Publication='{0}' Part='{1}' Value='{2}' ExpectedValue='{3}'", coding.Publication, Enum.GetName(typeof(StandardPart), i), value, resultParts[i]);
+                            }
+
+                            resultParts[i] = value;
+                        }
+                    }
                 }
             }
 
-            standard = string.Empty;
-            claim = string.Empty;
-            target = string.Empty;
+            standardParts = resultParts;
+            return standard;
         }
 
         string DepthOfKnowledgeFromMetadata(XmlDocument xmlMetadata, XmlNamespaceManager xmlNamespaceManager)
