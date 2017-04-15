@@ -644,9 +644,6 @@ namespace TabulateSmarterTestContentPackage
 
                 var metadataScoringEngine = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:ScoringEngine", sXmlNs);
 
-                // Count the rubric types
-                mRubricCounts.Increment(string.Concat(it.ItemType, " '", xmlEle.XpEvalE("val"), "' ", machineRubricType));
-
                 // Rubric type is dictated by item type
                 var usesMachineRubric = false;
                 string metadataExpected = null;
@@ -679,8 +676,42 @@ namespace TabulateSmarterTestContentPackage
                         metadataExpected = "Automatic with Key(s)";
                         if (answerKeyValue.Length != 1 || answerKeyValue[0] < 'A' || answerKeyValue[0] > 'Z')
                             ReportError(it, ErrCat.AnswerKey, ErrSeverity.Severe, "Unexpected EBSR answer key attribute.", "itm_att_Answer Key='{0}'", answerKeyValue);
+
+                        // Retrieve the answer key for the second part of the EBSR
+                        {
+                            xmlEle = xml.SelectSingleNode("itemrelease/item/attriblist/attrib[@attid='itm_att_Answer Key (Part II)']") as XmlElement;
+                            string answerKeyPart2 = null;
+                            if (xmlEle != null)
+                            {
+                                answerKeyPart2 = xmlEle.XpEvalE("val");
+                            }
+
+                            if (answerKeyPart2 == null)
+                            {
+                                // Severity is benign because the current system uses the qrx file for scoring and doesn't
+                                // depend on this attribute. However, we may depend on it in the future in which case
+                                // the error would become severe.
+                                ReportError(it, ErrCat.AnswerKey, ErrSeverity.Benign, "Missing EBSR answer key part II attribute.");
+                            }
+                            else
+                            {
+                                var parts = answerKeyPart2.Split(',');
+                                var validAnswer = parts.Length > 0;
+                                foreach (string answer in parts)
+                                {
+                                    if (answer.Length != 1 || answer[0] < 'A' || answer[0] > 'Z') validAnswer = false;
+                                }
+                                if (validAnswer)
+                                {
+                                    answerKeyValue = string.Concat(answerKeyValue, ";", answerKeyPart2);
+                                }
+                                else
+                                {
+                                    ReportError(it, ErrCat.AnswerKey, ErrSeverity.Severe, "Unexpected EBSR Key Part II attribute.", "itm_att_Answer Key (Part II)='{0}'", answerKeyPart2);
+                                }
+                            }
+                        }
                         break;
-                    // TODO: Add check for part 1 of EBSR (in "itm_att_Item Format")
 
                     case "eq":          // Equation
                     case "gi":          // Grid Item (graphic)
@@ -706,6 +737,9 @@ namespace TabulateSmarterTestContentPackage
                         ReportError(it, ErrCat.Unsupported, ErrSeverity.Benign, "Validation of rubrics of this type are not supported.");
                         break;
                 }
+
+                // Count the rubric types
+                mRubricCounts.Increment(string.Concat(it.ItemType, " '", answerKeyValue, "' ", machineRubricType));
 
                 // Check Scoring Engine metadata
                 if (metadataExpected != null && !string.Equals(metadataScoringEngine, metadataExpected, StringComparison.Ordinal))
