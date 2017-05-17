@@ -49,6 +49,13 @@ namespace TabulateSmarterTestContentPackage
             }
         }
 
+        enum ScoringType
+        {
+            Basic,   // Simple multiple-choice or multi-select answer key
+            Qrx,        // Complex QTI Response-Processing answer key
+            Hand        // Hand scored
+        }
+
         const string cStimulusInteractionType = "Stimulus";
         const string cTutorialInteractionType = "TUT";
 
@@ -92,7 +99,7 @@ namespace TabulateSmarterTestContentPackage
         Dictionary<string, int> mTypeCounts = new Dictionary<string, int>();
         Dictionary<string, int> mTermCounts = new Dictionary<string, int>();
         Dictionary<string, int> mTranslationCounts = new Dictionary<string, int>();
-        Dictionary<string, int> mRubricCounts = new Dictionary<string, int>();
+        Dictionary<string, int> mAnswerKeyCounts = new Dictionary<string, int>();
 
         // Per Package variables
         string mPackageName;
@@ -244,7 +251,7 @@ namespace TabulateSmarterTestContentPackage
 
             mItemReport = new StreamWriter(string.Concat(reportPrefix, cItemReportFn), false, Encoding.UTF8); 
             // DOK is "Depth of Knowledge"
-            mItemReport.WriteLine("Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL," +
+            mItemReport.WriteLine("Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,Standard,Claim,Target,WordlistId,ASL," +
                                   "BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice,MaxPoints");
 
             mStimulusReport = new StreamWriter(string.Concat(reportPrefix, cStimulusReportFn), false, Encoding.UTF8);
@@ -271,7 +278,7 @@ namespace TabulateSmarterTestContentPackage
             mTypeCounts.Clear();
             mTermCounts.Clear();
             mTranslationCounts.Clear();
-            mRubricCounts.Clear();
+            mAnswerKeyCounts.Clear();
         }
 
         private void Conclude()
@@ -622,9 +629,10 @@ namespace TabulateSmarterTestContentPackage
                     ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Grade mismatch between item and metadata.", "ItemGrade='{0}', MetadataGrade='{1}'", grade, metaGrade);
             }
 
-            // Rubric
-            var rubric = string.Empty;
+            // Answer Key and Rubric
+            var answerKey = string.Empty;
             {
+                
                 var answerKeyValue = string.Empty;
                 var xmlEle = xml.SelectSingleNode("itemrelease/item/attriblist/attrib[@attid='itm_att_Answer Key']") as XmlElement;
                 if (xmlEle != null)
@@ -632,32 +640,33 @@ namespace TabulateSmarterTestContentPackage
                     answerKeyValue = xmlEle.XpEvalE("val");
                 }
 
-                var machineRubricType = string.Empty;
-                var machineRubricFilename = xml.XpEval("itemrelease/item/MachineRubric/@filename");
-                if (machineRubricFilename != null)
+                // The XML element is "MachineRubric" but it should really be called MachineScoring or AnswerKey
+                var machineScoringType = string.Empty;
+                var machineScoringFilename = xml.XpEval("itemrelease/item/MachineRubric/@filename");
+                if (machineScoringFilename != null)
                 {
-                    machineRubricType = Path.GetExtension(machineRubricFilename).ToLowerInvariant();
-                    if (machineRubricType.Length > 0) machineRubricType = machineRubricType.Substring(1);
-                    if (!it.FfItem.FileExists(machineRubricFilename))
-                        ReportError(it, ErrCat.AnswerKey, ErrSeverity.Severe, "Machine rubric not found.", "Filename='{0}'", machineRubricFilename);
+                    machineScoringType = Path.GetExtension(machineScoringFilename).ToLowerInvariant();
+                    if (machineScoringType.Length > 0) machineScoringType = machineScoringType.Substring(1);
+                    if (!it.FfItem.FileExists(machineScoringFilename))
+                        ReportError(it, ErrCat.AnswerKey, ErrSeverity.Severe, "Machine scoring file not found.", "Filename='{0}'", machineScoringFilename);
                 }
 
                 var metadataScoringEngine = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:ScoringEngine", sXmlNs);
 
-                // Rubric type is dictated by item type
-                var usesMachineRubric = false;
+                // Annswer key type is dictated by item type
+                ScoringType scoringType = ScoringType.Basic;
                 string metadataExpected = null;
                 switch (it.ItemType)
                 {
                     case "mc":      // Multiple Choice
-                        rubric = "Embedded";
                         metadataExpected = "Automatic with Key";
                         if (answerKeyValue.Length != 1 || answerKeyValue[0] < 'A' || answerKeyValue[0] > 'Z')
                             ReportError(it, ErrCat.AnswerKey, ErrSeverity.Severe, "Unexpected MC answer key attribute.", "itm_att_Answer Key='{0}'", answerKeyValue);
+                        answerKey = answerKeyValue;
+                        scoringType = ScoringType.Basic;
                         break;
 
                     case "ms":      // Multi-select
-                        rubric = "Embedded";
                         metadataExpected = "Automatic with Key(s)";
                         {
                             var parts = answerKeyValue.Split(',');
@@ -667,18 +676,18 @@ namespace TabulateSmarterTestContentPackage
                                 if (answer.Length != 1 || answer[0] < 'A' || answer[0] > 'Z') validAnswer = false;
                             }
                             if (!validAnswer) ReportError(it, ErrCat.AnswerKey, ErrSeverity.Severe, "Unexpected MS answer attribute.", "itm_att_Answer Key='{0}'", answerKeyValue);
+                            answerKey = answerKeyValue;
+                            scoringType = ScoringType.Basic;
                         }
                         break;
 
                     case "EBSR":    // Evidence-based selected response
-                        rubric = "Embedded";
-                        usesMachineRubric = true;
-                        metadataExpected = "Automatic with Key(s)";
-                        if (answerKeyValue.Length != 1 || answerKeyValue[0] < 'A' || answerKeyValue[0] > 'Z')
-                            ReportError(it, ErrCat.AnswerKey, ErrSeverity.Severe, "Unexpected EBSR answer key attribute.", "itm_att_Answer Key='{0}'", answerKeyValue);
-
-                        // Retrieve the answer key for the second part of the EBSR
                         {
+                            metadataExpected = "Automatic with Key(s)";
+                            if (answerKeyValue.Length != 1 || answerKeyValue[0] < 'A' || answerKeyValue[0] > 'Z')
+                                ReportError(it, ErrCat.AnswerKey, ErrSeverity.Severe, "Unexpected EBSR answer key attribute.", "itm_att_Answer Key='{0}'", answerKeyValue);
+
+                            // Retrieve the answer key for the second part of the EBSR
                             xmlEle = xml.SelectSingleNode("itemrelease/item/attriblist/attrib[@attid='itm_att_Answer Key (Part II)']") as XmlElement;
                             string answerKeyPart2 = null;
                             if (xmlEle != null)
@@ -710,6 +719,8 @@ namespace TabulateSmarterTestContentPackage
                                     ReportError(it, ErrCat.AnswerKey, ErrSeverity.Severe, "Unexpected EBSR Key Part II attribute.", "itm_att_Answer Key (Part II)='{0}'", answerKeyPart2);
                                 }
                             }
+                            answerKey = answerKeyValue;
+                            scoringType = ScoringType.Qrx;  // Basic scoring could be achieved but the current implementation uses Qrx
                         }
                         break;
 
@@ -718,11 +729,11 @@ namespace TabulateSmarterTestContentPackage
                     case "htq":         // Hot Text (in wrapped-QTI format)
                     case "mi":          // Match Interaction
                     case "ti":          // Table Interaction
-                        metadataExpected = (machineRubricFilename != null) ? "Automatic with Machine Rubric" : "HandScored";
-                        usesMachineRubric = true;
-                        rubric = machineRubricType;
+                        metadataExpected = (machineScoringFilename != null) ? "Automatic with Machine Rubric" : "HandScored";
+                        answerKey = machineScoringType;
                         if (!string.Equals(answerKeyValue, it.ItemType.ToUpperInvariant()))
                             ReportError(it, ErrCat.AnswerKey, ErrSeverity.Severe, "Unexpected answer key attribute.", "Value='{0}' Expected='{1}'", answerKeyValue, it.ItemType.ToUpperInvariant());
+                        scoringType = ScoringType.Qrx;
                         break;
 
                     case "er":          // Extended-Response
@@ -731,15 +742,19 @@ namespace TabulateSmarterTestContentPackage
                         metadataExpected = "HandScored";
                         if (!string.Equals(answerKeyValue, it.ItemType.ToUpperInvariant()))
                             ReportError(it, ErrCat.AnswerKey, ErrSeverity.Tolerable, "Unexpected answer key attribute.", "Value='{0}' Expected='{1}'", answerKeyValue, it.ItemType.ToUpperInvariant());
+                        answerKey = ScoringType.Hand.ToString();
+                        scoringType = ScoringType.Hand;
                         break;
 
                     default:
-                        ReportError(it, ErrCat.Unsupported, ErrSeverity.Benign, "Validation of rubrics of this type are not supported.");
+                        ReportError(it, ErrCat.Unsupported, ErrSeverity.Benign, "Validation of scoring keys for this type is not supported.");
+                        answerKey = string.Empty;
+                        scoringType = ScoringType.Basic;    // We don't really know.
                         break;
                 }
 
-                // Count the rubric types
-                mRubricCounts.Increment(string.Concat(it.ItemType, " '", answerKeyValue, "' ", machineRubricType));
+                // Count the answer key types
+                mAnswerKeyCounts.Increment(string.Concat(it.ItemType, " '", answerKey, "'"));
 
                 // Check Scoring Engine metadata
                 if (metadataExpected != null && !string.Equals(metadataScoringEngine, metadataExpected, StringComparison.Ordinal))
@@ -750,7 +765,7 @@ namespace TabulateSmarterTestContentPackage
                     }
                     else
                     {
-                        // If first word of rubric metadata is the same (e.g. both are "Automatic" or both are "HandScored") then error is benign, otherwise error is tolerable
+                        // If first word of scoring engine metadata is the same (e.g. both are "Automatic" or both are "HandScored") then error is benign, otherwise error is tolerable
                         if (string.Equals(metadataScoringEngine.FirstWord(), metadataExpected.FirstWord(), StringComparison.OrdinalIgnoreCase))
                         {
                             ReportError(it, ErrCat.Metadata, ErrSeverity.Benign, "Incorrect ScoringEngine metadata.", "Found='{0}' Expected='{1}'", metadataScoringEngine, metadataExpected);
@@ -762,16 +777,26 @@ namespace TabulateSmarterTestContentPackage
                     }
                 }
 
-                if (!string.IsNullOrEmpty(machineRubricFilename) && !usesMachineRubric)
-                    ReportError(it, ErrCat.AnswerKey, ErrSeverity.Benign, "Unexpected machine rubric found for HandScored item type.", "Filename='{0}'", machineRubricFilename);
+                if (!string.IsNullOrEmpty(machineScoringFilename) && scoringType != ScoringType.Qrx)
+                    ReportError(it, ErrCat.AnswerKey, ErrSeverity.Benign, "Unexpected machine scoring file found for HandScored item type.", "Filename='{0}'", machineScoringFilename);
 
-                // Check for unreferenced machine rubrics
+                // Check for unreferenced machine scoring files
                 foreach (var fi in it.FfItem.Files)
                 {
                     if (string.Equals(fi.Extension, ".qrx", StringComparison.OrdinalIgnoreCase)
-                        && (machineRubricFilename == null || !string.Equals(fi.Name, machineRubricFilename, StringComparison.OrdinalIgnoreCase)))
+                        && (machineScoringFilename == null || !string.Equals(fi.Name, machineScoringFilename, StringComparison.OrdinalIgnoreCase)))
                     {
-                        ReportError(it, ErrCat.AnswerKey, ErrSeverity.Severe, "Machine rubric file found but not referenced in <MachineRubric> element.", "Filename='{0}'", fi.Name);
+                        ReportError(it, ErrCat.AnswerKey, ErrSeverity.Severe, "Machine scoring file found but not referenced in <MachineRubric> element.", "Filename='{0}'", fi.Name);
+                    }
+                }
+
+                // If non-embedded answer key (either hand-scored or QRX scoring but not EBSR type check for a rubric (human scoring guidance)
+                if (scoringType != ScoringType.Basic && !it.ItemType.Equals("EBSR", StringComparison.OrdinalIgnoreCase))
+                {
+                    xmlEle = xml.SelectSingleNode("itemrelease/item/content/rubriclist/rubric/val") as XmlElement;
+                    if (xmlEle == null)
+                    {
+                        ReportError(it, ErrCat.AnswerKey, ErrSeverity.Tolerable, "Hand-scored or QRX-scored item lacks a human-readable rubric.", "AnswerKey='{0}'", answerKey);
                     }
                 }
             }
@@ -830,9 +855,9 @@ namespace TabulateSmarterTestContentPackage
             // Size
             var size = GetItemSize(it);
 
-            // Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,MathematicalPractice, MaxPoints
+            // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,MathematicalPractice, MaxPoints
             mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(version), CsvEncode(subject), 
-                CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), CsvEncode(wordlistId), 
+                CsvEncode(grade), CsvEncode(answerKey), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), CsvEncode(wordlistId), 
                 CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), CsvEncode(media), size.ToString(), CsvEncode(depthOfKnowledge), CsvEncode(allowCalculator), 
                 CsvEncode(mathematicalPractice), CsvEncode(maximumNumberOfPoints)));
 
@@ -1066,9 +1091,6 @@ namespace TabulateSmarterTestContentPackage
             // Grade: Passages do not have a particular grade affiliation
             string grade = string.Empty;
 
-            // Rubric
-            string rubric = string.Empty; // Passages don't have rubrics
-
             // AssessmentType (PT or CAT)
             /*
             string assessmentType;
@@ -1150,8 +1172,8 @@ namespace TabulateSmarterTestContentPackage
             // Grade
             string grade = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='itm_att_Grade']/val"); // will return "NA" or empty
             
-            // Rubric
-            string rubric = string.Empty;   // Not applicable
+            // Answer Key
+            string answerKey = string.Empty;   // Not applicable
 
             // AssessmentType (PT or CAT)
             string assessmentType = string.Empty; // Not applicable
@@ -1173,9 +1195,9 @@ namespace TabulateSmarterTestContentPackage
             // Translation
             string translation = GetTranslation(it, xml, xmlMetadata);
 
-            // Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,MathematicalPractice, MaxPoints
+            // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,MathematicalPractice, MaxPoints
             mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(version),
-                CsvEncode(subject), CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation),
+                CsvEncode(subject), CsvEncode(grade), CsvEncode(answerKey), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation),
                 string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty));
 
         } // TabulateTutorial
@@ -2466,8 +2488,8 @@ namespace TabulateSmarterTestContentPackage
             writer.WriteLine("Translation Counts:");
             mTranslationCounts.Dump(writer);
             writer.WriteLine();
-            writer.WriteLine("Rubric Counts:");
-            mRubricCounts.Dump(writer);
+            writer.WriteLine("Answer Key Counts:");
+            mAnswerKeyCounts.Dump(writer);
             writer.WriteLine();
             writer.WriteLine("Glossary Terms Used in Wordlists:");
             mTermCounts.Dump(writer);
