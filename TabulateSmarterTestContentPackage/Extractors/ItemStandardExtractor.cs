@@ -35,26 +35,17 @@ namespace TabulateSmarterTestContentPackage.Extractors
                 }).ToList();
             if (result.Count > 1 && standard.Equals("PrimaryStandard"))
             {
-                return new List<ItemStandard> {DeterminePrimaryStandard(result)};
+                return DeterminePrimaryStandard(result).ToList();
             }
             return result;
         }
 
-        private static ItemStandard DeterminePrimaryStandard(IList<ItemStandard> candidates)
+        // Functionally, there are a maximum of two primary standards. If we have the v6 first and reverse we should get the good one
+        private static IEnumerable<ItemStandard> DeterminePrimaryStandard(IList<ItemStandard> candidates)
         {
-            var nonV6 = candidates.Where(x => !x.Standard.Equals("SBAC-MA-v6")).ToList();
-            return nonV6.Any() ? nonV6.First() : candidates.FirstOrDefault();
-        }
-
-        public static ItemStandard CompressSecondaryStandard(IList<ItemStandard> secondaryStandards)
-        {
-            return new ItemStandard
-            {
-                Standard = secondaryStandards.Select(x => x.Standard).Aggregate((x, y) => $"{x};{y}"),
-                Claim = secondaryStandards.Select(x => x.Claim).Aggregate((x, y) => $"{x};{y}"),
-                ContentDomain = secondaryStandards.Select(x => x.ContentDomain).Aggregate((x, y) => $"{x};{y}"),
-                Target = secondaryStandards.Select(x => x.Target).Aggregate((x, y) => $"{x};{y}")
-            };
+            return candidates.Count() > 1 && candidates.First().Standard.Equals("SBAC-MA-v6")
+                ? candidates.Reverse()
+                : candidates;
         }
 
         /* 
@@ -100,10 +91,10 @@ namespace TabulateSmarterTestContentPackage.Extractors
             }
         }
 
-        // claim|content domain|target <-- Super fancy Alla format (semicolon separated)
-        // Secondary standards/claims/targets are semicolon delimited in a seperate field
-        // If there is only a primary v6, take that (no standard in this case)
-
         // If there are both a primary v4 and a v6, take the v4 because it has a common core standard
+        // If there is only a primary v6, take that (no standard in this case)
+        // Secondary standards/claims/targets are semicolon delimited in a seperate field
+
+        // claim|content domain|target <-- Super fancy Alla format (semicolon separated)
     }
 }
