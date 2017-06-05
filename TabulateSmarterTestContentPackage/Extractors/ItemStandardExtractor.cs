@@ -9,22 +9,52 @@ namespace TabulateSmarterTestContentPackage.Extractors
 {
     public static class ItemStandardExtractor
     {
-        public static IEnumerable<ItemStandard> Extract(XElement metadata)
+        public static IEnumerable<ItemStandard> Extract(XElement metadata, string standard = "PrimaryStandard")
         {
             var sXmlNs = new XmlNamespaceManager(new NameTable());
             sXmlNs.AddNamespace("sa", "http://www.smarterapp.org/ns/1/assessment_item_metadata");
-            return metadata.XPathSelectElements(".//sa:StandardPublication", sXmlNs)
-                .Select(x => x.XPathSelectElement("./sa:PrimaryStandard", sXmlNs).Value.Split(':'))
+            var xmlNodes = metadata.XPathSelectElements($".//sa:{standard}", sXmlNs).ToList();
+            if (!xmlNodes.Any())
+            {
+                return new List<ItemStandard>();
+            }
+            var result = xmlNodes.Select(x => new
+                {
+                    Standard = x.Value.Split(':').FirstOrDefault(),
+                    Metadata = x.Value.Split(':').LastOrDefault()?.Split('|')
+                })
                 .Select(x => new ItemStandard
                 {
-                    Publication = x.Aggregate((y, z) => $"{y}:{z}"),
-                    Claim = x.LastOrDefault()?.Split('|').FirstOrDefault() ?? string.Empty,
+                    Standard = x.Standard ?? string.Empty,
+                    Claim = x.Metadata.FirstOrDefault() ?? string.Empty,
                     Target =
-                        x.LastOrDefault()?
-                            .Split('|')
-                            .Skip(SkipForPublication(x.FirstOrDefault() ?? string.Empty))
-                            .FirstOrDefault() ?? string.Empty
-                });
+                        x.Metadata.Skip(SkipToTargetForPublication(x.Standard ?? string.Empty))
+                            .FirstOrDefault() ?? string.Empty,
+                    ContentDomain = x.Metadata.Skip(SkipToContentDomainForPublication(x.Standard ?? string.Empty))
+                                        .FirstOrDefault() ?? string.Empty
+                }).ToList();
+            if (result.Count > 1 && standard.Equals("PrimaryStandard"))
+            {
+                return new List<ItemStandard> {DeterminePrimaryStandard(result)};
+            }
+            return result;
+        }
+
+        private static ItemStandard DeterminePrimaryStandard(IList<ItemStandard> candidates)
+        {
+            var nonV6 = candidates.Where(x => !x.Standard.Equals("SBAC-MA-v6")).ToList();
+            return nonV6.Any() ? nonV6.First() : candidates.FirstOrDefault();
+        }
+
+        public static ItemStandard CompressSecondaryStandard(IList<ItemStandard> secondaryStandards)
+        {
+            return new ItemStandard
+            {
+                Standard = secondaryStandards.Select(x => x.Standard).Aggregate((x, y) => $"{x};{y}"),
+                Claim = secondaryStandards.Select(x => x.Claim).Aggregate((x, y) => $"{x};{y}"),
+                ContentDomain = secondaryStandards.Select(x => x.ContentDomain).Aggregate((x, y) => $"{x};{y}"),
+                Target = secondaryStandards.Select(x => x.Target).Aggregate((x, y) => $"{x};{y}")
+            };
         }
 
         /* 
@@ -41,7 +71,7 @@ namespace TabulateSmarterTestContentPackage.Extractors
          *     Claim|Content Domain|Target|Emphasis|Common Core Standard
          */
         // This is the index of the expected target in the PrimaryStandard node given a particular publication
-        private static int SkipForPublication(string publication)
+        private static int SkipToTargetForPublication(string publication)
         {
             switch (publication)
             {
@@ -56,5 +86,24 @@ namespace TabulateSmarterTestContentPackage.Extractors
                     return 0;
             }
         }
+
+        private static int SkipToContentDomainForPublication(string publication)
+        {
+            switch (publication)
+            {
+                case "SBAC-MA-v4":
+                case "SBAC-MA-v5":
+                case "SBAC-MA-v6":
+                    return 1;
+                default:
+                    return 0;
+            }
+        }
+
+        // claim|content domain|target <-- Super fancy Alla format (semicolon separated)
+        // Secondary standards/claims/targets are semicolon delimited in a seperate field
+        // If there is only a primary v6, take that (no standard in this case)
+
+        // If there are both a primary v4 and a v6, take the v4 because it has a common core standard
     }
 }

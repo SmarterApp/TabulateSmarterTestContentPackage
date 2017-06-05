@@ -255,7 +255,8 @@ namespace TabulateSmarterTestContentPackage
             // In the case of multiple standards/claims/targets, these headers will not be sufficient
             // TODO: Add CsvHelper library to allow expandable headers
             mItemReport.WriteLine("Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL," +
-                                  "BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice,MaxPoints,Standard,Claim,Target");
+                                  "BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice,MaxPoints," +
+                                  "Standard,Claim,Target,ContentDomain,SecondaryStandard,SecondaryClaim,SecondaryTarget,SecondaryContentDomain");
 
             mStimulusReport = new StreamWriter(string.Concat(reportPrefix, cStimulusReportFn), false, Encoding.UTF8);
             mStimulusReport.WriteLine("Folder,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,Media,Size,WordCount");
@@ -816,20 +817,21 @@ namespace TabulateSmarterTestContentPackage
                 }
             }
 
-            var itemStandards = ItemStandardExtractor.Extract(XDocument.Parse(xmlMetadata.OuterXml).Root).ToList();
-            if (itemStandards.Any(x => string.IsNullOrEmpty(x.Publication)))
+            var primaryStandard = ItemStandardExtractor.Extract(XDocument.Parse(xmlMetadata.OuterXml).Root).ToList();
+            var secondaryStandards = ItemStandardExtractor.Extract(XDocument.Parse(xmlMetadata.OuterXml).Root, "SecondaryStandard").ToList();
+            if (primaryStandard.Any(x => string.IsNullOrEmpty(x.Standard)))
             {
                 ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "No PrimaryStandard specified in metadata.");
             }
 
             // Validate claim
-            if (itemStandards.Any(x => !sValidClaims.Contains(x.Claim)))
+            if (primaryStandard.Any(x => !sValidClaims.Contains(x.Claim)))
             {
-                ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "Unexpected claim value.", "Claim='{0}'", itemStandards.First(x => !sValidClaims.Contains(x.Claim)).Claim);
+                ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "Unexpected claim value.", "Claim='{0}'", primaryStandard.First(x => !sValidClaims.Contains(x.Claim)).Claim);
             }
 
             // Validate target grade suffix (Generating lots of errors. Need to follow up.)
-            itemStandards.ForEach(x =>
+            primaryStandard.ForEach(x =>
                     {
                         var parts = x.Target.Split('-');
                         if (parts.Length == 2 &&
@@ -862,13 +864,18 @@ namespace TabulateSmarterTestContentPackage
             // Size
             var size = GetItemSize(it);
 
-            // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,MathematicalPractice, MaxPoints, Standard, Claim, Target
+            var secondaryStandard = secondaryStandards.Any() ? ItemStandardExtractor.CompressSecondaryStandard(secondaryStandards) : null;
+
+            // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,
+            // MathematicalPractice, MaxPoints, Standard, Claim, Target, ContentDomain, SecondaryStandard, SecondaryClaim, SecondaryTarget, SecondaryContentDomain
             mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(version), CsvEncode(subject), 
                 CsvEncode(grade), CsvEncode(answerKey), CsvEncode(assessmentType), CsvEncode(wordlistId), 
                 CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), CsvEncode(media), size.ToString(), CsvEncode(depthOfKnowledge), CsvEncode(allowCalculator), 
-                CsvEncode(mathematicalPractice), CsvEncode(maximumNumberOfPoints), itemStandards
-                .Select(x => $"{CsvEncode(x.Publication)},{CsvEncode(x.Claim)},'{CsvEncode(x.Target)}'")
-                .Aggregate((x,y) => $"{x},{y}"), string.Empty));
+                CsvEncode(mathematicalPractice), CsvEncode(maximumNumberOfPoints), CsvEncode(primaryStandard.FirstOrDefault()?.Standard ?? string.Empty), 
+                CsvEncode(primaryStandard.FirstOrDefault()?.Claim ?? string.Empty), $"'{CsvEncode(primaryStandard.FirstOrDefault()?.Target ?? string.Empty)}'",
+                CsvEncode(primaryStandard.FirstOrDefault()?.ContentDomain ?? string.Empty), CsvEncode(secondaryStandard?.Standard ?? string.Empty ?? string.Empty),
+                CsvEncode(secondaryStandard?.Claim ?? string.Empty ?? string.Empty), $"'{CsvEncode(secondaryStandard?.Target ?? string.Empty ?? string.Empty)}'", 
+                CsvEncode(secondaryStandard?.ContentDomain ?? string.Empty), string.Empty));
 
             // === Tabulation is complete, check for other errors
 
@@ -1207,7 +1214,8 @@ namespace TabulateSmarterTestContentPackage
             // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,MathematicalPractice, MaxPoints, Standard,Claim,Target
             mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(version),
                 CsvEncode(subject), CsvEncode(grade), CsvEncode(answerKey), CsvEncode(assessmentType), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation),
-                string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target)));
+                string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), string.Empty,
+                string.Empty, string.Empty, string.Empty, string.Empty));
 
         } // TabulateTutorial
 
