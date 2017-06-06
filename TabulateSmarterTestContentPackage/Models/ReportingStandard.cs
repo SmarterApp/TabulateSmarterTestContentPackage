@@ -7,11 +7,11 @@ namespace TabulateSmarterTestContentPackage.Models
     {
         public ReportingStandard(IList<ItemStandard> primary, IList<ItemStandard> secondary)
         {
-            PrimaryCommonCore = primary.Select(x => x.Standard).Aggregate((x, y) => $"{x};{y}");
+            PrimaryCommonCore = primary.Select(x => $"'{x.Standard}'").Aggregate((x, y) => $"{x};{y}");
             PrimaryClaimsContentTargets = CombineClaimsContentTargets(primary);
             if (secondary.Any())
             {
-                SecondaryCommonCore = secondary.Select(x => x.Standard).Aggregate((x, y) => $"{x};{y}");
+                SecondaryCommonCore = secondary.Select(x => $"'{x.Standard}'").Aggregate((x, y) => $"{x};{y}");
                 SecondaryClaimsContentTargets = CombineClaimsContentTargets(secondary);
             }
         }
@@ -23,7 +23,7 @@ namespace TabulateSmarterTestContentPackage.Models
 
         private static string CombineClaimsContentTargets(IEnumerable<ItemStandard> itemStandards)
         {
-            return itemStandards.Select(x => !x.Standard.Equals("SBAC-ELA-v1")
+            return itemStandards.Select(x => !x.Publication.Equals("SBAC-ELA-v1")
                     ? $"{x.Claim}|{x.ContentDomain}|{x.Target}"
                     : $"{x.Claim}|{x.Target}")
                 .Aggregate((x, y) => $"{x};{y}");

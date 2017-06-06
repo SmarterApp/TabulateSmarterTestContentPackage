@@ -20,19 +20,20 @@ namespace TabulateSmarterTestContentPackage.Extractors
             }
             var result = xmlNodes.Select(x => new
                 {
-                    Standard = x.Value.Split(':').FirstOrDefault(),
+                    Publication = x.Value.Split(':').FirstOrDefault(),
                     Metadata = x.Value.Split(':').LastOrDefault()?.Split('|')
                 })
                 .Select(x => new ItemStandard
                 {
-                    Standard = x.Standard ?? string.Empty,
+                    Publication = x.Publication,
+                    Standard = x.Publication.Equals("SBAC-MA-v6") ? string.Empty : x.Metadata.LastOrDefault(),
                     Claim = x.Metadata.FirstOrDefault() ?? string.Empty,
                     Target =
-                        x.Metadata.Skip(SkipToTargetForPublication(x.Standard ?? string.Empty))
+                        x.Metadata.Skip(SkipToTargetForPublication(x.Publication ?? string.Empty))
                             .FirstOrDefault() ?? string.Empty,
-                    ContentDomain = x.Standard.Equals("SBAC-ELA-v1")
+                    ContentDomain = x.Publication.Equals("SBAC-ELA-v1")
                         ? string.Empty
-                        : x.Metadata.Skip(SkipToContentDomainForPublication(x.Standard ?? string.Empty))
+                        : x.Metadata.Skip(SkipToContentDomainForPublication(x.Publication ?? string.Empty))
                               .FirstOrDefault() ?? string.Empty
                 }).ToList();
             if (result.Count > 1 && standard.Equals("PrimaryStandard"))
