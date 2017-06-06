@@ -30,8 +30,10 @@ namespace TabulateSmarterTestContentPackage.Extractors
                     Target =
                         x.Metadata.Skip(SkipToTargetForPublication(x.Standard ?? string.Empty))
                             .FirstOrDefault() ?? string.Empty,
-                    ContentDomain = x.Metadata.Skip(SkipToContentDomainForPublication(x.Standard ?? string.Empty))
-                                        .FirstOrDefault() ?? string.Empty
+                    ContentDomain = x.Standard.Equals("SBAC-ELA-v1")
+                        ? string.Empty
+                        : x.Metadata.Skip(SkipToContentDomainForPublication(x.Standard ?? string.Empty))
+                              .FirstOrDefault() ?? string.Empty
                 }).ToList();
             if (result.Count > 1 && standard.Equals("PrimaryStandard"))
             {
@@ -91,10 +93,10 @@ namespace TabulateSmarterTestContentPackage.Extractors
             }
         }
 
-        // If there are both a primary v4 and a v6, take the v4 because it has a common core standard
-        // If there is only a primary v6, take that (no standard in this case)
-        // Secondary standards/claims/targets are semicolon delimited in a seperate field
-
         // claim|content domain|target <-- Super fancy Alla format (semicolon separated)
+        // Secondary standards/claims/targets are semicolon delimited in a seperate field
+        // If there is only a primary v6, take that (no standard in this case)
+
+        // If there are both a primary v4 and a v6, take the v4 because it has a common core standard
     }
 }

@@ -23,7 +23,9 @@ namespace TabulateSmarterTestContentPackage.Models
 
         private static string CombineClaimsContentTargets(IEnumerable<ItemStandard> itemStandards)
         {
-            return itemStandards.Select(x => $"{x.Claim}|{x.ContentDomain}|{x.Target}")
+            return itemStandards.Select(x => !x.Standard.Equals("SBAC-ELA-v1")
+                    ? $"{x.Claim}|{x.ContentDomain}|{x.Target}"
+                    : $"{x.Claim}|{x.Target}")
                 .Aggregate((x, y) => $"{x};{y}");
         }
     }
