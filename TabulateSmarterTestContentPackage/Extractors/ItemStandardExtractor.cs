@@ -26,7 +26,10 @@ namespace TabulateSmarterTestContentPackage.Extractors
                 .Select(x => new ItemStandard
                 {
                     Publication = x.Publication,
-                    Standard = x.Publication.Equals("SBAC-MA-v6") ? string.Empty : x.Metadata.LastOrDefault(),
+                    Standard =
+                        x.Publication.Equals("SBAC-MA-v6") || x.Metadata.Length <= 2
+                            ? string.Empty
+                            : x.Metadata.LastOrDefault(),
                     Claim = x.Metadata.FirstOrDefault() ?? string.Empty,
                     Target =
                         x.Metadata.Skip(SkipToTargetForPublication(x.Publication ?? string.Empty))
@@ -94,10 +97,10 @@ namespace TabulateSmarterTestContentPackage.Extractors
             }
         }
 
-        // claim|content domain|target <-- Super fancy Alla format (semicolon separated)
-        // Secondary standards/claims/targets are semicolon delimited in a seperate field
-        // If there is only a primary v6, take that (no standard in this case)
-
         // If there are both a primary v4 and a v6, take the v4 because it has a common core standard
+        // If there is only a primary v6, take that (no standard in this case)
+        // Secondary standards/claims/targets are semicolon delimited in a seperate field
+
+        // claim|content domain|target <-- Super fancy Alla format (semicolon separated)
     }
 }

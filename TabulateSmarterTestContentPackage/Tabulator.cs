@@ -2526,6 +2526,10 @@ namespace TabulateSmarterTestContentPackage
 
         static string CsvEncode(string text)
         {
+            if (string.IsNullOrEmpty(text))
+            {
+                return string.Empty;
+            }
             if (text.IndexOfAny(cCsvEscapeChars) < 0) return text;
             return string.Concat("\"", text.Replace("\"", "\"\""), "\"");
         }
