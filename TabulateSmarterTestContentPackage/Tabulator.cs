@@ -6,6 +6,8 @@ using System.IO;
 using System.Linq;
 using System.Xml;
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
+using TabulateSmarterTestContentPackage.Extractors;
 using TabulateSmarterTestContentPackage.Models;
 
 namespace TabulateSmarterTestContentPackage
@@ -57,10 +59,9 @@ namespace TabulateSmarterTestContentPackage
         }
 
         const string cStimulusInteractionType = "Stimulus";
-        const string cTutorialInteractionType = "TUT";
 
         static readonly HashSet<string> sValidWritingTypes = new HashSet<string>(
-            new string[] {
+            new[] {
                 "Explanatory",
                 "Opinion",
                 "Informative",
@@ -69,7 +70,7 @@ namespace TabulateSmarterTestContentPackage
             });
 
         static readonly HashSet<string> sValidClaims = new HashSet<string>(
-            new string[] {
+            new[] {
                 "1",
                 "1-LT",
                 "1-IT",
@@ -251,8 +252,11 @@ namespace TabulateSmarterTestContentPackage
 
             mItemReport = new StreamWriter(string.Concat(reportPrefix, cItemReportFn), false, Encoding.UTF8); 
             // DOK is "Depth of Knowledge"
-            mItemReport.WriteLine("Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,Standard,Claim,Target,WordlistId,ASL," +
-                                  "BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice,MaxPoints");
+            // In the case of multiple standards/claims/targets, these headers will not be sufficient
+            // TODO: Add CsvHelper library to allow expandable headers
+            mItemReport.WriteLine("Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL," +
+                                  "BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice,MaxPoints," +
+                                  "CommonCore,ClaimContentTarget,SecondaryCommonCore,SecondaryClaimContentTarget");
 
             mStimulusReport = new StreamWriter(string.Concat(reportPrefix, cStimulusReportFn), false, Encoding.UTF8);
             mStimulusReport.WriteLine("Folder,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,Media,Size,WordCount");
@@ -371,7 +375,7 @@ namespace TabulateSmarterTestContentPackage
             // First pass through stimuli
             if (packageFolder.TryGetFolder("Stimuli", out ffItems))
             {
-                foreach (FileFolder ffItem in ffItems.Folders)
+                foreach (var ffItem in ffItems.Folders)
                 {
                     try
                     {
@@ -398,7 +402,7 @@ namespace TabulateSmarterTestContentPackage
             }
 
             // Second pass through stimuli
-            foreach (ItemContext it in mStimContexts)
+            foreach (var it in mStimContexts)
             {
                 try
                 {
@@ -414,7 +418,7 @@ namespace TabulateSmarterTestContentPackage
         private void TabulateItem_Pass1(FileFolder ffItem)
         {
             // Read the item XML
-            XmlDocument xml = new XmlDocument(sXmlNt);
+            var xml = new XmlDocument(sXmlNt);
             if (!TryLoadXml(ffItem, ffItem.Name + ".xml", xml))
             {
                 ReportError(new ItemContext(this, ffItem, null, null), ErrCat.Item, ErrSeverity.Severe, "Invalid item file.", LoadXmlErrorDetail);
@@ -422,7 +426,7 @@ namespace TabulateSmarterTestContentPackage
             }
 
             // Get the details
-            string itemType = xml.XpEval("itemrelease/item/@format");
+            var itemType = xml.XpEval("itemrelease/item/@format");
             if (itemType == null) itemType = xml.XpEval("itemrelease/item/@type");
             if (itemType == null)
             {
@@ -436,14 +440,14 @@ namespace TabulateSmarterTestContentPackage
                 return;
             }
 
-            string bankKey = xml.XpEvalE("itemrelease/item/@bankkey");
+            var bankKey = xml.XpEvalE("itemrelease/item/@bankkey");
 
             // Add to the item count and the type count
             ++mItemCount;
             mTypeCounts.Increment(itemType);
 
             // Create and save the item context
-            ItemContext it = new ItemContext(this, ffItem, itemId, itemType);
+            var it = new ItemContext(this, ffItem, itemId, itemType);
             if (mIdToItemContext.ContainsKey(itemId))
             {
                 ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Multiple items with the same ID.");
@@ -454,7 +458,7 @@ namespace TabulateSmarterTestContentPackage
             }
 
             // Check for filename match
-            if (!ffItem.Name.Equals(string.Format("item-{0}-{1}", bankKey, itemId), StringComparison.OrdinalIgnoreCase))
+            if (!ffItem.Name.Equals($"item-{bankKey}-{itemId}", StringComparison.OrdinalIgnoreCase))
             {
                 ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Item ID doesn't match file/folder name", "bankKey='{0}' itemId='{1}' foldername='{2}'", bankKey, itemId, ffItem);
             }
@@ -481,7 +485,6 @@ namespace TabulateSmarterTestContentPackage
             string itemId = xmlPassage.GetAttribute("id");
             if (string.IsNullOrEmpty(itemId)) throw new InvalidDataException("Item id not found");
             string bankKey = xmlPassage.GetAttribute("bankkey");
-            if (bankKey == null) bankKey = string.Empty;
 
             // Add to the item count and the type count
             ++mItemCount;
@@ -814,28 +817,34 @@ namespace TabulateSmarterTestContentPackage
                 }
             }
 
-            // Standard, Claim and Target
-            string standard;
-            string claim;
-            string target;
-            StandardFromMetadata(it, xmlMetadata, out standard, out claim, out target);
-            if (string.IsNullOrEmpty(standard))
+            var primaryStandards = ItemStandardExtractor.Extract(XDocument.Parse(xmlMetadata.OuterXml).Root).ToList();
+            var secondaryStandards = ItemStandardExtractor.Extract(XDocument.Parse(xmlMetadata.OuterXml).Root, "SecondaryStandard").ToList();
+            if (primaryStandards.Any(x => string.IsNullOrEmpty(x.Standard)))
             {
                 ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "No PrimaryStandard specified in metadata.");
             }
 
             // Validate claim
-            if (!sValidClaims.Contains(claim))
-                ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "Unexpected claim value.", "Claim='{0}'", claim);
+            if (primaryStandards.Any(x => !sValidClaims.Contains(x.Claim)))
+            {
+                ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "Unexpected claim value.", "Claim='{0}'", primaryStandards.First(x => !sValidClaims.Contains(x.Claim)).Claim);
+            }
 
             // Validate target grade suffix (Generating lots of errors. Need to follow up.)
-            {
-                var parts = target.Split('-');
-                if (parts.Length == 2 && !string.Equals(parts[1].Trim(), grade, StringComparison.OrdinalIgnoreCase))
-                {
-                    ReportError("tgs", it, ErrCat.Metadata, ErrSeverity.Tolerable, "Target suffix indicates a different grade from item attribute.", "ItemAttributeGrade='{0}' TargetSuffixGrade='{1}'", grade, parts[1]);
-                }
-            }
+            primaryStandards.ForEach(x =>
+                    {
+                        var parts = x.Target.Split('-');
+                        if (parts.Length == 2 &&
+                            !string.Equals(parts[1].Trim(), grade, StringComparison.OrdinalIgnoreCase))
+                        {
+                            ReportError("tgs", it, ErrCat.Metadata, ErrSeverity.Tolerable,
+                                "Target suffix indicates a different grade from item attribute.",
+                                "ItemAttributeGrade='{0}' TargetSuffixGrade='{1}'", grade, parts[1]);
+                        }
+                    }
+                )
+            ;
+            
 
             // Validate content segments
             var wordlistId = ValidateContentAndWordlist(it, xml);
@@ -855,11 +864,15 @@ namespace TabulateSmarterTestContentPackage
             // Size
             var size = GetItemSize(it);
 
-            // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,MathematicalPractice, MaxPoints
+            var standardClaimTarget = new ReportingStandard(primaryStandards, secondaryStandards); 
+
+            // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,
+            // MathematicalPractice, MaxPoints, CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget
             mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(version), CsvEncode(subject), 
-                CsvEncode(grade), CsvEncode(answerKey), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), CsvEncode(wordlistId), 
+                CsvEncode(grade), CsvEncode(answerKey), CsvEncode(assessmentType), CsvEncode(wordlistId), 
                 CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), CsvEncode(media), size.ToString(), CsvEncode(depthOfKnowledge), CsvEncode(allowCalculator), 
-                CsvEncode(mathematicalPractice), CsvEncode(maximumNumberOfPoints)));
+                CsvEncode(mathematicalPractice), CsvEncode(maximumNumberOfPoints), CsvEncode(standardClaimTarget.PrimaryCommonCore), CsvEncode(standardClaimTarget.PrimaryClaimsContentTargets),
+                CsvEncode(standardClaimTarget.SecondaryCommonCore), CsvEncode(standardClaimTarget.SecondaryClaimsContentTargets), string.Empty));
 
             // === Tabulation is complete, check for other errors
 
@@ -1170,46 +1183,47 @@ namespace TabulateSmarterTestContentPackage
             }
 
             // Grade
-            string grade = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='itm_att_Grade']/val"); // will return "NA" or empty
+            var grade = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='itm_att_Grade']/val"); // will return "NA" or empty
             
             // Answer Key
-            string answerKey = string.Empty;   // Not applicable
+            var answerKey = string.Empty;   // Not applicable
 
             // AssessmentType (PT or CAT)
-            string assessmentType = string.Empty; // Not applicable
+            var assessmentType = string.Empty; // Not applicable
             
             // Standard, Claim and Target (not applicable
-            string standard = string.Empty;
-            string claim = string.Empty;
-            string target = string.Empty;
+            var standard = string.Empty;
+            var claim = string.Empty;
+            var target = string.Empty;
 
             // Validate content segments
-            string wordlistId = ValidateContentAndWordlist(it, xml);
+            var wordlistId = ValidateContentAndWordlist(it, xml);
 
             // ASL
-            string asl = GetAslType(it, xml, xmlMetadata);
+            var asl = GetAslType(it, xml, xmlMetadata);
 
             // BrailleType
-            string brailleType = GetBrailleType(it, xml, xmlMetadata);
+            var brailleType = GetBrailleType(it, xml, xmlMetadata);
 
             // Translation
-            string translation = GetTranslation(it, xml, xmlMetadata);
+            var translation = GetTranslation(it, xml, xmlMetadata);
 
-            // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,Standard,Claim,Target,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,MathematicalPractice, MaxPoints
+            // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,MathematicalPractice, MaxPoints, 
+            // CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget
             mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(version),
-                CsvEncode(subject), CsvEncode(grade), CsvEncode(answerKey), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(claim), CsvEncodeExcel(target), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation),
-                string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty));
+                CsvEncode(subject), CsvEncode(grade), CsvEncode(answerKey), CsvEncode(assessmentType), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation),
+                string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty));
 
         } // TabulateTutorial
 
         string LoadXmlErrorDetail { get; set; }
 
-        bool TryLoadXml(FileFolder ff, string filename, XmlDocument xml)
+        private bool TryLoadXml(FileFolder ff, string filename, XmlDocument xml)
         {
             FileFile ffXml;
             if (!ff.TryGetFile(filename, out ffXml))
             {
-                LoadXmlErrorDetail = string.Format("filename='{0}' detail='File not found'", Path.GetFileName(filename));
+                LoadXmlErrorDetail = $"filename='{Path.GetFileName(filename)}' detail='File not found'";
                 return false;
             }
             else
@@ -1616,12 +1630,12 @@ namespace TabulateSmarterTestContentPackage
             return html;
         }
 
-        List<HtmlImageTagModel> ExtractImageList(XmlDocument htmlDocument)
+        List<HtmlImageTag> ExtractImageList(XmlDocument htmlDocument)
         {
             // Assemble img tags and map their src and id attributes for validation
-            var imgList = new List<HtmlImageTagModel>();
+            var imgList = new List<HtmlImageTag>();
             imgList.AddRange(htmlDocument.SelectNodes("//img").Cast<XmlNode>()
-                .Select(x => new HtmlImageTagModel
+                .Select(x => new HtmlImageTag
                 {
                     Source = x.Attributes["src"]?.InnerText ?? string.Empty,
                     Id = x.Attributes["id"]?.InnerText ?? string.Empty,
@@ -1653,7 +1667,7 @@ namespace TabulateSmarterTestContentPackage
             return !string.IsNullOrEmpty(node?.InnerText);
         }
 
-        void ReportMissingImgAltTags(ItemContext it, XmlDocument xml, List<HtmlImageTagModel> imgList)
+        void ReportMissingImgAltTags(ItemContext it, XmlDocument xml, List<HtmlImageTag> imgList)
         {
             foreach (var img in imgList)
             {
@@ -1819,7 +1833,9 @@ namespace TabulateSmarterTestContentPackage
         {
             string content = string.Empty;
             int index = 0, wordCount = 0;
-            foreach (XmlElement xmlEle in xml.SelectNodes(it.IsPassage ? "itemrelease/passage/content/stem" : "itemrelease/item/content/stem"))
+            foreach (
+                XmlElement xmlEle in
+                xml.SelectNodes(it.IsPassage ? "itemrelease/passage/content/stem" : "itemrelease/item/content/stem"))
             {
                 content = xmlEle.InnerText;
 
@@ -1827,90 +1843,29 @@ namespace TabulateSmarterTestContentPackage
                 content = Regex.Replace(content, @"<[^>]+>|&nbsp;", "").Trim();
                 // replace the non-breaking HTML character &#xA0; with a blank
                 content = content.Replace("&#xA0;", "");
-                
+
                 // calculate word count
                 while (index < content.Length)
                 {
                     // check if current char is part of a word.  whitespace, hypen and slash are word terminators
-                    while (index < content.Length && 
-                           (Char.IsWhiteSpace(content[index]) == false &&
-                           !content[index].Equals("-") &&
-                           !content[index].Equals("/")))
+                    while (index < content.Length &&
+                           (char.IsWhiteSpace(content[index]) == false &&
+                            !content[index].Equals("-") &&
+                            !content[index].Equals("/")))
                         index++;
-                    
+
                     wordCount++;
 
                     // skip whitespace, hypen, slash and stand alone punctuation marks until next word
-                    while (index < content.Length && 
-                           (Char.IsWhiteSpace(content[index]) == true ||
-                           content[index].Equals("-") ||
-                           content[index].Equals("/") ||
-                           Regex.IsMatch(content[index].ToString(), @"[\p{P}]")))
+                    while (index < content.Length &&
+                           (char.IsWhiteSpace(content[index]) ||
+                            content[index].Equals("-") ||
+                            content[index].Equals("/") ||
+                            Regex.IsMatch(content[index].ToString(), @"[\p{P}]")))
                         index++;
                 }
             }
             return wordCount;
-        }
-        /* 
-         * Locate and parse the standard, claim, and target from the metadata
-         * 
-         * Claim and target are specified in one of the following formats:
-         * SBAC-ELA-v1 (there is only one alignment for ELA, this is used for delivery)
-         *     Claim|Assessment Target|Common Core Standard
-         * SBAC-MA-v6 (Math, based on the blueprint hierarchy, primary alignment and does not go to standard level, THIS IS USED FOR DELIVERY, should be the same as SBAC-MA-v4)
-         *     Claim|Content Category|Target Set|Assessment Target
-         * SBAC-MA-v5 (Math, based on the content specifications hierarchy secondary alignment to the standard level)
-         *     Claim|Content Domain|Target|Emphasis|Common Core Standard
-         * SBAC-MA-v4 (Math, based on the content specifications hierarchy primary alignment to the standard level)
-         *     Claim|Content Domain|Target|Emphasis|Common Core Standard
-         */
-        private class StandardCoding
-        {
-            public StandardCoding(string publication, int claimPart, int targetPart)
-            {
-                Publication = publication;
-                ClaimPart = claimPart;
-                TargetPart = targetPart;
-            }
-
-            public string Publication;
-            public int ClaimPart;
-            public int TargetPart;
-        }
-
-        private static readonly StandardCoding[] sStandardCodings = new StandardCoding[]
-        {
-            new StandardCoding("SBAC-ELA-v1", 0, 1),
-            new StandardCoding("SBAC-MA-v6", 0, 3),
-            new StandardCoding("SBAC-MA-v5", 0, 2),
-            new StandardCoding("SBAC-MA-v4", 0, 2)
-        };
-
-        void StandardFromMetadata(ItemContext it, XmlDocument xmlMetadata, out string standard, out string claim, out string target)
-        {
-            // Try each coding
-            foreach(StandardCoding coding in sStandardCodings)
-            {
-                string std = xmlMetadata.XpEval(string.Concat("metadata/sa:smarterAppMetadata/sa:StandardPublication[sa:Publication='", coding.Publication, "']/sa:PrimaryStandard"), sXmlNs);
-                if (std != null)
-                {
-                    if (!std.StartsWith(string.Concat(coding.Publication, ":"), StringComparison.Ordinal))
-                    {
-                        ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Standard reference has invalid value.", "Publication='{0}' StandardId='{1}", coding.Publication, std);
-                        continue;   // See if another coding works
-                    }
-
-                    string[] parts = std.Substring(coding.Publication.Length + 1).Split('|');
-                    standard = std;
-                    claim = (parts.Length > coding.ClaimPart) ? parts[coding.ClaimPart] : string.Empty;
-                    target = (parts.Length > coding.TargetPart) ? parts[coding.TargetPart] : string.Empty;
-                    return;
-                }
-            }
-
-            standard = string.Empty;
-            claim = string.Empty;
-            target = string.Empty;
         }
 
         private static string DepthOfKnowledgeFromMetadata(XmlNode xmlMetadata, XmlNamespaceManager xmlNamespaceManager)
@@ -2571,6 +2526,10 @@ namespace TabulateSmarterTestContentPackage
 
         static string CsvEncode(string text)
         {
+            if (string.IsNullOrEmpty(text))
+            {
+                return string.Empty;
+            }
             if (text.IndexOfAny(cCsvEscapeChars) < 0) return text;
             return string.Concat("\"", text.Replace("\"", "\"\""), "\"");
         }
