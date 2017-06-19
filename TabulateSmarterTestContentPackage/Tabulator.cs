@@ -6,8 +6,9 @@ using System.IO;
 using System.Linq;
 using System.Xml;
 using System.Text.RegularExpressions;
-using System.Xml.Linq;
+
 using TabulateSmarterTestContentPackage.Extractors;
+using TabulateSmarterTestContentPackage.Mappers;
 using TabulateSmarterTestContentPackage.Models;
 
 namespace TabulateSmarterTestContentPackage
@@ -817,8 +818,8 @@ namespace TabulateSmarterTestContentPackage
                 }
             }
 
-            var primaryStandards = ItemStandardExtractor.Extract(XDocument.Parse(xmlMetadata.OuterXml).Root).ToList();
-            var secondaryStandards = ItemStandardExtractor.Extract(XDocument.Parse(xmlMetadata.OuterXml).Root, "SecondaryStandard").ToList();
+            var primaryStandards = ItemStandardExtractor.Extract(xmlMetadata.MapToXElement()).ToList();
+            var secondaryStandards = ItemStandardExtractor.Extract(xmlMetadata.MapToXElement(), "SecondaryStandard").ToList();
             if (primaryStandards.Any(x => string.IsNullOrEmpty(x.Standard)))
             {
                 ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "No PrimaryStandard specified in metadata.");

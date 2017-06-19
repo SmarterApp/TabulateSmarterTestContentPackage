@@ -48,12 +48,14 @@
     <Compile Include="Extractors\ItemStandardExtractor.cs" />
     <Compile Include="FileFolder.cs" />
     <Compile Include="HtmlReader.cs" />
+    <Compile Include="Mappers\XmlMapper.cs" />
     <Compile Include="Models\HtmlImageTag.cs" />
     <Compile Include="Models\ItemStandard.cs" />
     <Compile Include="Models\ReportingStandard.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Tabulator.cs" />
+    <Compile Include="Validators\ImageTagValidator.cs" />
     <Compile Include="WordStemmer.cs" />
   </ItemGroup>
   <ItemGroup>
