@@ -1,16 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Win32Interop;
 
 namespace TabulateSmarterTestContentPackage
 {
-    class Program
+    internal class Program
     {
 // 78 character margin                                                       |
-        static readonly string cSyntax =
+        private const string cSyntax = 
 @"Syntax: TabulateSmarterTestContentPackage [options] <path>
 
 Options:
@@ -83,7 +80,8 @@ Error severity definitions:
                may be missing data but if that term isn’t referenced in an
                item then it is benign.
 ";
-// 78 character margin                                                       |
+
+        // 78 character margin                                                       |
 
         public static ValidationOptions gValidationOptions = new ValidationOptions();
 
@@ -154,7 +152,7 @@ Error severity definitions:
                     operation = 'h';
                 }
 
-                Tabulator tab = new Tabulator();
+                var tab = new Tabulator();
                 switch (operation)
                 {
                     default:

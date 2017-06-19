@@ -20,8 +20,7 @@ namespace TabulateSmarterTestContentPackage
         static XmlNamespaceManager sXmlNs;
         static Dictionary<string, int> sExpectedTranslationsIndex;
 
-        static string[] sExpectedTranslations = new string[]
-        {
+        static string[] sExpectedTranslations = {
             "arabicGlossary",
             "cantoneseGlossary",
             "esnGlossary",
@@ -35,7 +34,7 @@ namespace TabulateSmarterTestContentPackage
         };
         static int sExpectedTranslationsBitflags;
 
-        static Tabulator()
+        public Tabulator()
         {
             sXmlNt = new NameTable();
             sXmlNs = new XmlNamespaceManager(sXmlNt);
@@ -45,7 +44,7 @@ namespace TabulateSmarterTestContentPackage
 
             sExpectedTranslationsIndex = new Dictionary<string, int>(sExpectedTranslations.Length);
             sExpectedTranslationsBitflags = 0;
-            for (int i=0; i<sExpectedTranslations.Length; ++i)
+            for (var i=0; i<sExpectedTranslations.Length; ++i)
             {
                 sExpectedTranslationsIndex.Add(sExpectedTranslations[i], i);
                 sExpectedTranslationsBitflags |= (1 << i);
