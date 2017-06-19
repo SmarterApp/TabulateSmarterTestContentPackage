@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using NLog;
 using Win32Interop;
 
 namespace TabulateSmarterTestContentPackage
@@ -84,22 +85,23 @@ Error severity definitions:
         // 78 character margin                                                       |
 
         public static ValidationOptions gValidationOptions = new ValidationOptions();
+        public static Logger Logger = LogManager.GetCurrentClassLogger();
 
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
             long startTicks = Environment.TickCount;
 
+            // Default options
+            gValidationOptions.Disable("ebt");  // Disable EmptyBrailleText test.
+            gValidationOptions.Disable("tgs");  // Disable Target Grade Suffix
+            gValidationOptions.Disable("umf");  // Disable checking for Unreferenced Media Files
+            gValidationOptions.Disable("gtr");  // Disable Glossary Text Report
+            gValidationOptions.Disable("uwt");  // Disable Glossary Text Report
+            gValidationOptions.Disable("mwa");  // Disable checking for attachments on unreferenced wordlist terms
+            gValidationOptions.Disable("iat");  // Disable checking for images without alternate text
+
             try
             {
-                // Default options
-                gValidationOptions.Disable("ebt");  // Disable EmptyBrailleText test.
-                gValidationOptions.Disable("tgs");  // Disable Target Grade Suffix
-                gValidationOptions.Disable("umf");  // Disable checking for Unreferenced Media Files
-                gValidationOptions.Disable("gtr");  // Disable Glossary Text Report
-                gValidationOptions.Disable("uwt");  // Disable Glossary Text Report
-                gValidationOptions.Disable("mwa");  // Disable checking for attachments on unreferenced wordlist terms
-                gValidationOptions.Disable("iat");  // Disable checking for images without alternate text
-
                 string rootPath = null;
                 var operation = 'o'; // o=one, s=packages in Subdirectories, a=aggregate packages in subdirectories
                 foreach (var arg in args)
@@ -173,17 +175,13 @@ Error severity definitions:
                 }
 
             }
-            catch (Exception err)
+            catch (Exception ex)
             {
-                Console.WriteLine(err.Message);
+                Logger.Error(ex.Message);
             }
 
-            long elapsedTicks;
-            unchecked
-            {
-                elapsedTicks = Environment.TickCount - startTicks;
-            }
-            Console.WriteLine("Elapsed time: {0}.{1:d3} seconds", elapsedTicks / 1000, elapsedTicks % 1000);
+            var elapsedTicks = Environment.TickCount - startTicks;
+            Logger.Info("Elapsed time: {0}.{1:d3} seconds", elapsedTicks / 1000, elapsedTicks % 1000);
 
             if (ConsoleHelper.IsSoleConsoleOwner)
             {
@@ -194,7 +192,7 @@ Error severity definitions:
         }
     }
 
-    class ValidationOptions : Dictionary<string, bool>
+    internal class ValidationOptions : Dictionary<string, bool>
     {
         public void Enable(string option)
         {
@@ -214,8 +212,7 @@ Error severity definitions:
         public bool IsEnabled(string option)
         {
             bool value;
-            if (!TryGetValue(option, out value)) return true;   // Options default to enabled
-            return value;
+            return !TryGetValue(option, out value) || value;
         }
 
     }
