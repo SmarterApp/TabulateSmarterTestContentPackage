@@ -51,7 +51,7 @@ namespace TabulateSmarterTestContentPackage
             }
         }
 
-        enum ScoringType
+        private enum ScoringType
         {
             Basic,   // Simple multiple-choice or multi-select answer key
             Qrx,        // Complex QTI Response-Processing answer key
@@ -127,22 +127,23 @@ namespace TabulateSmarterTestContentPackage
             {
                 if (path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
                 {
-                    FileInfo fi = new FileInfo(path);
+                    var fi = new FileInfo(path);
                     Console.WriteLine("Tabulating " + fi.Name);
-                    if (!fi.Exists) throw new FileNotFoundException(string.Format("Package '{0}' file not found!", path));
+                    if (!fi.Exists) throw new FileNotFoundException($"Package '{path}' file not found!");
 
-                    string filepath = fi.FullName;
+                    var filepath = fi.FullName;
                     Initialize(filepath.Substring(0, filepath.Length - 4));
-                    using (ZipFileTree tree = new ZipFileTree(filepath))
+                    using (var tree = new ZipFileTree(filepath))
                     {
                         TabulatePackage(string.Empty, tree);
                     }
                 }
                 else
                 {
-                    string folderpath = Path.GetFullPath(path);
+                    var folderpath = Path.GetFullPath(path);
                     Console.WriteLine("Tabulating " + Path.GetFileName(folderpath));
-                    if (!Directory.Exists(folderpath)) throw new FileNotFoundException(string.Format("Package '{0}' directory not found!", folderpath));
+                    if (!Directory.Exists(folderpath)) throw new FileNotFoundException(
+                        $"Package '{folderpath}' directory not found!");
 
                     Initialize(folderpath);
                     TabulatePackage(string.Empty, new FsFolder(folderpath));

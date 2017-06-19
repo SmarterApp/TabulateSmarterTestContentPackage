@@ -101,8 +101,8 @@ Error severity definitions:
                 gValidationOptions.Disable("iat");  // Disable checking for images without alternate text
 
                 string rootPath = null;
-                char operation = 'o'; // o=one, s=packages in Subdirectories, a=aggregate packages in subdirectories
-                foreach (string arg in args)
+                var operation = 'o'; // o=one, s=packages in Subdirectories, a=aggregate packages in subdirectories
+                foreach (var arg in args)
                 {
                     if (arg[0] == '-') // Option
                     {
@@ -120,8 +120,8 @@ Error severity definitions:
                             case 'v':
                                 if (arg[2] != '+' && arg[2] != '-') throw new ArgumentException("Invalid command-line option: " + arg);
                                 {
-                                    string key = arg.Substring(3).ToLowerInvariant();
-                                    bool value = arg[2] == '+';
+                                    var key = arg.Substring(3).ToLowerInvariant();
+                                    var value = arg[2] == '+';
                                     if (key.Equals("all", StringComparison.Ordinal))
                                     {
                                         if (!value) throw new ArgumentException("Invalid command-line option '-v-all'. Options must be disabled one at a time.");
