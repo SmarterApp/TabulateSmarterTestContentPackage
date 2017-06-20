@@ -3,14 +3,15 @@ using System.Linq;
 using System.Xml.Linq;
 using System.Xml.XPath;
 using NLog;
+using TabulateSmarterTestContentPackage.Extensions;
 
 namespace TabulateSmarterTestContentPackage.Validators
 {
-    public class CDataValidator
+    public static class CDataValidator
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-        public bool IsValid(XCData cData)
+        public static bool IsValid(XCData cData)
         {
             if (cData == null)
             {
@@ -19,14 +20,15 @@ namespace TabulateSmarterTestContentPackage.Validators
             }
             try
             {
-                // The CData nodes in the content package should all contain valid HTML.
-                // The longer-form call is being used here to avoid collisions with the overloaded
-                // string-only parameter that also takes a URL argument.
-                var cDataSection = XDocument.Load(cData.Value, LoadOptions.None);
+                var cDataSection = new XDocument().LoadXml(cData.Value);
 
                 // There is no way to predict where the images will appear in the CData (if they appear at all)
                 // use a global selector.
                 var imgTags = cDataSection.XPathSelectElements("//img");
+
+                // Right now, this is the only validity check we're doing on CData. This will be expanded
+                // as more validations become necessary.
+                return imgTags.All(ImgElementHasValidAltTag);
             }
             catch (Exception ex)
             {
@@ -38,7 +40,7 @@ namespace TabulateSmarterTestContentPackage.Validators
         //<summary>This method takes a <img> element tag and determines whether
         //the provided <img> element contains a valid "alt" attribute </summary>
         //<param name="image"> The <img> tag to be validated </param>
-        public bool ImgElementHasValidAltTag(XElement imageElement)
+        public static bool ImgElementHasValidAltTag(XElement imageElement)
         {
             if (imageElement == null)
             {
