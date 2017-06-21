@@ -53,6 +53,7 @@
   <ItemGroup>
     <Compile Include="ConsoleHelper.cs" />
     <Compile Include="Extensions\XDocumentExtensions.cs" />
+    <Compile Include="Extensions\XElementExtensions.cs" />
     <Compile Include="Extractors\CDataExtractor.cs" />
     <Compile Include="Extractors\ItemStandardExtractor.cs" />
     <Compile Include="FileFolder.cs" />
