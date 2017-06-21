@@ -13,7 +13,7 @@ using TabulateSmarterTestContentPackage.Models;
 
 namespace TabulateSmarterTestContentPackage
 {
-    internal class Tabulator
+    public class Tabulator
     {
         const string cImsManifest = "imsmanifest.xml";
         static NameTable sXmlNt;
@@ -44,18 +44,11 @@ namespace TabulateSmarterTestContentPackage
 
             sExpectedTranslationsIndex = new Dictionary<string, int>(sExpectedTranslations.Length);
             sExpectedTranslationsBitflags = 0;
-            for (var i=0; i<sExpectedTranslations.Length; ++i)
+            for (var i = 0; i < sExpectedTranslations.Length; ++i)
             {
                 sExpectedTranslationsIndex.Add(sExpectedTranslations[i], i);
                 sExpectedTranslationsBitflags |= (1 << i);
             }
-        }
-
-        private enum ScoringType
-        {
-            Basic,   // Simple multiple-choice or multi-select answer key
-            Qrx,        // Complex QTI Response-Processing answer key
-            Hand        // Hand scored
         }
 
         const string cStimulusInteractionType = "Stimulus";
@@ -103,7 +96,7 @@ namespace TabulateSmarterTestContentPackage
         Dictionary<string, int> mAnswerKeyCounts = new Dictionary<string, int>();
 
         // Per Package variables
-        string mPackageName;
+        public string mPackageName { get; set; }
         FileFolder mPackageFolder;
         Dictionary<string, string> mFilenameToResourceId = new Dictionary<string, string>();
         HashSet<string> mResourceDependencies = new HashSet<string>();
@@ -353,7 +346,7 @@ namespace TabulateSmarterTestContentPackage
             }
             catch (Exception err)
             {
-                ReportError(new ItemContext(this, packageFolder, null, null), ErrCat.Exception, ErrSeverity.Severe, err.ToString());
+                ReportError(new ItemContext(this, packageFolder, null, null), ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
             }
 
             // First pass through items
@@ -368,7 +361,7 @@ namespace TabulateSmarterTestContentPackage
                     }
                     catch (Exception err)
                     {
-                        ReportError(new ItemContext(this, ffItem, null, null), ErrCat.Exception, ErrSeverity.Severe, err.ToString());
+                        ReportError(new ItemContext(this, ffItem, null, null), ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
                     }
                 }
             }
@@ -384,7 +377,7 @@ namespace TabulateSmarterTestContentPackage
                     }
                     catch (Exception err)
                     {
-                        ReportError(new ItemContext(this, ffItem, null, null), ErrCat.Exception, ErrSeverity.Severe, err.ToString());
+                        ReportError(new ItemContext(this, ffItem, null, null), ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
                     }
                 }
             }
@@ -398,7 +391,7 @@ namespace TabulateSmarterTestContentPackage
                 }
                 catch (Exception err)
                 {
-                    ReportError(entry.Value, ErrCat.Exception, ErrSeverity.Severe, err.ToString());
+                    ReportError(entry.Value, ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
                 }
             }
 
@@ -411,7 +404,7 @@ namespace TabulateSmarterTestContentPackage
                 }
                 catch (Exception err)
                 {
-                    ReportError(it, ErrCat.Exception, ErrSeverity.Severe, err.ToString());
+                    ReportError(it, ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
                 }
             }
         }
@@ -422,7 +415,7 @@ namespace TabulateSmarterTestContentPackage
             var xml = new XmlDocument(sXmlNt);
             if (!TryLoadXml(ffItem, ffItem.Name + ".xml", xml))
             {
-                ReportError(new ItemContext(this, ffItem, null, null), ErrCat.Item, ErrSeverity.Severe, "Invalid item file.", LoadXmlErrorDetail);
+                ReportError(new ItemContext(this, ffItem, null, null), ErrorCategory.Item, ErrorSeverity.Severe, "Invalid item file.", LoadXmlErrorDetail);
                 return;
             }
 
@@ -431,13 +424,13 @@ namespace TabulateSmarterTestContentPackage
             if (itemType == null) itemType = xml.XpEval("itemrelease/item/@type");
             if (itemType == null)
             {
-                ReportError(new ItemContext(this, ffItem, null, null), ErrCat.Item, ErrSeverity.Severe, "Item type not specified.", LoadXmlErrorDetail);
+                ReportError(new ItemContext(this, ffItem, null, null), ErrorCategory.Item, ErrorSeverity.Severe, "Item type not specified.", LoadXmlErrorDetail);
                 return;
             }
             string itemId = xml.XpEval("itemrelease/item/@id");
             if (string.IsNullOrEmpty(itemId))
             {
-                ReportError(new ItemContext(this, ffItem, null, null), ErrCat.Item, ErrSeverity.Severe, "Item ID not specified.", LoadXmlErrorDetail);
+                ReportError(new ItemContext(this, ffItem, null, null), ErrorCategory.Item, ErrorSeverity.Severe, "Item ID not specified.", LoadXmlErrorDetail);
                 return;
             }
 
@@ -451,7 +444,7 @@ namespace TabulateSmarterTestContentPackage
             var it = new ItemContext(this, ffItem, itemId, itemType);
             if (mIdToItemContext.ContainsKey(itemId))
             {
-                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Multiple items with the same ID.");
+                ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Multiple items with the same ID.");
             }
             else
             {
@@ -461,7 +454,7 @@ namespace TabulateSmarterTestContentPackage
             // Check for filename match
             if (!ffItem.Name.Equals($"item-{bankKey}-{itemId}", StringComparison.OrdinalIgnoreCase))
             {
-                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Item ID doesn't match file/folder name", "bankKey='{0}' itemId='{1}' foldername='{2}'", bankKey, itemId, ffItem);
+                ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Item ID doesn't match file/folder name", "bankKey='{0}' itemId='{1}' foldername='{2}'", bankKey, itemId, ffItem);
             }
 
             // count wordlist reference
@@ -474,7 +467,7 @@ namespace TabulateSmarterTestContentPackage
             XmlDocument xml = new XmlDocument(sXmlNt);
             if (!TryLoadXml(ffItem, ffItem.Name + ".xml", xml))
             {
-                ReportError(new ItemContext(this, ffItem, null, null), ErrCat.Item, ErrSeverity.Severe, "Invalid stimulus file.", LoadXmlErrorDetail);
+                ReportError(new ItemContext(this, ffItem, null, null), ErrorCategory.Item, ErrorSeverity.Severe, "Invalid stimulus file.", LoadXmlErrorDetail);
                 return;
             }
 
@@ -498,7 +491,7 @@ namespace TabulateSmarterTestContentPackage
             // Check for filename match
             if (!ffItem.Name.Equals(string.Format("stim-{0}-{1}", bankKey, itemId), StringComparison.OrdinalIgnoreCase))
             {
-                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Stimulus ID doesn't match file/folder name", "bankKey='{0}' itemId='{1}' foldername='{2}'", bankKey, itemId, ffItem);
+                ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Stimulus ID doesn't match file/folder name", "bankKey='{0}' itemId='{1}' foldername='{2}'", bankKey, itemId, ffItem);
             }
 
             // count wordlist reference
@@ -525,7 +518,7 @@ namespace TabulateSmarterTestContentPackage
 
                 case "nl":          // Natural Language
                 case "SIM":         // Simulation
-                    ReportError(it, ErrCat.Unsupported, ErrSeverity.Severe, "Item type is not fully supported by the open source TDS.", "itemType='{0}'", it.ItemType);
+                    ReportError(it, ErrorCategory.Unsupported, ErrorSeverity.Severe, "Item type is not fully supported by the open source TDS.", "itemType='{0}'", it.ItemType);
                     TabulateInteraction(it);
                     break;
 
@@ -542,7 +535,7 @@ namespace TabulateSmarterTestContentPackage
                     break;
 
                 default:
-                    ReportError(it, ErrCat.Unsupported, ErrSeverity.Severe, "Unexpected item type.", "itemType='{0}'", it.ItemType);
+                    ReportError(it, ErrorCategory.Unsupported, ErrorSeverity.Severe, "Unexpected item type.", "itemType='{0}'", it.ItemType);
                     break;
             }
         }
@@ -553,7 +546,7 @@ namespace TabulateSmarterTestContentPackage
             var xml = new XmlDocument(sXmlNt);
             if (!TryLoadXml(it.FfItem, it.FfItem.Name + ".xml", xml))
             {
-                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Invalid item file.", LoadXmlErrorDetail);
+                ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Invalid item file.", LoadXmlErrorDetail);
                 return;
             }
 
@@ -561,13 +554,13 @@ namespace TabulateSmarterTestContentPackage
             var xmlMetadata = new XmlDocument(sXmlNt);
             if (!TryLoadXml(it.FfItem, "metadata.xml", xmlMetadata))
             {
-                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Invalid metadata.xml.", LoadXmlErrorDetail);
+                ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Invalid metadata.xml.", LoadXmlErrorDetail);
             }
 
             // Check interaction type
             var metaItemType = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:InteractionType", sXmlNs);
             if (!string.Equals(metaItemType, it.ItemType.ToUpperInvariant(), StringComparison.Ordinal))
-                ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Incorrect metadata <InteractionType>.", "InteractionType='{0}' Expected='{1}'", metaItemType, it.ItemType.ToUpperInvariant());
+                ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Incorrect metadata <InteractionType>.", "InteractionType='{0}' Expected='{1}'", metaItemType, it.ItemType.ToUpperInvariant());
 
             // DepthOfKnowledge
             var depthOfKnowledge = DepthOfKnowledgeFromMetadata(xmlMetadata, sXmlNs);
@@ -580,15 +573,15 @@ namespace TabulateSmarterTestContentPackage
             var metaSubject = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:Subject", sXmlNs);
             if (string.IsNullOrEmpty(subject))
             {
-                ReportError(it, ErrCat.Attribute, ErrSeverity.Tolerable, "Missing subject in item attributes (itm_item_subject).");
+                ReportError(it, ErrorCategory.Attribute, ErrorSeverity.Tolerable, "Missing subject in item attributes (itm_item_subject).");
                 subject = metaSubject;
                 if (string.IsNullOrEmpty(subject))
-                    ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Missing subject in item metadata.");
+                    ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Missing subject in item metadata.");
             }
             else
             {
                 if (!string.Equals(subject, metaSubject, StringComparison.Ordinal))
-                    ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Subject mismatch between item and metadata.", "ItemSubject='{0}' MetadataSubject='{1}'", subject, metaSubject);
+                    ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Subject mismatch between item and metadata.", "ItemSubject='{0}' MetadataSubject='{1}'", subject, metaSubject);
             }
 
             // AllowCalculator
@@ -597,7 +590,7 @@ namespace TabulateSmarterTestContentPackage
                 (string.Equals(metaSubject, "MATH", StringComparison.OrdinalIgnoreCase) || 
                 string.Equals(subject, "MATH", StringComparison.OrdinalIgnoreCase)))
             {
-                ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "Allow Calculator field not present for MATH subject item");
+                ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Degraded, "Allow Calculator field not present for MATH subject item");
             }
 
             // MathematicalPractice
@@ -606,7 +599,7 @@ namespace TabulateSmarterTestContentPackage
                 (string.Equals(metaSubject, "MATH", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(subject, "MATH", StringComparison.OrdinalIgnoreCase)))
             {
-                ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "Mathematical Practice field not present for MATH subject item");
+                ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Degraded, "Mathematical Practice field not present for MATH subject item");
             }
 
             // MaximumNumberOfPoints
@@ -614,7 +607,7 @@ namespace TabulateSmarterTestContentPackage
             var maximumNumberOfPoints = MaximumNumberOfPointsFromMetadata(xmlMetadata, sXmlNs);
             if (string.IsNullOrEmpty(maximumNumberOfPoints) || !int.TryParse(maximumNumberOfPoints, out testInt))
             {
-                ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "MaximumNumberOfPoints field not present in metadata");
+                ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Degraded, "MaximumNumberOfPoints field not present in metadata");
             }
 
             // Grade
@@ -622,15 +615,15 @@ namespace TabulateSmarterTestContentPackage
             var metaGrade = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:IntendedGrade", sXmlNs);
             if (string.IsNullOrEmpty(grade))
             {
-                ReportError(it, ErrCat.Attribute, ErrSeverity.Tolerable, "Missing grade in item attributes (itm_att_Grade).");
+                ReportError(it, ErrorCategory.Attribute, ErrorSeverity.Tolerable, "Missing grade in item attributes (itm_att_Grade).");
                 grade = metaGrade;
                 if (string.IsNullOrEmpty(grade))
-                    ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Missing <IntendedGrade> in item metadata.");
+                    ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Missing <IntendedGrade> in item metadata.");
             }
             else
             {
                 if (!string.Equals(grade, metaGrade, StringComparison.Ordinal))
-                    ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Grade mismatch between item and metadata.", "ItemGrade='{0}', MetadataGrade='{1}'", grade, metaGrade);
+                    ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Grade mismatch between item and metadata.", "ItemGrade='{0}', MetadataGrade='{1}'", grade, metaGrade);
             }
 
             // Answer Key and Rubric
@@ -652,7 +645,7 @@ namespace TabulateSmarterTestContentPackage
                     machineScoringType = Path.GetExtension(machineScoringFilename).ToLowerInvariant();
                     if (machineScoringType.Length > 0) machineScoringType = machineScoringType.Substring(1);
                     if (!it.FfItem.FileExists(machineScoringFilename))
-                        ReportError(it, ErrCat.AnswerKey, ErrSeverity.Severe, "Machine scoring file not found.", "Filename='{0}'", machineScoringFilename);
+                        ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Severe, "Machine scoring file not found.", "Filename='{0}'", machineScoringFilename);
                 }
 
                 var metadataScoringEngine = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:ScoringEngine", sXmlNs);
@@ -665,7 +658,7 @@ namespace TabulateSmarterTestContentPackage
                     case "mc":      // Multiple Choice
                         metadataExpected = "Automatic with Key";
                         if (answerKeyValue.Length != 1 || answerKeyValue[0] < 'A' || answerKeyValue[0] > 'Z')
-                            ReportError(it, ErrCat.AnswerKey, ErrSeverity.Severe, "Unexpected MC answer key attribute.", "itm_att_Answer Key='{0}'", answerKeyValue);
+                            ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Severe, "Unexpected MC answer key attribute.", "itm_att_Answer Key='{0}'", answerKeyValue);
                         answerKey = answerKeyValue;
                         scoringType = ScoringType.Basic;
                         break;
@@ -679,7 +672,7 @@ namespace TabulateSmarterTestContentPackage
                             {
                                 if (answer.Length != 1 || answer[0] < 'A' || answer[0] > 'Z') validAnswer = false;
                             }
-                            if (!validAnswer) ReportError(it, ErrCat.AnswerKey, ErrSeverity.Severe, "Unexpected MS answer attribute.", "itm_att_Answer Key='{0}'", answerKeyValue);
+                            if (!validAnswer) ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Severe, "Unexpected MS answer attribute.", "itm_att_Answer Key='{0}'", answerKeyValue);
                             answerKey = answerKeyValue;
                             scoringType = ScoringType.Basic;
                         }
@@ -689,7 +682,7 @@ namespace TabulateSmarterTestContentPackage
                         {
                             metadataExpected = "Automatic with Key(s)";
                             if (answerKeyValue.Length != 1 || answerKeyValue[0] < 'A' || answerKeyValue[0] > 'Z')
-                                ReportError(it, ErrCat.AnswerKey, ErrSeverity.Severe, "Unexpected EBSR answer key attribute.", "itm_att_Answer Key='{0}'", answerKeyValue);
+                                ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Severe, "Unexpected EBSR answer key attribute.", "itm_att_Answer Key='{0}'", answerKeyValue);
 
                             // Retrieve the answer key for the second part of the EBSR
                             xmlEle = xml.SelectSingleNode("itemrelease/item/attriblist/attrib[@attid='itm_att_Answer Key (Part II)']") as XmlElement;
@@ -704,7 +697,7 @@ namespace TabulateSmarterTestContentPackage
                                 // Severity is benign because the current system uses the qrx file for scoring and doesn't
                                 // depend on this attribute. However, we may depend on it in the future in which case
                                 // the error would become severe.
-                                ReportError(it, ErrCat.AnswerKey, ErrSeverity.Benign, "Missing EBSR answer key part II attribute.");
+                                ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Benign, "Missing EBSR answer key part II attribute.");
                             }
                             else
                             {
@@ -720,7 +713,7 @@ namespace TabulateSmarterTestContentPackage
                                 }
                                 else
                                 {
-                                    ReportError(it, ErrCat.AnswerKey, ErrSeverity.Severe, "Unexpected EBSR Key Part II attribute.", "itm_att_Answer Key (Part II)='{0}'", answerKeyPart2);
+                                    ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Severe, "Unexpected EBSR Key Part II attribute.", "itm_att_Answer Key (Part II)='{0}'", answerKeyPart2);
                                 }
                             }
                             answerKey = answerKeyValue;
@@ -736,7 +729,7 @@ namespace TabulateSmarterTestContentPackage
                         metadataExpected = (machineScoringFilename != null) ? "Automatic with Machine Rubric" : "HandScored";
                         answerKey = machineScoringType;
                         if (!string.Equals(answerKeyValue, it.ItemType.ToUpperInvariant()))
-                            ReportError(it, ErrCat.AnswerKey, ErrSeverity.Severe, "Unexpected answer key attribute.", "Value='{0}' Expected='{1}'", answerKeyValue, it.ItemType.ToUpperInvariant());
+                            ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Severe, "Unexpected answer key attribute.", "Value='{0}' Expected='{1}'", answerKeyValue, it.ItemType.ToUpperInvariant());
                         scoringType = ScoringType.Qrx;
                         break;
 
@@ -745,13 +738,13 @@ namespace TabulateSmarterTestContentPackage
                     case "wer":         // Writing Extended Response
                         metadataExpected = "HandScored";
                         if (!string.Equals(answerKeyValue, it.ItemType.ToUpperInvariant()))
-                            ReportError(it, ErrCat.AnswerKey, ErrSeverity.Tolerable, "Unexpected answer key attribute.", "Value='{0}' Expected='{1}'", answerKeyValue, it.ItemType.ToUpperInvariant());
+                            ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Tolerable, "Unexpected answer key attribute.", "Value='{0}' Expected='{1}'", answerKeyValue, it.ItemType.ToUpperInvariant());
                         answerKey = ScoringType.Hand.ToString();
                         scoringType = ScoringType.Hand;
                         break;
 
                     default:
-                        ReportError(it, ErrCat.Unsupported, ErrSeverity.Benign, "Validation of scoring keys for this type is not supported.");
+                        ReportError(it, ErrorCategory.Unsupported, ErrorSeverity.Benign, "Validation of scoring keys for this type is not supported.");
                         answerKey = string.Empty;
                         scoringType = ScoringType.Basic;    // We don't really know.
                         break;
@@ -765,24 +758,24 @@ namespace TabulateSmarterTestContentPackage
                 {
                     if (string.Equals(metadataScoringEngine, metadataExpected, StringComparison.OrdinalIgnoreCase))
                     {
-                        ReportError(it, ErrCat.Metadata, ErrSeverity.Benign, "Capitalization error in ScoringEngine metadata.", "Found='{0}' Expected='{1}'", metadataScoringEngine, metadataExpected);
+                        ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Benign, "Capitalization error in ScoringEngine metadata.", "Found='{0}' Expected='{1}'", metadataScoringEngine, metadataExpected);
                     }
                     else
                     {
                         // If first word of scoring engine metadata is the same (e.g. both are "Automatic" or both are "HandScored") then error is benign, otherwise error is tolerable
                         if (string.Equals(metadataScoringEngine.FirstWord(), metadataExpected.FirstWord(), StringComparison.OrdinalIgnoreCase))
                         {
-                            ReportError(it, ErrCat.Metadata, ErrSeverity.Benign, "Incorrect ScoringEngine metadata.", "Found='{0}' Expected='{1}'", metadataScoringEngine, metadataExpected);
+                            ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Benign, "Incorrect ScoringEngine metadata.", "Found='{0}' Expected='{1}'", metadataScoringEngine, metadataExpected);
                         }
                         else
                         {
-                            ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Automatic/HandScored scoring metadata error.", "Found='{0}' Expected='{1}'", metadataScoringEngine, metadataExpected);
+                            ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Automatic/HandScored scoring metadata error.", "Found='{0}' Expected='{1}'", metadataScoringEngine, metadataExpected);
                         }
                     }
                 }
 
                 if (!string.IsNullOrEmpty(machineScoringFilename) && scoringType != ScoringType.Qrx)
-                    ReportError(it, ErrCat.AnswerKey, ErrSeverity.Benign, "Unexpected machine scoring file found for HandScored item type.", "Filename='{0}'", machineScoringFilename);
+                    ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Benign, "Unexpected machine scoring file found for HandScored item type.", "Filename='{0}'", machineScoringFilename);
 
                 // Check for unreferenced machine scoring files
                 foreach (var fi in it.FfItem.Files)
@@ -790,7 +783,7 @@ namespace TabulateSmarterTestContentPackage
                     if (string.Equals(fi.Extension, ".qrx", StringComparison.OrdinalIgnoreCase)
                         && (machineScoringFilename == null || !string.Equals(fi.Name, machineScoringFilename, StringComparison.OrdinalIgnoreCase)))
                     {
-                        ReportError(it, ErrCat.AnswerKey, ErrSeverity.Severe, "Machine scoring file found but not referenced in <MachineRubric> element.", "Filename='{0}'", fi.Name);
+                        ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Severe, "Machine scoring file found but not referenced in <MachineRubric> element.", "Filename='{0}'", fi.Name);
                     }
                 }
 
@@ -800,7 +793,7 @@ namespace TabulateSmarterTestContentPackage
                     xmlEle = xml.SelectSingleNode("itemrelease/item/content/rubriclist/rubric/val") as XmlElement;
                     if (xmlEle == null)
                     {
-                        ReportError(it, ErrCat.AnswerKey, ErrSeverity.Tolerable, "Hand-scored or QRX-scored item lacks a human-readable rubric.", "AnswerKey='{0}'", answerKey);
+                        ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Tolerable, "Hand-scored or QRX-scored item lacks a human-readable rubric.", "AnswerKey='{0}'", answerKey);
                     }
                 }
             }
@@ -814,7 +807,7 @@ namespace TabulateSmarterTestContentPackage
                 else
                 {
                     assessmentType = "CAT";
-                    ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "PerformanceTaskComponentItem metadata should be 'Y' or 'N'.", "Value='{0}'", meta);
+                    ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Degraded, "PerformanceTaskComponentItem metadata should be 'Y' or 'N'.", "Value='{0}'", meta);
                 }
             }
 
@@ -822,13 +815,13 @@ namespace TabulateSmarterTestContentPackage
             var secondaryStandards = ItemStandardExtractor.Extract(xmlMetadata.MapToXElement(), "SecondaryStandard").ToList();
             if (primaryStandards.Any(x => string.IsNullOrEmpty(x.Standard)))
             {
-                ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "No PrimaryStandard specified in metadata.");
+                ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Degraded, "No PrimaryStandard specified in metadata.");
             }
 
             // Validate claim
             if (primaryStandards.Any(x => !sValidClaims.Contains(x.Claim)))
             {
-                ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "Unexpected claim value.", "Claim='{0}'", primaryStandards.First(x => !sValidClaims.Contains(x.Claim)).Claim);
+                ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Degraded, "Unexpected claim value.", "Claim='{0}'", primaryStandards.First(x => !sValidClaims.Contains(x.Claim)).Claim);
             }
 
             // Validate target grade suffix (Generating lots of errors. Need to follow up.)
@@ -838,7 +831,7 @@ namespace TabulateSmarterTestContentPackage
                         if (parts.Length == 2 &&
                             !string.Equals(parts[1].Trim(), grade, StringComparison.OrdinalIgnoreCase))
                         {
-                            ReportError("tgs", it, ErrCat.Metadata, ErrSeverity.Tolerable,
+                            ReportError("tgs", it, ErrorCategory.Metadata, ErrorSeverity.Tolerable,
                                 "Target suffix indicates a different grade from item attribute.",
                                 "ItemAttributeGrade='{0}' TargetSuffixGrade='{1}'", grade, parts[1]);
                         }
@@ -882,7 +875,7 @@ namespace TabulateSmarterTestContentPackage
                 var itemPoint = xml.XpEval("itemrelease/item/attriblist/attrib[@attid='itm_att_Item Point']/val");
                 if (string.IsNullOrEmpty(itemPoint))
                 {
-                    ReportError(it, ErrCat.Item, ErrSeverity.Tolerable, "Item Point attribute (item_att_Item Point) not found.");
+                    ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable, "Item Point attribute (item_att_Item Point) not found.");
                 }
                 else
                 {
@@ -891,7 +884,7 @@ namespace TabulateSmarterTestContentPackage
                     itemPoint = itemPoint.Trim();
                     if (!char.IsDigit(itemPoint[0]))
                     {
-                        ReportError(it, ErrCat.Item, ErrSeverity.Tolerable, "Item Point attribute does not begin with an integer.", "itm_att_Item Point='{0}'", itemPoint);
+                        ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable, "Item Point attribute does not begin with an integer.", "itm_att_Item Point='{0}'", itemPoint);
                     }
                     else
                     {
@@ -901,18 +894,18 @@ namespace TabulateSmarterTestContentPackage
                         var metaPoint = xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:MaximumNumberOfPoints", sXmlNs);
                         if (metaPoint == null)
                         {
-                            ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "MaximumNumberOfPoints not found in metadata.");
+                            ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "MaximumNumberOfPoints not found in metadata.");
                         }
                         else
                         {
                             int mpoints;
                             if (!int.TryParse(metaPoint, out mpoints))
                             {
-                                ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Metadata MaximumNumberOfPoints value is not integer.", "MaximumNumberOfPoints='{0}'", metaPoint);
+                                ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Metadata MaximumNumberOfPoints value is not integer.", "MaximumNumberOfPoints='{0}'", metaPoint);
                             }
                             else if (mpoints != points)
                             {
-                                ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Metadata MaximumNumberOfPoints does not match item point attribute.", "MaximumNumberOfPoints='{0}' itm_att_Item Point='{0}'", mpoints, points);
+                                ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Metadata MaximumNumberOfPoints does not match item point attribute.", "MaximumNumberOfPoints='{0}' itm_att_Item Point='{0}'", mpoints, points);
                             }
                         }
 
@@ -920,7 +913,7 @@ namespace TabulateSmarterTestContentPackage
                         var scorePoints = xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:ScorePoints", sXmlNs);
                         if (scorePoints == null)
                         {
-                            ReportError(it, ErrCat.Metadata, ErrSeverity.Benign, "ScorePoints not found in metadata.");
+                            ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Benign, "ScorePoints not found in metadata.");
                         }
                         else
                         {
@@ -928,11 +921,11 @@ namespace TabulateSmarterTestContentPackage
                             if (scorePoints[0] == '"')
                                 scorePoints = scorePoints.Substring(1);
                             else
-                                ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "ScorePoints value missing leading quote.");
+                                ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "ScorePoints value missing leading quote.");
                             if (scorePoints[scorePoints.Length - 1] == '"')
                                 scorePoints = scorePoints.Substring(0, scorePoints.Length - 1);
                             else
-                                ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "ScorePoints value missing trailing quote.");
+                                ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "ScorePoints value missing trailing quote.");
 
                             var maxspoints = -1;
                             var minspoints = 100000;
@@ -941,11 +934,11 @@ namespace TabulateSmarterTestContentPackage
                                 int spoints;
                                 if (!int.TryParse(sp.Trim(), out spoints))
                                 {
-                                    ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Metadata ScorePoints value is not integer.", "ScorePoints='{0}' value='{1}'", scorePoints, sp);
+                                    ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Metadata ScorePoints value is not integer.", "ScorePoints='{0}' value='{1}'", scorePoints, sp);
                                 }
                                 else if (spoints < 0 || spoints > points)
                                 {
-                                    ReportError(it, ErrCat.Metadata, ErrSeverity.Severe, "Metadata ScorePoints value is out of range.", "ScorePoints='{0}' value='{1}' min='0' max='{2}'", scorePoints, spoints, points);
+                                    ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Severe, "Metadata ScorePoints value is out of range.", "ScorePoints='{0}' value='{1}' min='0' max='{2}'", scorePoints, spoints, points);
                                 }
                                 else
                                 {
@@ -955,13 +948,13 @@ namespace TabulateSmarterTestContentPackage
                                     }
                                     else
                                     {
-                                        ReportError(it, ErrCat.Metadata, ErrSeverity.Benign, "Metadata ScorePoints are not in ascending order.", "ScorePoints='{0}'", scorePoints);
+                                        ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Benign, "Metadata ScorePoints are not in ascending order.", "ScorePoints='{0}'", scorePoints);
                                     }
                                     if (minspoints > spoints) minspoints = spoints;
                                 }
                             }
-                            if (minspoints > 0) ReportError(it, ErrCat.Metadata, ErrSeverity.Benign, "Metadata ScorePoints doesn't include a zero score.", "ScorePoints='{0}'", scorePoints);
-                            if (maxspoints < points) ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Metadata ScorePoints doesn't include a maximum score.", "ScorePoints='{0}' max='{1}'", scorePoints, points);
+                            if (minspoints > 0) ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Benign, "Metadata ScorePoints doesn't include a zero score.", "ScorePoints='{0}'", scorePoints);
+                            if (maxspoints < points) ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Metadata ScorePoints doesn't include a maximum score.", "ScorePoints='{0}' max='{1}'", scorePoints, points);
                         }
                     }
                 }
@@ -974,9 +967,9 @@ namespace TabulateSmarterTestContentPackage
                 int seq;
                 var ptSequence = xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:PtSequence", sXmlNs);
                 if (ptSequence == null)
-                    ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "Metadata for PT item is missing <PtSequence> element.");
+                    ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Degraded, "Metadata for PT item is missing <PtSequence> element.");
                 else if (!int.TryParse(ptSequence.Trim(), out seq))
-                    ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "Metadata <PtSequence> is not an integer.", "PtSequence='{0}'", ptSequence);
+                    ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Degraded, "Metadata <PtSequence> is not an integer.", "PtSequence='{0}'", ptSequence);
 
                 // PtWritingType Metadata (defined as optional in metadata but we'll still report a benign error if it's not on PT WER items)
                 if (string.Equals(it.ItemType, "wer", StringComparison.OrdinalIgnoreCase))
@@ -984,7 +977,7 @@ namespace TabulateSmarterTestContentPackage
                     var ptWritingType = xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:PtWritingType", sXmlNs);
                     if (ptWritingType == null)
                     {
-                        ReportError(it, ErrCat.Metadata, ErrSeverity.Benign, "Metadata for PT item is missing <PtWritingType> element.");
+                        ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Benign, "Metadata for PT item is missing <PtWritingType> element.");
                     }
                     else
                     {
@@ -996,9 +989,9 @@ namespace TabulateSmarterTestContentPackage
 
                             // Report according to type of error
                             if (!sValidWritingTypes.Contains(normalized))
-                                ReportError(it, ErrCat.Metadata, ErrSeverity.Benign, "PtWritingType metadata has invalid value.", "PtWritingType='{0}'", ptWritingType);
+                                ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Benign, "PtWritingType metadata has invalid value.", "PtWritingType='{0}'", ptWritingType);
                             else
-                                ReportError(it, ErrCat.Metadata, ErrSeverity.Benign, "Capitalization error in PtWritingType metadata.", "PtWritingType='{0}' expected='{1}'", ptWritingType, normalized);
+                                ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Benign, "Capitalization error in PtWritingType metadata.", "PtWritingType='{0}' expected='{1}'", ptWritingType, normalized);
                         }
                     }
                 }
@@ -1007,18 +1000,18 @@ namespace TabulateSmarterTestContentPackage
                 var stimId = xml.XpEval("itemrelease/item/attriblist/attrib[@attid='stm_pass_id']/val");
                 if (stimId == null)
                 {
-                    ReportError(it, ErrCat.Item, ErrSeverity.Severe, "PT Item missing associated passage ID (stm_pass_id).");
+                    ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "PT Item missing associated passage ID (stm_pass_id).");
                 }
                 else
                 {
                     var metaStimId = xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:AssociatedStimulus", sXmlNs);
                     if (metaStimId == null)
                     {
-                        ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "PT Item metatadata missing AssociatedStimulus.");
+                        ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "PT Item metatadata missing AssociatedStimulus.");
                     }
                     else if (!string.Equals(stimId, metaStimId, StringComparison.OrdinalIgnoreCase))
                     {
-                        ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "PT Item passage ID doesn't match metadata AssociatedStimulus.", "Item stm_pass_id='{0}' Metadata AssociatedStimulus='{1}'", stimId, metaStimId);
+                        ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "PT Item passage ID doesn't match metadata AssociatedStimulus.", "Item stm_pass_id='{0}' Metadata AssociatedStimulus='{1}'", stimId, metaStimId);
                     }
 
                     // Get the bankKey
@@ -1028,7 +1021,7 @@ namespace TabulateSmarterTestContentPackage
                     var stimulusFilename = string.Format(@"Stimuli\stim-{1}-{0}\stim-{1}-{0}.xml", stimId, bankKey);
                     if (!mPackageFolder.FileExists(stimulusFilename))
                     {
-                        ReportError(it, ErrCat.Item, ErrSeverity.Severe, "PT item stimulus not found.", "StimulusId='{0}'", stimId);
+                        ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "PT item stimulus not found.", "StimulusId='{0}'", stimId);
                     }
 
                     // Make sure dependency is recorded in manifest
@@ -1041,7 +1034,7 @@ namespace TabulateSmarterTestContentPackage
                 var tutorialId = xml.XpEval("itemrelease/item/tutorial/@id");
                 if (tutorialId == null)
                 {
-                    ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Tutorial id missing from item.");
+                    ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, "Tutorial id missing from item.");
                 }
                 else if (Program.gValidationOptions.IsEnabled("trd"))
                 {
@@ -1051,7 +1044,7 @@ namespace TabulateSmarterTestContentPackage
                     var tutorialFilename = string.Format(@"Items\item-{1}-{0}\item-{1}-{0}.xml", tutorialId, bankKey);
                     if (!mPackageFolder.FileExists(tutorialFilename))
                     {
-                        ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Tutorial not found.", "TutorialId='{0}'", tutorialId);
+                        ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Tutorial not found.", "TutorialId='{0}'", tutorialId);
                     }
 
                     // Make sure dependency is recorded in manifest
@@ -1066,7 +1059,7 @@ namespace TabulateSmarterTestContentPackage
             XmlDocument xml = new XmlDocument(sXmlNt);
             if (!TryLoadXml(it.FfItem, it.FfItem.Name + ".xml", xml))
             {
-                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Invalid item file.", LoadXmlErrorDetail);
+                ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Invalid item file.", LoadXmlErrorDetail);
                 return;
             }
 
@@ -1074,13 +1067,13 @@ namespace TabulateSmarterTestContentPackage
             XmlDocument xmlMetadata = new XmlDocument(sXmlNt);
             if (!TryLoadXml(it.FfItem, "metadata.xml", xmlMetadata))
             {
-                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Invalid metadata.xml.", LoadXmlErrorDetail);
+                ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Invalid metadata.xml.", LoadXmlErrorDetail);
             }
 
             // Check interaction type
             string metaItemType = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:InteractionType", sXmlNs);
             if (!string.Equals(metaItemType, cStimulusInteractionType, StringComparison.Ordinal))
-                ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Incorrect metadata <InteractionType>.", "InteractionType='{0}' Expected='{1}'", metaItemType, cStimulusInteractionType);
+                ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Incorrect metadata <InteractionType>.", "InteractionType='{0}' Expected='{1}'", metaItemType, cStimulusInteractionType);
 
             // Get the version
             string version = xml.XpEvalE("itemrelease/passage/@version");
@@ -1091,15 +1084,15 @@ namespace TabulateSmarterTestContentPackage
             if (string.IsNullOrEmpty(subject))
             {
                 // For the present, we don't expect the subject in the item attributes on passages
-                //ReportError(it, ErrCat.Attribute, ErrSeverity.Tolerable, "Missing subject in item attributes (itm_item_subject).");
+                //ReportError(it, ErrorCategory.Attribute, ErrorSeverity.Tolerable, "Missing subject in item attributes (itm_item_subject).");
                 subject = metaSubject;
                 if (string.IsNullOrEmpty(subject))
-                    ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Missing subject in item metadata.");
+                    ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Missing subject in item metadata.");
             }
             else
             {
                 if (!string.Equals(subject, metaSubject, StringComparison.Ordinal))
-                    ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Subject mismatch between item and metadata.", "ItemSubject='{0}' MetadataSubject='{1}'", subject, metaSubject);
+                    ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Subject mismatch between item and metadata.", "ItemSubject='{0}' MetadataSubject='{1}'", subject, metaSubject);
             }
 
             // Grade: Passages do not have a particular grade affiliation
@@ -1115,7 +1108,7 @@ namespace TabulateSmarterTestContentPackage
                 else
                 {
                     assessmentType = "CAT";
-                    ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "PerformanceTaskComponentItem metadata should be 'Y' or 'N'.", "Value='{0}'", meta);
+                    ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Degraded, "PerformanceTaskComponentItem metadata should be 'Y' or 'N'.", "Value='{0}'", meta);
                 }
             }
             */
@@ -1153,7 +1146,7 @@ namespace TabulateSmarterTestContentPackage
             XmlDocument xml = new XmlDocument(sXmlNt);
             if (!TryLoadXml(it.FfItem, it.FfItem.Name + ".xml", xml))
             {
-                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Invalid item file.", LoadXmlErrorDetail);
+                ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Invalid item file.", LoadXmlErrorDetail);
                 return;
             }
 
@@ -1161,7 +1154,7 @@ namespace TabulateSmarterTestContentPackage
             XmlDocument xmlMetadata = new XmlDocument(sXmlNt);
             if (!TryLoadXml(it.FfItem, "metadata.xml", xmlMetadata))
             {
-                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Invalid metadata.xml.", LoadXmlErrorDetail);
+                ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Invalid metadata.xml.", LoadXmlErrorDetail);
             }
 
             // Get the version
@@ -1172,15 +1165,15 @@ namespace TabulateSmarterTestContentPackage
             string metaSubject = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:Subject", sXmlNs);
             if (string.IsNullOrEmpty(subject))
             {
-                ReportError(it, ErrCat.Attribute, ErrSeverity.Tolerable, "Missing subject in item attributes (itm_item_subject).");
+                ReportError(it, ErrorCategory.Attribute, ErrorSeverity.Tolerable, "Missing subject in item attributes (itm_item_subject).");
                 subject = metaSubject;
                 if (string.IsNullOrEmpty(subject))
-                    ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Missing subject in item metadata.");
+                    ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Missing subject in item metadata.");
             }
             else
             {
                 if (!string.Equals(subject, metaSubject, StringComparison.Ordinal))
-                    ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Subject mismatch between item and metadata.", "ItemSubject='{0}' MetadataSubject='{1}'", subject, metaSubject);
+                    ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Subject mismatch between item and metadata.", "ItemSubject='{0}' MetadataSubject='{1}'", subject, metaSubject);
             }
 
             // Grade
@@ -1257,12 +1250,12 @@ namespace TabulateSmarterTestContentPackage
                 string filename = xmlEle.GetAttribute("file");
                 if (string.IsNullOrEmpty(filename))
                 {
-                    ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Attachment missing file attribute.", "attachType='{0}'", attachType);
+                    ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Attachment missing file attribute.", "attachType='{0}'", attachType);
                     return false;
                 }
                 if (!it.FfItem.FileExists(filename))
                 {
-                    ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Dangling reference to attached file that does not exist.", "attachType='{0}' Filename='{1}'", attachType, filename);
+                    ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Dangling reference to attached file that does not exist.", "attachType='{0}' Filename='{1}'", attachType, filename);
                     return false;
                 }
 
@@ -1270,7 +1263,7 @@ namespace TabulateSmarterTestContentPackage
                 if (extension.Length > 0) extension = extension.Substring(1); // Strip leading "."
                 if (!string.Equals(extension, expectedExtension, StringComparison.OrdinalIgnoreCase))
                 {
-                    ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Unexpected extension for attached file.", "attachType='{0}' extension='{1}' expected='{2}' filename='{3}'", attachType, extension, expectedExtension, filename);
+                    ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, "Unexpected extension for attached file.", "attachType='{0}' extension='{1}' expected='{2}' filename='{3}'", attachType, extension, expectedExtension, filename);
                 }
                 return true;
             }
@@ -1285,7 +1278,7 @@ namespace TabulateSmarterTestContentPackage
                 Match match = regex.Match(file.Name);
                 if (match.Success)
                 {
-                    ReportError(it, ErrCat.Item, ErrSeverity.Benign, "Unreferenced file found.", "fileType='{0}', filename='{1}'", fileType, file.Name);
+                    ReportError(it, ErrorCategory.Item, ErrorSeverity.Benign, "Unreferenced file found.", "fileType='{0}', filename='{1}'", fileType, file.Name);
                 }
             }
         }
@@ -1300,21 +1293,21 @@ namespace TabulateSmarterTestContentPackage
             string itemFilename = string.Concat(it.FfItem.RootedName, "/", it.FfItem.Name, ".xml");
             if (!mFilenameToResourceId.TryGetValue(NormalizeFilenameInManifest(itemFilename), out itemResourceId))
             {
-                ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, "Item not found in manifest.");
+                ReportError(it, ErrorCategory.Manifest, ErrorSeverity.Benign, "Item not found in manifest.");
             }
 
             // Look up dependency in the manifest
             string dependencyResourceId = null;
             if (!mFilenameToResourceId.TryGetValue(NormalizeFilenameInManifest(dependencyFilename), out dependencyResourceId))
             {
-                ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, dependencyType + " not found in manifest.", "DependencyFilename='{0}'", dependencyFilename);
+                ReportError(it, ErrorCategory.Manifest, ErrorSeverity.Benign, dependencyType + " not found in manifest.", "DependencyFilename='{0}'", dependencyFilename);
             }
 
             // Check for dependency in manifest
             if (!string.IsNullOrEmpty(itemResourceId) && !string.IsNullOrEmpty(dependencyResourceId))
             {
                 if (!mResourceDependencies.Contains(ToDependsOnString(itemResourceId, dependencyResourceId)))
-                    ReportError("pmd", it, ErrCat.Manifest, ErrSeverity.Benign, string.Format("Manifest does not record dependency between item and {0}.", dependencyType), "ItemResourceId='{0}' {1}ResourceId='{2}'", itemResourceId, dependencyType, dependencyResourceId);
+                    ReportError("pmd", it, ErrorCategory.Manifest, ErrorSeverity.Benign, string.Format("Manifest does not record dependency between item and {0}.", dependencyType), "ItemResourceId='{0}' {1}ResourceId='{2}'", itemResourceId, dependencyType, dependencyResourceId);
             }
         }
 
@@ -1324,8 +1317,8 @@ namespace TabulateSmarterTestContentPackage
             if (!aslFound) ReportUnexpectedFiles(it, "ASL video", "^item_{0}_ASL", it.ItemId);
 
             bool aslInMetadata = string.Equals(xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:AccessibilityTagsASLLanguage", sXmlNs), "Y", StringComparison.OrdinalIgnoreCase);
-            if (aslInMetadata && !aslFound) ReportError(it, ErrCat.Metadata, ErrSeverity.Severe, "Item metadata specifies ASL but no ASL in item.");
-            if (!aslInMetadata && aslFound) ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Item has ASL but not indicated in the metadata.");
+            if (aslInMetadata && !aslFound) ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Severe, "Item metadata specifies ASL but no ASL in item.");
+            if (!aslInMetadata && aslFound) ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Item has ASL but not indicated in the metadata.");
 
             return (aslFound && aslInMetadata) ? "MP4" : string.Empty;
         }
@@ -1335,7 +1328,7 @@ namespace TabulateSmarterTestContentPackage
             // First, check metadata
             string brailleTypeMeta = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:BrailleType", sXmlNs);
 
-            SortedSet<string> brailleTypes = new SortedSet<string>(new CompareBrailleType());
+            SortedSet<string> brailleTypes = new SortedSet<string>(new BrailleTypeComparer());
 
             // Enumerate all of the braille attachments
             {
@@ -1349,7 +1342,7 @@ namespace TabulateSmarterTestContentPackage
                     string attachType = xmlEle.GetAttribute("type");
                     if (string.IsNullOrEmpty(attachType))
                     {
-                        ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Attachment missing type attribute.");
+                        ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Attachment missing type attribute.");
                         continue;
                     }
                     if (!attachType.Equals("PRN") && !attachType.Equals("BRF"))
@@ -1359,19 +1352,19 @@ namespace TabulateSmarterTestContentPackage
 
                     if (!attachType.Equals(brailleTypeMeta))
                     {
-                        ReportError(it, ErrCat.Metadata, ErrSeverity.Severe, "Braille metadata does not match attachment type.", "metadata='{0}', fileType='{1}'", brailleTypeMeta, attachType);
+                        ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Severe, "Braille metadata does not match attachment type.", "metadata='{0}', fileType='{1}'", brailleTypeMeta, attachType);
                     }
 
                     // Check that the file exists
                     string filename = xmlEle.GetAttribute("file");
                     if (string.IsNullOrEmpty(filename))
                     {
-                        ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Attachment missing file attribute.", "attachType='{0}'", attachType);
+                        ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Attachment missing file attribute.", "attachType='{0}'", attachType);
                         continue;
                     }
                     if (!it.FfItem.FileExists(filename))
                     {
-                        ReportError(it, ErrCat.Item, ErrSeverity.Tolerable, "Dangling reference to attached file that does not exist.", "attachType='{0}' Filename='{1}'", attachType, filename);
+                        ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable, "Dangling reference to attached file that does not exist.", "attachType='{0}' Filename='{1}'", attachType, filename);
                         continue;
                     }
 
@@ -1380,7 +1373,7 @@ namespace TabulateSmarterTestContentPackage
                     if (extension.Length > 0) extension = extension.Substring(1); // Strip leading "."
                     if (!string.Equals(extension, attachType, StringComparison.OrdinalIgnoreCase))
                     {
-                        ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Unexpected extension for attached file.", "extension='{0}' expected='{1}' filename='{2}'", extension, attachType, filename);
+                        ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, "Unexpected extension for attached file.", "extension='{0}' expected='{1}' filename='{2}'", extension, attachType, filename);
                     }
 
                     // Get the subtype (if any)
@@ -1390,7 +1383,7 @@ namespace TabulateSmarterTestContentPackage
                     // Report the result
                     if (!brailleTypes.Add(brailleFile))
                     {
-                        ReportError(it, ErrCat.Item, ErrSeverity.Tolerable, "Multiple attachments of same type and subtype.", "type='{0}'", brailleFile);
+                        ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable, "Multiple attachments of same type and subtype.", "type='{0}'", brailleFile);
                     }
                 }
             }
@@ -1422,7 +1415,7 @@ namespace TabulateSmarterTestContentPackage
                 }
 
                 if (emptyBrailleTextFound)
-                    ReportError(it, ErrCat.Item, ErrSeverity.Benign, "brailleTextString and/or brailleCode element is empty.");
+                    ReportError(it, ErrorCategory.Item, ErrorSeverity.Benign, "brailleTextString and/or brailleCode element is empty.");
             }
 
             // Check for match with metadata
@@ -1431,7 +1424,7 @@ namespace TabulateSmarterTestContentPackage
             {
                 if (brailleTypes.Count != 0)
                 {
-                    ReportError(it, ErrCat.Metadata, ErrSeverity.Benign, "Metadata indicates not braillable but braille content included.", "brailleTypes='{0}'", string.Join(";", brailleTypes));
+                    ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Benign, "Metadata indicates not braillable but braille content included.", "brailleTypes='{0}'", string.Join(";", brailleTypes));
                 }
                 brailleTypes.Clear();
                 brailleTypes.Add("NotBraillable");
@@ -1444,7 +1437,7 @@ namespace TabulateSmarterTestContentPackage
             return string.Join(";", brailleTypes);
         }
 
-        private class CompareBrailleType : IComparer<string>
+        private class BrailleTypeComparer : IComparer<string>
         {
             public int Compare(string x, string y)
             {
@@ -1468,13 +1461,13 @@ namespace TabulateSmarterTestContentPackage
                 string witId = xmlRes.GetAttribute("id");
                 if (string.IsNullOrEmpty(witId))
                 {
-                    ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Item references blank wordList id.");
+                    ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, "Item references blank wordList id.");
                 }
                 else
                 {
                     if (!string.IsNullOrEmpty(wordlistId))
                     {
-                        ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Item references multiple wordlists.");
+                        ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, "Item references multiple wordlists.");
                     }
                     else
                     {
@@ -1506,7 +1499,7 @@ namespace TabulateSmarterTestContentPackage
                 XmlNode contentNode = xml.SelectSingleNode(it.IsPassage ? "itemrelease/passage/content" : "itemrelease/item/content");
                 if (contentNode == null)
                 {
-                    ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Item has no content element.");
+                    ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Item has no content element.");
                 }
                 else
                 {
@@ -1525,7 +1518,7 @@ namespace TabulateSmarterTestContentPackage
             {
                 if (termIndices.Count > 0)
                 {
-                    ReportError(it, ErrCat.Item, ErrSeverity.Benign, "Item has terms marked for glossary but does not reference a wordlist.");
+                    ReportError(it, ErrorCategory.Item, ErrorSeverity.Benign, "Item has terms marked for glossary but does not reference a wordlist.");
                 }
                 return string.Empty;
             }
@@ -1553,14 +1546,14 @@ namespace TabulateSmarterTestContentPackage
                 string id = node.GetAttribute("id");
                 if (string.IsNullOrEmpty(id))
                 {
-                    ReportError(it, ErrCat.Item, ErrSeverity.Severe, "WordList reference lacks an ID");
+                    ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "WordList reference lacks an ID");
                     continue;
                 }
                 string scratch = node.GetAttribute("data-word-index");
                 int termIndex;
                 if (!int.TryParse(scratch, out termIndex))
                 {
-                    ReportError(it, ErrCat.Item, ErrSeverity.Severe, "WordList reference term index is not integer", "id='{0} index='{1}'", id, scratch);
+                    ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "WordList reference term index is not integer", "id='{0} index='{1}'", id, scratch);
                     continue;
                 }
 
@@ -1571,7 +1564,7 @@ namespace TabulateSmarterTestContentPackage
                     // If no more siblings but didn't find end tag, report.
                     if (snode == null)
                     {
-                        ReportError(it, ErrCat.Item, ErrSeverity.Tolerable, "WordList reference missing end tag.", "id='{0}' index='{1}' term='{2}'", id, termIndex, term);
+                        ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable, "WordList reference missing end tag.", "id='{0}' index='{1}' term='{2}'", id, termIndex, term);
                         break;
                     }
 
@@ -1626,7 +1619,7 @@ namespace TabulateSmarterTestContentPackage
             }
             catch (Exception err)
             {
-                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Invalid html content.", "context='{0}' error='{1}'", GetXmlContext(content), err.Message);
+                ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Invalid html content.", "context='{0}' error='{1}'", GetXmlContext(content), err.Message);
             }
             return html;
         }
@@ -1655,7 +1648,7 @@ namespace TabulateSmarterTestContentPackage
                 .Select(t => $"relatedElementInfo/readAloud/{t}") // Select sub-elements from list above
                 .Any(element => ElementExistsAndIsNonEmpty(xml, element))) // Check if the sub-element exists and has a value
             {
-                ReportError(it, ErrCat.Item, ErrSeverity.Degraded, 
+                ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, 
                     "Img tag is missing alternative text in the <readAloud> accessibility element.", 
                     "id ='{0}' src='{1}' spanId='{2}'", id, src, enclosingSpanId ?? string.Empty);
             }
@@ -1674,11 +1667,11 @@ namespace TabulateSmarterTestContentPackage
             {
                 if (string.IsNullOrEmpty(img.Source))
                 {
-                    ReportError(it, ErrCat.Item, ErrSeverity.Degraded, "Img tag is missing src attribute");
+                    ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, "Img tag is missing src attribute");
                 }
                 if (string.IsNullOrEmpty(img.Id))
                 {
-                    ReportError(it, ErrCat.Item, ErrSeverity.Degraded, 
+                    ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, 
                         "Img tag is missing id attribute to associate with alternative text.", "src = '{0}'", img.Source);
                 }
                 else
@@ -1693,7 +1686,7 @@ namespace TabulateSmarterTestContentPackage
                         .ToList();
                     if (!accessibilityNodes.Any())
                     {
-                        ReportError(it, ErrCat.Item, ErrSeverity.Degraded, 
+                        ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, 
                             "Img tag does not have associated alternative text.", "id ='{0}' src='{1}'", img.Id, img.Source);
                     }
                     else
@@ -1747,7 +1740,7 @@ namespace TabulateSmarterTestContentPackage
 
                 // See if metadata agrees
                 XmlNode node = xmlMetadata.SelectSingleNode(string.Concat("metadata/sa:smarterAppMetadata/sa:Language[. = '", language, "']"), sXmlNs);
-                if (node == null) ReportError(it, ErrCat.Metadata, ErrSeverity.Benign, "Item content includes language but metadata does not have a corresponding <Language> entry.", "Language='{0}'", language);
+                if (node == null) ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Benign, "Item content includes language but metadata does not have a corresponding <Language> entry.", "Language='{0}'", language);
             }
 
             string translation = string.Empty;
@@ -1758,7 +1751,7 @@ namespace TabulateSmarterTestContentPackage
                 string language = xmlEle.InnerText;
                 if (!languages.Contains(language))
                 {
-                    ReportError(it, ErrCat.Metadata, ErrSeverity.Severe, "Item metadata indicates language but item content does not include that language.", "Language='{0}'", language);
+                    ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Severe, "Item metadata indicates language but item content does not include that language.", "Language='{0}'", language);
                 }
 
                 // If not english, add to result
@@ -1807,7 +1800,7 @@ namespace TabulateSmarterTestContentPackage
                     // Make sure media file is referenced
                     if (Program.gValidationOptions.IsEnabled("umf") && content.IndexOf(filename, StringComparison.OrdinalIgnoreCase) < 0)
                     {
-                        ReportError(it, ErrCat.Item, ErrSeverity.Benign, "Media file not referenced in item.", "Filename='{0}'", filename);
+                        ReportError(it, ErrorCategory.Item, ErrorSeverity.Benign, "Media file not referenced in item.", "Filename='{0}'", filename);
                     }
                     else
                     {
@@ -1896,7 +1889,7 @@ namespace TabulateSmarterTestContentPackage
             XmlDocument xml = new XmlDocument(sXmlNt);
             if (!TryLoadXml(it.FfItem, it.FfItem.Name + ".xml", xml))
             {
-                ReportError(it, ErrCat.Item, ErrSeverity.Severe, "Invalid wordlist file.", LoadXmlErrorDetail);
+                ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Invalid wordlist file.", LoadXmlErrorDetail);
                 return;
             }
 
@@ -1907,7 +1900,7 @@ namespace TabulateSmarterTestContentPackage
             int refCount = mWordlistRefCounts.Count(it.ItemId);
             if (refCount == 0)
             {
-                ReportError(it, ErrCat.Wordlist, ErrSeverity.Benign, "Wordlist is not referenced by any item.");
+                ReportError(it, ErrorCategory.Wordlist, ErrorSeverity.Benign, "Wordlist is not referenced by any item.");
             }
 
             // Zero the counts
@@ -1956,13 +1949,13 @@ namespace TabulateSmarterTestContentPackage
             ItemContext it;
             if (!mIdToItemContext.TryGetValue(wordlistId, out it))
             {
-                ReportError(itemIt, ErrCat.Item, ErrSeverity.Degraded, "Item references non-existent wordlist (WIT)", "wordlistId='{0}'", wordlistId);
+                ReportError(itemIt, ErrorCategory.Item, ErrorSeverity.Degraded, "Item references non-existent wordlist (WIT)", "wordlistId='{0}'", wordlistId);
                 return;
             }
             XmlDocument xml = new XmlDocument(sXmlNt);
             if (!TryLoadXml(it.FfItem, it.FfItem.Name + ".xml", xml))
             {
-                ReportWitError(itemIt, it, ErrSeverity.Severe, "Invalid wordlist file.", LoadXmlErrorDetail);
+                ReportWitError(itemIt, it, ErrorSeverity.Severe, "Invalid wordlist file.", LoadXmlErrorDetail);
                 return;
             }
 
@@ -1996,7 +1989,7 @@ namespace TabulateSmarterTestContentPackage
                 while (wordlistTerms.Count < index + 1) wordlistTerms.Add(string.Empty);
                 if (!string.IsNullOrEmpty(wordlistTerms[index]))
                 {
-                    ReportWitError(itemIt, it, ErrSeverity.Severe, "Wordlist has multiple terms with the same index.", "index='{0}'", index);
+                    ReportWitError(itemIt, it, ErrorSeverity.Severe, "Wordlist has multiple terms with the same index.", "index='{0}'", index);
                 }
                 else
                 {
@@ -2021,7 +2014,7 @@ namespace TabulateSmarterTestContentPackage
                 bool termReferenced = referencedIndices.Contains(index);
                 if (!termReferenced && Program.gValidationOptions.IsEnabled("uwt"))
                 {
-                    ReportWitError(itemIt, it, ErrSeverity.Benign, "Wordlist term is not referenced by item.", "term='{0}' termIndex='{1}'", term, index);
+                    ReportWitError(itemIt, it, ErrorSeverity.Benign, "Wordlist term is not referenced by item.", "term='{0}' termIndex='{1}'", term, index);
                 }
 
                 // Find the attachment references and enumberate the translations
@@ -2076,7 +2069,7 @@ namespace TabulateSmarterTestContentPackage
                             if (!wordlistId.Equals(match2.Groups[1].Value, StringComparison.Ordinal)
                                 && !wordlistId.Equals(match2.Groups[2].Value, StringComparison.Ordinal))
                             {
-                                ReportWitError(itemIt, it, ErrSeverity.Degraded, "Wordlist attachment filename indicates wordlist ID mismatch.", "filename='{0}' filenameItemId='{1}' expectedItemId='{2}'", filename, match2.Groups[1].Value, wordlistId);
+                                ReportWitError(itemIt, it, ErrorSeverity.Degraded, "Wordlist attachment filename indicates wordlist ID mismatch.", "filename='{0}' filenameItemId='{1}' expectedItemId='{2}'", filename, match2.Groups[1].Value, wordlistId);
                             }
 
                             // Check that the wordlist term index matches
@@ -2088,7 +2081,7 @@ namespace TabulateSmarterTestContentPackage
                             if (filenameIndex != index && filenameIndex != ordinal
                                 && (filenameIndex >= wordlistTerms.Count || !string.Equals(wordlistTerms[filenameIndex], term, StringComparison.OrdinalIgnoreCase)))
                             {
-                                ReportWitError(ItemIt, it, ErrSeverity.Degraded, "Wordlist attachment filename indicates term index mismatch.", "filename='{0}' filenameIndex='{1}' expectedIndex='{2}'", filename, filenameIndex, index);
+                                ReportWitError(ItemIt, it, ErrorSeverity.Degraded, "Wordlist attachment filename indicates term index mismatch.", "filename='{0}' filenameIndex='{1}' expectedIndex='{2}'", filename, filenameIndex, index);
                             }
                             */
 
@@ -2123,7 +2116,7 @@ namespace TabulateSmarterTestContentPackage
                             }
                             if (!filenameListType.Equals(listType))
                             {
-                                ReportWitError(itemIt, it, ErrSeverity.Degraded, "Wordlist attachment filename indicates attachment type mismatch.", "filename='{0}' filenameListType='{1}' expectedListType='{2}'", filename, filenameListType, listType);
+                                ReportWitError(itemIt, it, ErrorSeverity.Degraded, "Wordlist attachment filename indicates attachment type mismatch.", "filename='{0}' filenameListType='{1}' expectedListType='{2}'", filename, filenameListType, listType);
                             }
                         }
 
@@ -2154,7 +2147,7 @@ namespace TabulateSmarterTestContentPackage
                     {
                         if ((translationBitflags & (1 << i)) == 0) missedTranslations.Add(sExpectedTranslations[i]);
                     }
-                    ReportWitError(itemIt, it, ErrSeverity.Tolerable, "Wordlist does not include all expected translations.", "term='{0}' missing='{1}'", term, string.Join(", ", missedTranslations));
+                    ReportWitError(itemIt, it, ErrorSeverity.Tolerable, "Wordlist does not include all expected translations.", "term='{0}' missing='{1}'", term, string.Join(", ", missedTranslations));
                 }
             }
 
@@ -2166,13 +2159,13 @@ namespace TabulateSmarterTestContentPackage
                 int index = termIndices[i];
                 if (index >= wordlistTerms.Count || string.IsNullOrEmpty(wordlistTerms[index]))
                 {
-                    ReportWitError(itemIt, it, ErrSeverity.Tolerable, "Item references non-existent wordlist term.", "text='{0}' termIndex='{1}'", terms[i], index);
+                    ReportWitError(itemIt, it, ErrorSeverity.Tolerable, "Item references non-existent wordlist term.", "text='{0}' termIndex='{1}'", terms[i], index);
                 }
                 else
                 {
                     if (!stemmer.TermsMatch(terms[i], wordlistTerms[index]))
                     {
-                        ReportWitError(itemIt, it, ErrSeverity.Degraded, "Item text does not match wordlist term.", "text='{0}' term='{1}' termIndex='{2}'", terms[i], wordlistTerms[index], index);
+                        ReportWitError(itemIt, it, ErrorSeverity.Degraded, "Item text does not match wordlist term.", "text='{0}' term='{1}' termIndex='{2}'", terms[i], wordlistTerms[index], index);
                     }
                 }
             }
@@ -2184,7 +2177,7 @@ namespace TabulateSmarterTestContentPackage
                 {
                     if (!attachmentToReference.ContainsKey(pair.Key))
                     {
-                        ReportWitError(itemIt, it, ErrSeverity.Benign, "Unreferenced wordlist attachment file.", "filename='{0}'", pair.Key);
+                        ReportWitError(itemIt, it, ErrorSeverity.Benign, "Unreferenced wordlist attachment file.", "filename='{0}'", pair.Key);
                     }
                 }
             }
@@ -2215,12 +2208,12 @@ namespace TabulateSmarterTestContentPackage
                 {
                     if (caseMismatchFilename == null)
                     {
-                        ReportWitError(itemIt, it, ErrSeverity.Severe, "Wordlist attachment not found.",
+                        ReportWitError(itemIt, it, ErrorSeverity.Severe, "Wordlist attachment not found.",
                             "filename='{0}' term='{1}' termIndex='{2}'", filename, wordlistTerms[termIndex], termIndex);
                     }
                     else
                     {
-                        ReportWitError(itemIt, it, ErrSeverity.Severe, "Wordlist attachment filename differs in capitalization (will fail on certain platforms).",
+                        ReportWitError(itemIt, it, ErrorSeverity.Severe, "Wordlist attachment filename differs in capitalization (will fail on certain platforms).",
                             "referenceFilename='{0}' actualFilename='{1}' termIndex='{2}'", filename, caseMismatchFilename, termIndex);
                     }
                 }
@@ -2229,12 +2222,12 @@ namespace TabulateSmarterTestContentPackage
                 {
                     if (caseMismatchFilename == null)
                     {
-                        ReportWitError(itemIt, it, ErrSeverity.Benign, "Wordlist attachment not found. Benign because corresponding term is not referenced.",
+                        ReportWitError(itemIt, it, ErrorSeverity.Benign, "Wordlist attachment not found. Benign because corresponding term is not referenced.",
                             "filename='{0}' term='{1}' termIndex='{2}'", filename, wordlistTerms[termIndex], termIndex);
                     }
                     else
                     {
-                        ReportWitError(itemIt, it, ErrSeverity.Benign, "Wordlist attachment filename differs in capitalization. Benign because corresponding term is not referenced.",
+                        ReportWitError(itemIt, it, ErrorSeverity.Benign, "Wordlist attachment filename differs in capitalization. Benign because corresponding term is not referenced.",
                             "referenceFilename='{0}' actualFilename='{1}' termIndex='{2}'", filename, caseMismatchFilename, termIndex);
                     }
                 }
@@ -2247,7 +2240,7 @@ namespace TabulateSmarterTestContentPackage
                 // Error if different terms (case insensitive)
                 if (!string.Equals(wordlistTerms[termIndex], wordlistTerms[previousTerm.TermIndex], StringComparison.InvariantCultureIgnoreCase))
                 {
-                    ReportWitError(itemIt, it, ErrSeverity.Severe, "Two different wordlist terms reference the same attachment.",
+                    ReportWitError(itemIt, it, ErrorSeverity.Severe, "Two different wordlist terms reference the same attachment.",
                         "filename='{0}' termA='{1}' termB='{2}' termIndexA='{3}' termIndexB='{4}",
                         filename, wordlistTerms[previousTerm.TermIndex], wordlistTerms[termIndex], previousTerm.TermIndex, termIndex);
                 }
@@ -2255,7 +2248,7 @@ namespace TabulateSmarterTestContentPackage
                 // Error if different listTypes (language or image)
                 if (!string.Equals(listType, previousTerm.ListType, StringComparison.Ordinal))
                 {
-                    ReportWitError(itemIt, it, ErrSeverity.Severe, "Same wordlist attachment used for different languages or types.",
+                    ReportWitError(itemIt, it, ErrorSeverity.Severe, "Same wordlist attachment used for different languages or types.",
                         "filename='{0}' term='{1}' typeA='{2}' typeB='{3}' termIndexA='{4}' termIndexB='{5}",
                         filename, wordlistTerms[termIndex], previousTerm.ListType, listType, previousTerm.TermIndex, termIndex);
                 }
@@ -2287,7 +2280,7 @@ namespace TabulateSmarterTestContentPackage
             XmlDocument xmlManifest = new XmlDocument(sXmlNt);
             if (!TryLoadXml(mPackageFolder, cImsManifest, xmlManifest))
             {
-                ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, "Invalid manifest.", LoadXmlErrorDetail);
+                ReportError(it, ErrorCategory.Manifest, ErrorSeverity.Benign, "Invalid manifest.", LoadXmlErrorDetail);
                 return;
             }
 
@@ -2299,20 +2292,20 @@ namespace TabulateSmarterTestContentPackage
             {
                 string id = xmlRes.GetAttribute("identifier");
                 if (string.IsNullOrEmpty(id))
-                    ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, "Resource in manifest is missing id.", "Filename='{0}'", xmlRes.XpEvalE("ims:file/@href", sXmlNs));
+                    ReportError(it, ErrorCategory.Manifest, ErrorSeverity.Benign, "Resource in manifest is missing id.", "Filename='{0}'", xmlRes.XpEvalE("ims:file/@href", sXmlNs));
                 string filename = xmlRes.XpEval("ims:file/@href", sXmlNs);
                 if (string.IsNullOrEmpty(filename))
                 {
-                    ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, "Resource specified in manifest has no filename.", "ResourceId='{0}'", id);
+                    ReportError(it, ErrorCategory.Manifest, ErrorSeverity.Benign, "Resource specified in manifest has no filename.", "ResourceId='{0}'", id);
                 }
                 else if (!mPackageFolder.FileExists(filename))
                 {
-                    ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, "Resource specified in manifest does not exist.", "ResourceId='{0}' Filename='{1}'", id, filename);
+                    ReportError(it, ErrorCategory.Manifest, ErrorSeverity.Benign, "Resource specified in manifest does not exist.", "ResourceId='{0}' Filename='{1}'", id, filename);
                 }
 
                 if (ids.Contains(id))
                 {
-                    ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, "Resource listed multiple times in manifest.", "ResourceId='{0}'", id);
+                    ReportError(it, ErrorCategory.Manifest, ErrorSeverity.Benign, "Resource listed multiple times in manifest.", "ResourceId='{0}'", id);
                 }
                 else
                 {
@@ -2323,7 +2316,7 @@ namespace TabulateSmarterTestContentPackage
                 filename = NormalizeFilenameInManifest(filename);
                 if (mFilenameToResourceId.ContainsKey(filename))
                 {
-                    ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, "File listed multiple times in manifest.", "ResourceId='{0}' Filename='{1}'", id, filename);
+                    ReportError(it, ErrorCategory.Manifest, ErrorSeverity.Benign, "File listed multiple times in manifest.", "ResourceId='{0}' Filename='{1}'", id, filename);
                 }
                 else
                 {
@@ -2336,14 +2329,14 @@ namespace TabulateSmarterTestContentPackage
                     string dependsOnId = xmlDep.GetAttribute("identifierref");
                     if (string.IsNullOrEmpty(dependsOnId))
                     {
-                        ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, "Dependency in manifest is missing identifierref attribute.", "ResourceId='{0}'", id);
+                        ReportError(it, ErrorCategory.Manifest, ErrorSeverity.Benign, "Dependency in manifest is missing identifierref attribute.", "ResourceId='{0}'", id);
                     }
                     else
                     {
                         string dependency = ToDependsOnString(id, dependsOnId);
                         if (mResourceDependencies.Contains(dependency))
                         {
-                            ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, "Dependency in manifest repeated multiple times.", "ResourceId='{0}' DependsOnId='{1}'", id, dependsOnId);
+                            ReportError(it, ErrorCategory.Manifest, ErrorSeverity.Benign, "Dependency in manifest repeated multiple times.", "ResourceId='{0}' DependsOnId='{1}'", id, dependsOnId);
                         }
                         else
                         {
@@ -2356,7 +2349,7 @@ namespace TabulateSmarterTestContentPackage
 
             if (mFilenameToResourceId.Count == 0)
             {
-                ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, "Manifest is empty.");
+                ReportError(it, ErrorCategory.Manifest, ErrorSeverity.Benign, "Manifest is empty.");
                 return;
             }
 
@@ -2384,7 +2377,7 @@ namespace TabulateSmarterTestContentPackage
 
                 if (!mFilenameToResourceId.TryGetValue(itemFileName, out itemId))
                 {
-                        ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, "Item does not appear in the manifest.", "ItemFilename='{0}'", itemFileName);
+                        ReportError(it, ErrorCategory.Manifest, ErrorSeverity.Benign, "Item does not appear in the manifest.", "ItemFilename='{0}'", itemFileName);
                     itemFileName = null;
                     itemId = null;
                 }
@@ -2398,7 +2391,7 @@ namespace TabulateSmarterTestContentPackage
                 string resourceId;
                 if (!mFilenameToResourceId.TryGetValue(filename, out resourceId))
                 {
-                    ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, "Resource does not appear in the manifest.", "Filename='{0}'", filename);
+                    ReportError(it, ErrorCategory.Manifest, ErrorSeverity.Benign, "Resource does not appear in the manifest.", "Filename='{0}'", filename);
                 }
 
                 // If in an item, see if dependency is expressed
@@ -2406,7 +2399,7 @@ namespace TabulateSmarterTestContentPackage
                 {
                     // Check for dependency
                     if (!mResourceDependencies.Contains(ToDependsOnString(itemId, resourceId)))
-                        ReportError(it, ErrCat.Manifest, ErrSeverity.Benign, "Manifest does not express resource dependency.", "ResourceId='{0}' DependesOnId='{1}'", itemId, resourceId);
+                        ReportError(it, ErrorCategory.Manifest, ErrorSeverity.Benign, "Manifest does not express resource dependency.", "ResourceId='{0}' DependesOnId='{1}'", itemId, resourceId);
                 }
             }
 
@@ -2452,31 +2445,7 @@ namespace TabulateSmarterTestContentPackage
             writer.WriteLine();
         }
 
-        // Error Categories
-        enum ErrCat
-        {
-            Exception,
-            Unsupported,
-            Attribute,
-            AnswerKey,
-            Metadata,
-            Item,
-            Wordlist,
-            Manifest
-        }
-
-        // Error Severity
-        enum ErrSeverity
-        {
-            Severe = 4,
-            Degraded = 3,
-            Tolerable = 2,
-            Benign = 1
-            // NotAnError would be zero if it were included
-        }
-
-
-        void ReportError(ItemContext it, ErrCat category, ErrSeverity severity, string msg, string detail, params object[] args)
+        public void ReportError(ItemContext it, ErrorCategory category, ErrorSeverity severity, string msg, string detail, params object[] args)
         {
             if (mErrorReport == null)
             {
@@ -2500,27 +2469,21 @@ namespace TabulateSmarterTestContentPackage
             ++mErrorCount;
         }
 
-        void ReportError(ItemContext it, ErrCat category, ErrSeverity severity, string msg)
+        void ReportError(ItemContext it, ErrorCategory category, ErrorSeverity severity, string msg)
         {
             ReportError(it, category, severity, msg, null);
         }
 
-        void ReportError(string validationOption, ItemContext it, ErrCat category, ErrSeverity severity, string msg)
-        {
-            if (Program.gValidationOptions.IsEnabled(validationOption))
-                ReportError(it, category, severity, msg, null);
-        }
-
-        void ReportError(string validationOption, ItemContext it, ErrCat category, ErrSeverity severity, string msg, string detail, params object[] args)
+        void ReportError(string validationOption, ItemContext it, ErrorCategory category, ErrorSeverity severity, string msg, string detail, params object[] args)
         {
             if (Program.gValidationOptions.IsEnabled(validationOption))
                 ReportError(it, category, severity, msg, detail, args);
         }
 
-        void ReportWitError(ItemContext it, ItemContext witIt, ErrSeverity severity, string msg, string detail, params object[] args)
+        void ReportWitError(ItemContext it, ItemContext witIt, ErrorSeverity severity, string msg, string detail, params object[] args)
         {
             detail = string.Concat(string.Format("wordlistId='{0}' ", witIt.ItemId), detail);
-            ReportError(it, ErrCat.Wordlist, severity, msg, detail, args);
+            ReportError(it, ErrorCategory.Wordlist, severity, msg, detail, args);
         }
 
         private static readonly char[] cCsvEscapeChars = {',', '"', '\'', '\r', '\n'};
@@ -2540,40 +2503,6 @@ namespace TabulateSmarterTestContentPackage
             return string.Concat("\"", text.Replace("\"", "\"\""), "\t\"");
         }
 
-        private class ItemContext
-        {
-            public ItemContext(Tabulator tabulator, FileFolder ffItem, string itemId, string itemType)
-            {
-                FfItem = ffItem;
-                ItemId = (itemId != null) ? itemId : string.Empty;
-                ItemType = (itemType != null) ? itemType : string.Empty;
-                Folder = tabulator.mPackageName + ffItem.RootedName;
-            }
-
-            public FileFolder FfItem { get; private set; }
-            public string ItemId { get; private set; }
-            public string ItemType { get; private set; }
-            public string Folder { get; private set; }
-
-            /*
-            public string ItemFilename
-            {
-                get
-                {
-                    return Path.Combine(DiItem.FullName, DiItem.Name + ".xml");
-                }
-            }
-            */ 
-
-            public bool IsPassage
-            {
-                get
-                {
-                    return string.Equals(ItemType, "pass", StringComparison.OrdinalIgnoreCase);
-                }
-            }
-        }
-
         class WordlistRef
         {
             public WordlistRef(ItemContext it, string witId, int[] termIndices, string[] terms)
@@ -2588,17 +2517,6 @@ namespace TabulateSmarterTestContentPackage
             public string WitId { get; private set; }
             public int[] TermIndices { get; private set; }
             public string[] Terms { get; private set; }
-        }
-
-        static void AddWordListRef(Dictionary <string, LinkedList<WordlistRef> > dict, WordlistRef value)
-        {
-            LinkedList<WordlistRef> list;
-            if (!dict.TryGetValue(value.WitId, out list))
-            {
-                list = new LinkedList<WordlistRef>();
-                dict.Add(value.WitId, list);
-            }
-            list.AddLast(value);
         }
 
         class TermAttachmentReference

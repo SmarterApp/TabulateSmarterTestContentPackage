@@ -59,12 +59,17 @@
     <Compile Include="FileFolder.cs" />
     <Compile Include="HtmlReader.cs" />
     <Compile Include="Mappers\XmlMapper.cs" />
+    <Compile Include="Models\ErrorCategory.cs" />
+    <Compile Include="Models\ErrorSeverity.cs" />
     <Compile Include="Models\HtmlImageTag.cs" />
+    <Compile Include="Models\ItemContext.cs" />
     <Compile Include="Models\ItemStandard.cs" />
     <Compile Include="Models\ReportingStandard.cs" />
+    <Compile Include="Models\ScoringType.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Tabulator.cs" />
+    <Compile Include="Utilities\ReportingUtility.cs" />
     <Compile Include="Validators\CDataValidator.cs" />
     <Compile Include="WordStemmer.cs" />
   </ItemGroup>
