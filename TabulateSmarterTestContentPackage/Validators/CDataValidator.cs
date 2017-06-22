@@ -42,6 +42,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                            "border-right",
                            "border-right-color",
                            "border-top",
+                           "border-top-color",
                            "box-shadow",
                            "column-rule",
                            "column-rule-color",
@@ -52,7 +53,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                            "outline-color",
                            "text-decoration",
                            "text-decoration-color",
-                           "text-shadow"
+                           "text-shadow" //select-color, 
                        });
             }
             catch (Exception ex)
