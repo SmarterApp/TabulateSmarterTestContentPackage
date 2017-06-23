@@ -23,6 +23,7 @@ namespace TabulateSmarterTestContentPackage.Extractors
                     Publication = x.Value.Split(':').FirstOrDefault(),
                     Metadata = x.Value.Split(':').LastOrDefault()?.Split('|')
                 })
+                .Where(x => !x.Publication.Equals("SBAC-MA-v6"))
                 .Select(x => new ItemStandard
                 {
                     Publication = x.Publication,
