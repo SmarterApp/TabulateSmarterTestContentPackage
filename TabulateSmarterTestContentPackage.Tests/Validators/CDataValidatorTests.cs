@@ -4,6 +4,7 @@ using System.Xml.Linq;
 using NUnit.Framework;
 using TabulateSmarterTestContentPackage.Extensions;
 using TabulateSmarterTestContentPackage.Extractors;
+using TabulateSmarterTestContentPackage.Models;
 using TabulateSmarterTestContentPackage.Validators;
 
 namespace TabulateSmarterTestContentPackage.Tests.Validators
@@ -51,7 +52,7 @@ namespace TabulateSmarterTestContentPackage.Tests.Validators
             var itemCData = CDataExtractor.ExtractCData(ItemXml);
 
             // Act
-            var result = itemCData.Select(CDataValidator.IsValid).ToList();
+            var result = itemCData.Select(x => CDataValidator.IsValid(x, new ItemContext(null,null,null,null))).ToList();
 
             // Assert
             Assert.IsNotNull(result);
