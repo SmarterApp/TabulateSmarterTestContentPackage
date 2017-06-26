@@ -13,7 +13,7 @@ namespace TabulateSmarterTestContentPackage
     /// Implementations are on the convetional file system and on a .zip file.
     /// Nested .zip files are NOT supported.
     /// </summary>
-    abstract class FileFolder
+    public abstract class FileFolder
     {
         string mRootedName;
         string mName;
@@ -66,7 +66,7 @@ namespace TabulateSmarterTestContentPackage
         }
     }
 
-    abstract class FileFile
+    public abstract class FileFile
     {
         string mRootedName;
         string mName;
@@ -276,7 +276,7 @@ namespace TabulateSmarterTestContentPackage
             catch (Exception err)
             {
                 Dispose(true);
-                throw new InvalidDataException(string.Format("Corrupted zip file '{0}': {1}", zipFileName, err.Message), err);
+                throw new InvalidDataException($"Corrupted zip file '{zipFileName}': {err.Message}", err);
             }
         }
 
