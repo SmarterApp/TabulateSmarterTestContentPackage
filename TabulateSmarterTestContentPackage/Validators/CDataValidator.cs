@@ -30,7 +30,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                 // use a global selector.
                 var imgTags = cDataSection.XPathSelectElements("//img");
 
-                return imgTags.All(x => ImgElementHasValidAltTag(x, itemContext))
+                return imgTags.Select(x => ImgElementHasValidAltTag(x, itemContext)).All(x => x)
                        && ElementsFreeOfColorAlterations(cDataSection.Root, itemContext)
                        && ElementsFreeOfViolatingStyleTags(cDataSection.Root, new List<string>
                        {
