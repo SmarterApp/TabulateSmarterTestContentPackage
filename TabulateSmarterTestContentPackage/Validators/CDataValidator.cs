@@ -36,27 +36,27 @@ namespace TabulateSmarterTestContentPackage.Validators
                        {
                            "color",
                            "background",
-                           "background-color",
+                           //"background-color",
                            "border",
-                           "border-bottom-color",
-                           "border-color",
-                           "border-left",
-                           "border-left-color",
-                           "border-right",
-                           "border-right-color",
-                           "border-top",
-                           "border-top-color",
+                           //"border-bottom-color",
+                           //"border-color",
+                           //"border-left",
+                           //"border-left-color",
+                           //"border-right",
+                           //"border-right-color",
+                           //"border-top",
+                           //"border-top-color",
                            "box-shadow",
                            "column-rule",
-                           "column-rule-color",
+                           //"column-rule-color",
                            "filter",
                            "font",
                            "opacity",
                            "outline",
-                           "outline-color",
+                           //"outline-color",
                            "text-decoration",
-                           "text-decoration-color",
-                           "text-shadow" //select-color, 
+                           //"text-decoration-color",
+                           "text-shadow" //select-color, padding TODO: Greg - condense this list to common terms 'background' etc and only throw 1 error per item max
                        }, itemContext);
             }
             catch (Exception ex)
@@ -106,26 +106,21 @@ namespace TabulateSmarterTestContentPackage.Validators
             var isValid = true;
             if (result.Any())
             {
-                restrictedCss.ToList().ForEach(x =>
-                    result.ToList().Where(y => y.Attributes()
-                        .First(z => z.Name.LocalName.Equals("style", StringComparison.OrdinalIgnoreCase))
-                        .Value.Contains($"{x}:")).ToList().ForEach(y =>
+               var candidates = result.Select(x => new { Element = x, Style = x.Attributes()
+                    .First(y => y.Name.LocalName.Equals("style", StringComparison.OrdinalIgnoreCase))
+                    .Value});
+                candidates.ToList().ForEach(x =>
+                {
+                    var violations = restrictedCss.Where(x.Style.Contains).ToList();
+                    if (violations.Any())
                     {
-                        var errorText =
-                            $"Element '{y.Name.LocalName}' in CData contains an illegal CSS marker '{x}' in its 'style' attribute. Value: {y}";
-                        if (x.ToLower().Contains("color"))
-                        {
-                            Logger.Error(errorText);
-                            ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe, errorText);
-                        }
-                        else
-                        {
-                            Logger.Warn(errorText);
-                            ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Degraded, errorText);
-                        }                   
                         isValid = false;
-                    })
-                );
+                        var errorText =
+                                $"Element '{x.Element.Name.LocalName}' in CData contains illegal CSS marker(s) '{violations.Aggregate((y,z) => $"{y},{z}")}' in its 'style' attribute. Value: {x.Element}";
+                        Logger.Error(errorText);
+                        ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe, errorText);
+                    }
+                });
             }
             return isValid;
         }
