@@ -420,7 +420,7 @@ namespace TabulateSmarterTestContentPackage
                 return;
             }
 
-            var isCDataValid = CDataExtractor.ExtractCData(new XDocument().LoadXml(xml.OuterXml).Root).ToList().All(x => CDataValidator.IsValid(x, new ItemContext(this,ffItem,null,null)));
+            var isCDataValid = CDataExtractor.ExtractCData(new XDocument().LoadXml(xml.OuterXml).Root).ToList().Select(x => CDataValidator.IsValid(x, new ItemContext(this,ffItem,null,null))).All(x => x);
 
             // Get the details
             var itemType = xml.XpEval("itemrelease/item/@format");
