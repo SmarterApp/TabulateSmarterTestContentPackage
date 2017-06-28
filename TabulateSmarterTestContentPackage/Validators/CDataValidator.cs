@@ -29,35 +29,26 @@ namespace TabulateSmarterTestContentPackage.Validators
                 // There is no way to predict where the images will appear in the CData (if they appear at all)
                 // use a global selector.
                 var imgTags = cDataSection.XPathSelectElements("//img");
+                var imgTagsValid = imgTags.Select(x => ImgElementHasValidAltTag(x, itemContext)).ToList();
+                var noColorAlterations = ElementsFreeOfColorAlterations(cDataSection.Root, itemContext);
+                var noViolatingStyleTags = ElementsFreeOfViolatingStyleTags(cDataSection.Root, new List<string>
+                {
+                    "color",
+                    "background",
+                    "border",
+                    "box-shadow",
+                    "column-rule",
+                    "filter",
+                    "font",
+                    "opacity",
+                    "outline",
+                    "text-decoration",
+                    "text-shadow"
+                }, itemContext);
 
-                return imgTags.Select(x => ImgElementHasValidAltTag(x, itemContext)).All(x => x)
-                       && ElementsFreeOfColorAlterations(cDataSection.Root, itemContext)
-                       && ElementsFreeOfViolatingStyleTags(cDataSection.Root, new List<string>
-                       {
-                           "color",
-                           "background",
-                           //"background-color",
-                           "border",
-                           //"border-bottom-color",
-                           //"border-color",
-                           //"border-left",
-                           //"border-left-color",
-                           //"border-right",
-                           //"border-right-color",
-                           //"border-top",
-                           //"border-top-color",
-                           "box-shadow",
-                           "column-rule",
-                           //"column-rule-color",
-                           "filter",
-                           "font",
-                           "opacity",
-                           "outline",
-                           //"outline-color",
-                           "text-decoration",
-                           //"text-decoration-color",
-                           "text-shadow" //select-color, padding TODO: Greg - condense this list to common terms 'background' etc and only throw 1 error per item max
-                       }, itemContext);
+                return imgTagsValid.All(x => x)
+                       && noColorAlterations
+                       && noViolatingStyleTags;
             }
             catch (Exception ex)
             {
