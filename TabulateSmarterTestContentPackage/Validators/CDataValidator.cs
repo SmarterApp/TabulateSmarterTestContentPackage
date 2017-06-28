@@ -29,8 +29,9 @@ namespace TabulateSmarterTestContentPackage.Validators
                 // There is no way to predict where the images will appear in the CData (if they appear at all)
                 // use a global selector.
                 var imgTags = cDataSection.XPathSelectElements("//img");
+                var imgTagsValid = imgTags.Select(x => ImgElementHasValidAltTag(x, itemContext)).ToList();
 
-                return imgTags.Select(x => ImgElementHasValidAltTag(x, itemContext)).All(x => x)
+                return imgTagsValid.All(x => x)
                        && ElementsFreeOfColorAlterations(cDataSection.Root, itemContext)
                        && ElementsFreeOfViolatingStyleTags(cDataSection.Root, new List<string>
                        {
