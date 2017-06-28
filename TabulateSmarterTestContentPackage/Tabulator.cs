@@ -154,7 +154,8 @@ namespace TabulateSmarterTestContentPackage
             // Tablulate unpacked packages
             foreach (DirectoryInfo diPackageFolder in diRoot.GetDirectories())
             {
-                if (File.Exists(Path.Combine(diPackageFolder.FullName, cImsManifest)))
+                if (File.Exists(Path.Combine(diPackageFolder.FullName, cImsManifest))
+                    || Directory.Exists(Path.Combine(diPackageFolder.FullName, "Items")))
                 {
                     try
                     {
@@ -176,7 +177,9 @@ namespace TabulateSmarterTestContentPackage
                 Console.WriteLine("Opening " + fiPackageFile.Name);
                 using (ZipFileTree tree = new ZipFileTree(filepath))
                 {
-                    if (tree.FileExists(cImsManifest))
+                    FileFolder scratch;
+                    if (tree.FileExists(cImsManifest)
+                        || tree.TryGetFolder("Items", out scratch))
                     {
                         try
                         {
@@ -204,7 +207,8 @@ namespace TabulateSmarterTestContentPackage
                 // Tabulate unpacked packages
                 foreach (DirectoryInfo diPackageFolder in diRoot.GetDirectories())
                 {
-                    if (File.Exists(Path.Combine(diPackageFolder.FullName, cImsManifest)))
+                    if (File.Exists(Path.Combine(diPackageFolder.FullName, cImsManifest))
+                        || Directory.Exists(Path.Combine(diPackageFolder.FullName, "Items")))
                     {
                         Console.WriteLine("Tabulating " + diPackageFolder.Name);
                         TabulatePackage(diPackageFolder.Name, new FsFolder(diPackageFolder.FullName));
@@ -218,7 +222,9 @@ namespace TabulateSmarterTestContentPackage
                     Console.WriteLine("Opening " + fiPackageFile.Name);
                     using (ZipFileTree tree = new ZipFileTree(filepath))
                     {
-                        if (tree.FileExists(cImsManifest))
+                        FileFolder dummy;
+                        if (tree.FileExists(cImsManifest)
+                            || tree.TryGetFolder("Items", out dummy))
                         {
                             Console.WriteLine("Tabulating " + fiPackageFile.Name);
                             string packageName = fiPackageFile.Name;
@@ -244,7 +250,7 @@ namespace TabulateSmarterTestContentPackage
 
             mItemReport = new StreamWriter(string.Concat(reportPrefix, cItemReportFn), false, Encoding.UTF8); 
             // DOK is "Depth of Knowledge"
-            mItemReport.WriteLine("Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,ContentDomain,ContentCategory,TargetSet,Emphasis,CCSS,WordlistId,ASL,BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice");
+            mItemReport.WriteLine("Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,ContentDomain,ContentCategory,TargetSet,Emphasis,CCSS,Standard2,Claim2,Target2,ContentDomain2,ContentCategory2,TargetSet2,Emphasis2,CCSS2,WordlistId,ASL,BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice");
 
             mStimulusReport = new StreamWriter(string.Concat(reportPrefix, cStimulusReportFn), false, Encoding.UTF8);
             mStimulusReport.WriteLine("Folder,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,Media,Size,WordCount");
@@ -335,13 +341,16 @@ namespace TabulateSmarterTestContentPackage
             mStimContexts.Clear();
 
             // Validate manifest
-            try
+            if (Program.gValidationOptions.IsEnabled("mst"))
             {
-                ValidateManifest();
-            }
-            catch (Exception err)
-            {
-                ReportError(new ItemContext(this, packageFolder, null, null), ErrCat.Exception, ErrSeverity.Severe, err.ToString());
+                try
+                {
+                    ValidateManifest();
+                }
+                catch (Exception err)
+                {
+                    ReportError(new ItemContext(this, packageFolder, null, null), ErrCat.Exception, ErrSeverity.Severe, err.ToString());
+                }
             }
 
             // First pass through items
@@ -582,8 +591,8 @@ namespace TabulateSmarterTestContentPackage
 
             // AllowCalculator
             var allowCalculator = AllowCalculatorFromMetadata(xmlMetadata, sXmlNs);
-            if (string.IsNullOrEmpty(allowCalculator) && 
-                (string.Equals(metaSubject, "MATH", StringComparison.OrdinalIgnoreCase) || 
+            if (string.IsNullOrEmpty(allowCalculator) &&
+                (string.Equals(metaSubject, "MATH", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(subject, "MATH", StringComparison.OrdinalIgnoreCase)))
             {
                 ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "Allow Calculator field not present for MATH subject item");
@@ -739,21 +748,20 @@ namespace TabulateSmarterTestContentPackage
             }
 
             // Standard, Claim, Target, ContentDomain, ContentCategory, TargetSet, Emphasis, CCSS
-            string standard;
-            string[] standardParts;
-            standard = StandardFromMetadata(it, xmlMetadata, out standardParts);
-            if (string.IsNullOrEmpty(standard))
+            var primaryStandard = StandardFromMetadata(it, xmlMetadata, true);
+            var secondaryStandard = StandardFromMetadata(it, xmlMetadata, false);
+            if (string.IsNullOrEmpty(primaryStandard[0]))
             {
                 ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "No PrimaryStandard specified in metadata.");
             }
 
             // Validate claim
-            if (!sValidClaims.Contains(standardParts[(int)StandardPart.Claim]))
-                ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "Unexpected claim value.", "Claim='{0}'", standardParts[(int)StandardPart.Claim]);
+            if (!sValidClaims.Contains(primaryStandard[(int)StandardPart.Claim]))
+                ReportError(it, ErrCat.Metadata, ErrSeverity.Degraded, "Unexpected claim value.", "Claim='{0}'", primaryStandard[(int)StandardPart.Claim]);
 
             // Validate target grade suffix (Generating lots of errors. Need to follow up.)
             {
-                string[] parts = standardParts[(int)StandardPart.Target].Split('-');
+                string[] parts = primaryStandard[(int)StandardPart.Target].Split('-');
                 if (parts.Length == 2)
                 {
                     if (!string.Equals(parts[1].Trim(), grade, StringComparison.OrdinalIgnoreCase))
@@ -762,7 +770,7 @@ namespace TabulateSmarterTestContentPackage
                     }
                     else
                     {
-                        standardParts[(int)StandardPart.Target] = parts[0];
+                        primaryStandard[(int)StandardPart.Target] = parts[0];
                     }
                 }
             }
@@ -788,8 +796,10 @@ namespace TabulateSmarterTestContentPackage
             string mathematicalPractice = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:MathematicalPractice", sXmlNs);
 
             // Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,ContentDomain,ContentCategory,TargetSet,Emphasis,CCSS,WordlistId,ASL,BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice
-            mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(version), CsvEncode(subject), 
-                CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType), CsvEncode(standard), CsvEncodeExcel(standardParts[(int)StandardPart.Claim]), CsvEncodeExcel(standardParts[(int)StandardPart.Target]), CsvEncodeExcel(standardParts[(int)StandardPart.ContentDomain]), CsvEncodeExcel(standardParts[(int)StandardPart.ContentCategory]), CsvEncodeExcel(standardParts[(int)StandardPart.TargetSet]), CsvEncodeExcel(standardParts[(int)StandardPart.Emphasis]), CsvEncodeExcel(standardParts[(int)StandardPart.Ccss]),
+            mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(version), CsvEncode(subject),
+                CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType),
+                CsvEncode(primaryStandard[(int)StandardPart.Standard]), CsvEncodeExcel(primaryStandard[(int)StandardPart.Claim]), CsvEncodeExcel(primaryStandard[(int)StandardPart.Target]), CsvEncodeExcel(primaryStandard[(int)StandardPart.ContentDomain]), CsvEncodeExcel(primaryStandard[(int)StandardPart.ContentCategory]), CsvEncodeExcel(primaryStandard[(int)StandardPart.TargetSet]), CsvEncodeExcel(primaryStandard[(int)StandardPart.Emphasis]), CsvEncodeExcel(primaryStandard[(int)StandardPart.Ccss]),
+                CsvEncode(secondaryStandard[(int)StandardPart.Standard]), CsvEncodeExcel(secondaryStandard[(int)StandardPart.Claim]), CsvEncodeExcel(secondaryStandard[(int)StandardPart.Target]), CsvEncodeExcel(secondaryStandard[(int)StandardPart.ContentDomain]), CsvEncodeExcel(secondaryStandard[(int)StandardPart.ContentCategory]), CsvEncodeExcel(secondaryStandard[(int)StandardPart.TargetSet]), CsvEncodeExcel(secondaryStandard[(int)StandardPart.Emphasis]), CsvEncodeExcel(secondaryStandard[(int)StandardPart.Ccss]),
                 CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), CsvEncode(media), size.ToString(), CsvEncode(depthOfKnowledge), CsvEncode(allowCalculator), CsvEncode(mathematicalPractice)));
 
             // === Tabulation is complete, check for other errors
@@ -1800,41 +1810,38 @@ namespace TabulateSmarterTestContentPackage
          */
         private enum StandardPart : int
         {
-            Claim = 0,
-            Target = 1,
-            ContentDomain = 2,
-            ContentCategory = 3,
-            TargetSet = 4,
-            Emphasis = 5,
-            Ccss = 6,
-            Cardinality = 7
+            Standard = 0,
+            Claim = 1,
+            Target = 2,
+            ContentDomain = 3,
+            ContentCategory = 4,
+            TargetSet = 5,
+            Emphasis = 6,
+            Ccss = 7,
+            Cardinality = 8
         }
 
         private class StandardCoding
         {
-            public StandardCoding(string publication, int[] partMapping)
+            public StandardCoding(string publication, StandardPart[] partMapping)
             {
                 Publication = publication;
                 PartMapping = partMapping;
             }
 
             public string Publication;
-            public int[] PartMapping;
+            public StandardPart[] PartMapping;
         }
 
-        // Codings are in reverse order of priority.
-        // Index of 99 means means value is not available in this format
-        // Mappings are according to the StandardPart enumeration
-        // Claim, Target, ContentDomain, ContentCategory, TargetSet, Emphasis, Ccss
         private static readonly StandardCoding[] sStandardCodings = new StandardCoding[]
         {
-            new StandardCoding("SBAC-MA-v5", new int[] { 0, 2, 1, 99, 99, 3, 4 }),
-            new StandardCoding("SBAC-MA-v4", new int[] { 0, 2, 1, 99, 99, 3, 4 }),
-            new StandardCoding("SBAC-MA-v6", new int[] { 0, 3, 99, 1, 2, 99, 99 }),
-            new StandardCoding("SBAC-ELA-v1", new int[] { 0, 1, 99, 99, 99, 99, 2 })
+            new StandardCoding("SBAC-MA-v4", new StandardPart[] { StandardPart.Claim, StandardPart.ContentDomain, StandardPart.Target, StandardPart.Emphasis, StandardPart.Ccss }),
+            new StandardCoding("SBAC-MA-v5", new StandardPart[] { StandardPart.Claim, StandardPart.ContentDomain, StandardPart.Target, StandardPart.Emphasis, StandardPart.Ccss }),
+            new StandardCoding("SBAC-MA-v6", new StandardPart[] { StandardPart.Claim, StandardPart.ContentCategory, StandardPart.TargetSet, StandardPart.Target }),
+            new StandardCoding("SBAC-ELA-v1", new StandardPart[] { StandardPart.Claim, StandardPart.Target, StandardPart.Ccss })
         };
 
-        string StandardFromMetadata(ItemContext it, XmlDocument xmlMetadata, out string[] standardParts)
+        string[] StandardFromMetadata(ItemContext it, XmlDocument xmlMetadata, bool primary)
         {
             string standard = string.Empty;
             string[] resultParts = new string[(int)StandardPart.Cardinality];
@@ -1843,38 +1850,54 @@ namespace TabulateSmarterTestContentPackage
                 resultParts[i] = string.Empty;
             }
 
-            // Try each coding
-            foreach(StandardCoding coding in sStandardCodings)
+            string prisec = primary ? "sa:PrimaryStandard" : "sa:SecondaryStandard";
+
+            int publications = 0;
+            foreach (XmlNode node in xmlMetadata.SelectNodes(string.Concat("metadata/sa:smarterAppMetadata/sa:StandardPublication/", prisec), sXmlNs))
             {
-                string std = xmlMetadata.XpEval(string.Concat("metadata/sa:smarterAppMetadata/sa:StandardPublication[sa:Publication='", coding.Publication, "']/sa:PrimaryStandard"), sXmlNs);
-                if (std != null)
+                string std = node.InnerXml;
+
+                foreach(var coding in sStandardCodings)
                 {
-                    if (!std.StartsWith(string.Concat(coding.Publication, ":"), StringComparison.Ordinal))
+                    if (std.StartsWith(coding.Publication + ":"))
                     {
-                        ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Standard reference has invalid value.", "Publication='{0}' StandardId='{1}", coding.Publication, std);
-                        continue;   // See if another coding works
-                    }
+                        ++publications;
 
-                    standard = std;
-                    string[] parts = std.Substring(coding.Publication.Length + 1).Split('|');
-                    for (int i=0; i<coding.PartMapping.Length; ++i)
-                    {
-                        if (coding.PartMapping[i] < parts.Length)
+                        if (string.IsNullOrEmpty(resultParts[0]) || string.Compare(resultParts[0], std) > 0)
                         {
-                            string value = parts[coding.PartMapping[i]];
-                            if (!string.IsNullOrEmpty(resultParts[i]) && !string.Equals(resultParts[i], value))
-                            {
-                                ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Standard values from different publications don't match", "Publication='{0}' Part='{1}' Value='{2}' ExpectedValue='{3}'", coding.Publication, Enum.GetName(typeof(StandardPart), i), value, resultParts[i]);
-                            }
-
-                            resultParts[i] = value;
+                            resultParts[0] = std;
                         }
-                    }
-                }
+
+                        string[] parts = std.Substring(coding.Publication.Length + 1).Split('|');
+                        for (int i = 0; i < coding.PartMapping.Length; ++i)
+                        {
+                            int dst = (int)coding.PartMapping[i];
+                            if (i < parts.Length)
+                            {
+                                string value = parts[i];
+                                if (string.IsNullOrEmpty(resultParts[dst]))
+                                {
+                                    resultParts[dst] = value;
+                                }
+                                else if (primary && !string.Equals(resultParts[dst], value))
+                                {
+                                    ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Standard values from different publications don't match", "Publication='{0}' Part='{1}' Value='{2}' ExpectedValue='{3}'", coding.Publication, Enum.GetName(typeof(StandardPart), dst), value, resultParts[dst]);
+                                }
+
+                            }
+                        }
+
+                        break; // No need to try other codings
+                    } 
+                } // for each coding
+            } // for each publication/standard
+
+            if (primary && resultParts[0].StartsWith("SBAC-MA-") && publications < 2)
+            {
+                ReportError(it, ErrCat.Metadata, ErrSeverity.Tolerable, "Math primary standard only indicated in one publication form.");
             }
 
-            standardParts = resultParts;
-            return standard;
+            return resultParts;
         }
 
         string DepthOfKnowledgeFromMetadata(XmlDocument xmlMetadata, XmlNamespaceManager xmlNamespaceManager)
