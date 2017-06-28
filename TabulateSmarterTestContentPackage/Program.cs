@@ -1,16 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using NLog;
 using Win32Interop;
 
 namespace TabulateSmarterTestContentPackage
 {
-    class Program
+    internal class Program
     {
 // 78 character margin                                                       |
-        static readonly string cSyntax =
+        private const string cSyntax = 
 @"Syntax: TabulateSmarterTestContentPackage [options] <path>
 
 Options:
@@ -83,28 +81,30 @@ Error severity definitions:
                may be missing data but if that term isn’t referenced in an
                item then it is benign.
 ";
-// 78 character margin                                                       |
+
+        // 78 character margin                                                       |
 
         public static ValidationOptions gValidationOptions = new ValidationOptions();
+        public static Logger Logger = LogManager.GetCurrentClassLogger();
 
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
             long startTicks = Environment.TickCount;
 
+            // Default options
+            gValidationOptions.Disable("ebt");  // Disable EmptyBrailleText test.
+            gValidationOptions.Disable("tgs");  // Disable Target Grade Suffix
+            gValidationOptions.Disable("umf");  // Disable checking for Unreferenced Media Files
+            gValidationOptions.Disable("gtr");  // Disable Glossary Text Report
+            gValidationOptions.Disable("uwt");  // Disable Glossary Text Report
+            gValidationOptions.Disable("mwa");  // Disable checking for attachments on unreferenced wordlist terms
+            gValidationOptions.Disable("iat");  // Disable checking for images without alternate text
+
             try
             {
-                // Default options
-                gValidationOptions.Disable("ebt");  // Disable EmptyBrailleText test.
-                gValidationOptions.Disable("tgs");  // Disable Target Grade Suffix
-                gValidationOptions.Disable("umf");  // Disable checking for Unreferenced Media Files
-                gValidationOptions.Disable("gtr");  // Disable Glossary Text Report
-                gValidationOptions.Disable("uwt");  // Disable Glossary Text Report
-                gValidationOptions.Disable("mwa");  // Disable checking for attachments on unreferenced wordlist terms
-                gValidationOptions.Disable("iat");  // Disable checking for images without alternate text
-
                 string rootPath = null;
-                char operation = 'o'; // o=one, s=packages in Subdirectories, a=aggregate packages in subdirectories
-                foreach (string arg in args)
+                var operation = 'o'; // o=one, s=packages in Subdirectories, a=aggregate packages in subdirectories
+                foreach (var arg in args)
                 {
                     if (arg[0] == '-') // Option
                     {
@@ -122,8 +122,8 @@ Error severity definitions:
                             case 'v':
                                 if (arg[2] != '+' && arg[2] != '-') throw new ArgumentException("Invalid command-line option: " + arg);
                                 {
-                                    string key = arg.Substring(3).ToLowerInvariant();
-                                    bool value = arg[2] == '+';
+                                    var key = arg.Substring(3).ToLowerInvariant();
+                                    var value = arg[2] == '+';
                                     if (key.Equals("all", StringComparison.Ordinal))
                                     {
                                         if (!value) throw new ArgumentException("Invalid command-line option '-v-all'. Options must be disabled one at a time.");
@@ -154,7 +154,7 @@ Error severity definitions:
                     operation = 'h';
                 }
 
-                Tabulator tab = new Tabulator();
+                var tab = new Tabulator();
                 switch (operation)
                 {
                     default:
@@ -175,17 +175,13 @@ Error severity definitions:
                 }
 
             }
-            catch (Exception err)
+            catch (Exception ex)
             {
-                Console.WriteLine(err.Message);
+                Logger.Error(ex.Message);
             }
 
-            long elapsedTicks;
-            unchecked
-            {
-                elapsedTicks = Environment.TickCount - startTicks;
-            }
-            Console.WriteLine("Elapsed time: {0}.{1:d3} seconds", elapsedTicks / 1000, elapsedTicks % 1000);
+            var elapsedTicks = Environment.TickCount - startTicks;
+            Logger.Info("Elapsed time: {0}.{1:d3} seconds", elapsedTicks / 1000, elapsedTicks % 1000);
 
             if (ConsoleHelper.IsSoleConsoleOwner)
             {
@@ -196,7 +192,7 @@ Error severity definitions:
         }
     }
 
-    class ValidationOptions : Dictionary<string, bool>
+    internal class ValidationOptions : Dictionary<string, bool>
     {
         public void Enable(string option)
         {
@@ -216,8 +212,7 @@ Error severity definitions:
         public bool IsEnabled(string option)
         {
             bool value;
-            if (!TryGetValue(option, out value)) return true;   // Options default to enabled
-            return value;
+            return !TryGetValue(option, out value) || value;
         }
 
     }
