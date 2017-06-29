@@ -707,7 +707,7 @@ namespace TabulateSmarterTestContentPackage
                             {
                                 var parts = answerKeyPart2.Split(',');
                                 var validAnswer = parts.Length > 0;
-                                foreach (string answer in parts)
+                                foreach (var answer in parts)
                                 {
                                     if (answer.Length != 1 || answer[0] < 'A' || answer[0] > 'Z') validAnswer = false;
                                 }
@@ -779,7 +779,11 @@ namespace TabulateSmarterTestContentPackage
                 }
 
                 if (!string.IsNullOrEmpty(machineScoringFilename) && scoringType != ScoringType.Qrx)
-                    ReportingUtility.ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Benign, "Unexpected machine scoring file found for HandScored item type.", "Filename='{0}'", machineScoringFilename);
+                {
+                    ReportingUtility.ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Benign,
+                        "Unexpected machine scoring file found for HandScored item type.", "Filename='{0}'",
+                        machineScoringFilename);
+                }
 
                 // Check for unreferenced machine scoring files
                 foreach (var fi in it.FfItem.Files)
@@ -794,11 +798,14 @@ namespace TabulateSmarterTestContentPackage
                 // If non-embedded answer key (either hand-scored or QRX scoring but not EBSR type check for a rubric (human scoring guidance)
                 if (scoringType != ScoringType.Basic && !it.ItemType.Equals("EBSR", StringComparison.OrdinalIgnoreCase))
                 {
-                    xmlEle = xml.SelectSingleNode("itemrelease/item/content/rubriclist/rubric/val") as XmlElement;
-                    if (xmlEle == null)
-                    {
-                        ReportingUtility.ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Tolerable, "Hand-scored or QRX-scored item lacks a human-readable rubric.", "AnswerKey='{0}'", answerKey);
-                    }
+                    xml.SelectNodes("itemrelease/item/content")?.Cast<XmlElement>().ToList().ForEach(
+                        x =>
+                        {
+                            if (!(x.SelectSingleNode("./rubriclist/rubric/val") is XmlElement))
+                            {
+                                ReportingUtility.ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Tolerable, $"Hand-scored or QRX-scored item lacks a human-readable rubric for language {x.SelectSingleNode("./@language")?.Value ?? string.Empty}", $"AnswerKey='{answerKey}'");
+                            }
+                        });
                 }
             }
 
