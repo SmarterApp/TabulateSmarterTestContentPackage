@@ -29,8 +29,14 @@ namespace TabulateSmarterTestContentPackage.Validators
                 // There is no way to predict where the images will appear in the CData (if they appear at all)
                 // use a global selector.
                 var imgTags = cDataSection.XPathSelectElements("//img");
+
+                // Check to make sure all images have valid alt tags
                 var imgTagsValid = imgTags.Select(x => ImgElementHasValidAltTag(x, itemContext)).ToList();
+
+                // Check for html attributes that modify color
                 var noColorAlterations = ElementsFreeOfColorAlterations(cDataSection.Root, itemContext);
+
+                // Check for css elements inside style attributes that modify color (this searches by 'contains')
                 var noViolatingStyleTags = ElementsFreeOfViolatingStyleTags(cDataSection.Root, new List<string>
                 {
                     "color",
@@ -63,7 +69,8 @@ namespace TabulateSmarterTestContentPackage.Validators
             if (rootElement == null)
             {
                 Logger.Error("CData section provided to color validation does not have valid content.");
-                ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe, "CData section provided to color validation does not have valid content.");
+                ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe,
+                    "CData section provided to color validation does not have valid content.");
                 return false;
             }
             var restrictedValues = new List<string>
@@ -74,7 +81,8 @@ namespace TabulateSmarterTestContentPackage.Validators
             return restrictedValues.All(x => ReportElementsInViolation(rootElement, "//*", x, itemContext));
         }
 
-        public static bool ReportElementsInViolation(XElement rootElement, string path, string attribute, ItemContext itemContext)
+        public static bool ReportElementsInViolation(XElement rootElement, string path, string attribute,
+            ItemContext itemContext)
         {
             var result = rootElement.ElementsByPathAndAttributeCaseInsensitive(path, attribute).ToList();
             if (!result.Any())
@@ -86,20 +94,26 @@ namespace TabulateSmarterTestContentPackage.Validators
                 {
                     Logger.Error(
                         $"CData element {x.Name.LocalName} matches an illegal pattern: {path}[@{attribute.ToLower()}]");
-                    ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe, $"CData element {x.Name.LocalName} matches an illegal pattern: {path}[@{attribute.ToLower()}]");
+                    ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe,
+                        $"CData element {x.Name.LocalName} matches an illegal pattern: {path}[@{attribute.ToLower()}]");
                 });
             return false;
         }
 
-        public static bool ElementsFreeOfViolatingStyleTags(XElement rootElement, IEnumerable<string> restrictedCss, ItemContext itemContext)
+        public static bool ElementsFreeOfViolatingStyleTags(XElement rootElement, IEnumerable<string> restrictedCss,
+            ItemContext itemContext)
         {
             var result = rootElement.ElementsByPathAndAttributeCaseInsensitive("//*", "style").ToList();
             var isValid = true;
             if (result.Any())
             {
-               var candidates = result.Select(x => new { Element = x, Style = x.Attributes()
-                    .First(y => y.Name.LocalName.Equals("style", StringComparison.OrdinalIgnoreCase))
-                    .Value});
+                var candidates = result.Select(x => new
+                {
+                    Element = x,
+                    Style = x.Attributes()
+                        .First(y => y.Name.LocalName.Equals("style", StringComparison.OrdinalIgnoreCase))
+                        .Value
+                });
                 candidates.ToList().ForEach(x =>
                 {
                     var violations = restrictedCss.Where(x.Style.Contains).ToList();
@@ -107,7 +121,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                     {
                         isValid = false;
                         var errorText =
-                                $"Element '{x.Element.Name.LocalName}' in CData contains illegal CSS marker(s) '{violations.Aggregate((y,z) => $"{y},{z}")}' in its 'style' attribute. Value: {x.Element}";
+                            $"Element '{x.Element.Name.LocalName}' in CData contains illegal CSS marker(s) '{violations.Aggregate((y, z) => $"{y},{z}")}' in its 'style' attribute. Value: {x.Element}";
                         Logger.Error(errorText);
                         ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe, errorText);
                     }
@@ -124,13 +138,15 @@ namespace TabulateSmarterTestContentPackage.Validators
             if (imageElement == null)
             {
                 Logger.Error("Encountered unparsable image element");
-                ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Degraded, "Encountered unparsable image element");
+                ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Degraded,
+                    "Encountered unparsable image element");
                 return false;
             }
             if (!imageElement.HasAttributes)
             {
                 Logger.Error($"Image element contains no attributes. Value: {imageElement}");
-                ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Degraded, $"Image element contains no attributes. Value: {imageElement}");
+                ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Degraded,
+                    $"Image element contains no attributes. Value: {imageElement}");
                 return false;
             }
             var altTag = imageElement.Attributes().Select(x =>
@@ -142,13 +158,15 @@ namespace TabulateSmarterTestContentPackage.Validators
             if (altTag == null)
             {
                 Logger.Error($"Img element does not contain a valid alt attribute. Value: {imageElement}");
-                ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Degraded, $"Img element does not contain a valid alt attribute. Value: {imageElement}");
+                ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Degraded,
+                    $"Img element does not contain a valid alt attribute. Value: {imageElement}");
                 return false;
             }
             if (string.IsNullOrEmpty(altTag.Value))
             {
                 Logger.Error($"Img tag's alt attribute is not valid. Value: {imageElement}");
-                ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Degraded, $"Img tag's alt attribute is not valid. Value: {imageElement}");
+                ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Degraded,
+                    $"Img tag's alt attribute is not valid. Value: {imageElement}");
                 return false;
             }
             return true;
