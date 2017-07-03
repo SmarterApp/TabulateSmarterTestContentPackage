@@ -421,7 +421,9 @@ namespace TabulateSmarterTestContentPackage
             }
 
             var isCDataValid = CDataExtractor.ExtractCData(new XDocument().LoadXml(xml.OuterXml).Root)
-            .Select(x => CDataValidator.IsValid(x, new ItemContext(this, ffItem, null, null))).ToList();
+                .Select(x => CDataValidator.IsValid(x, new ItemContext(this, ffItem, null, null), x.Parent.Name.LocalName.Equals("val", StringComparison.OrdinalIgnoreCase) ? 
+                    ErrorSeverity.Benign : 
+                    ErrorSeverity.Degraded)).ToList();
 
             // Get the details
             var itemType = xml.XpEval("itemrelease/item/@format");
