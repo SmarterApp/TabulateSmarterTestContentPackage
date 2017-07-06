@@ -1,4 +1,7 @@
-﻿namespace TabulateSmarterTestContentPackage.Models
+﻿using System.Collections.Generic;
+using System.Linq;
+
+namespace TabulateSmarterTestContentPackage.Models
 {
     public class ItemScoring
     {
@@ -17,7 +20,19 @@
 
         public string GetParameters()
         {
-            return $"{a}|{b}|{b0}|{b1}|{b2}|{b3}|{b4}|{c}";
+            var stringList = new List<string>
+            {
+                a,
+                b,
+                b0,
+                b1,
+                b2,
+                b3,
+                b4,
+                c
+            };
+            return stringList.Any(x => !string.IsNullOrEmpty(x)) ?
+                stringList.Where(x => !string.IsNullOrEmpty(x)).Aggregate((x, y) => $"{x}|{y}") : string.Empty;
         }
     }
 }

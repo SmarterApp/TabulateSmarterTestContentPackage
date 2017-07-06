@@ -566,7 +566,7 @@ namespace TabulateSmarterTestContentPackage
             }
             else
             {
-                scoringInformation = IrtExtractor.RetrieveIrtInformation(xmlMetadata.MapToXElement()).ToList();
+                scoringInformation = IrtExtractor.RetrieveIrtInformation(xmlMetadata.MapToXDocument()).ToList();
             }
             if (!scoringInformation.Any())
             {

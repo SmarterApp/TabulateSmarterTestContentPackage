@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Xml;
 using System.Xml.Linq;
@@ -10,16 +9,12 @@ namespace TabulateSmarterTestContentPackage.Extractors
 {
     public static class IrtExtractor
     {
-        public static IEnumerable<ItemScoring> RetrieveIrtInformation(XElement root)
+        public static IEnumerable<ItemScoring> RetrieveIrtInformation(XDocument root)
         {
             var namespaceManager = new XmlNamespaceManager(new NameTable());
             namespaceManager.AddNamespace("sa", "http://www.smarterapp.org/ns/1/assessment_item_metadata");
             var irt = root.XPathSelectElements(
                 "metadata/sa:smarterAppMetadata/sa:IrtDimension", namespaceManager);
-            if (irt.Any())
-            {
-                Console.Write("");
-            }
             return irt.Select(x => new ItemScoring
             {
                 MeasurementModel = x.XPathSelectElement("./sa:IrtModelType", namespaceManager)?.Value,
