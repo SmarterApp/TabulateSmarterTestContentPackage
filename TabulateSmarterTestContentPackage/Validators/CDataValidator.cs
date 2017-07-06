@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Xml;
 using System.Xml.Linq;
 using System.Xml.XPath;
 using NLog;
@@ -14,7 +15,8 @@ namespace TabulateSmarterTestContentPackage.Validators
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-        public static bool IsValid(XCData cData, ItemContext itemContext, ErrorSeverity errorSeverity = ErrorSeverity.Degraded)
+        public static bool IsValid(XCData cData, ItemContext itemContext,
+            ErrorSeverity errorSeverity = ErrorSeverity.Degraded)
         {
             if (cData == null)
             {
@@ -53,11 +55,17 @@ namespace TabulateSmarterTestContentPackage.Validators
                 }, itemContext, errorSeverity);
 
                 // Check for nested glossary tags in CData
-                var noNestedGlossaryTags = CDataGlossaryTagsAreNotIllegallyNested(cDataSection.Root, itemContext, errorSeverity);
+                var noNestedGlossaryTags = CDataGlossaryTagsAreNotIllegallyNested(cDataSection.Root, itemContext,
+                    errorSeverity);
 
                 // Check for a whole host of glossary tag errors
                 var noGlossaryTagErrors = CDataGlossaryTagStartAndEndTagsLineUpAppropriately(cDataSection.Root,
                     itemContext, errorSeverity);
+
+                // Check to make sure all incidences of tagged items are tagged elsewhere
+                var tagged = AllMatchingTermsTagged(cDataSection.Root, itemContext,
+                    errorSeverity, noGlossaryTagErrors);
+
 
                 return imgTagsValid.All(x => x)
                        && noColorAlterations
@@ -71,7 +79,8 @@ namespace TabulateSmarterTestContentPackage.Validators
             return false;
         }
 
-        public static bool ElementsFreeOfColorAlterations(XElement rootElement, ItemContext itemContext, ErrorSeverity errorSeverity)
+        public static bool ElementsFreeOfColorAlterations(XElement rootElement, ItemContext itemContext,
+            ErrorSeverity errorSeverity)
         {
             if (rootElement == null)
             {
@@ -85,7 +94,8 @@ namespace TabulateSmarterTestContentPackage.Validators
                 "color",
                 "bgcolor"
             };
-            return restrictedValues.All(x => ReportElementsInViolation(rootElement, "//*", x, itemContext, errorSeverity));
+            return
+                restrictedValues.All(x => ReportElementsInViolation(rootElement, "//*", x, itemContext, errorSeverity));
         }
 
         public static bool ReportElementsInViolation(XElement rootElement, string path, string attribute,
@@ -140,7 +150,8 @@ namespace TabulateSmarterTestContentPackage.Validators
         //<summary>This method takes a <img> element tag and determines whether
         //the provided <img> element contains a valid "alt" attribute </summary>
         //<param name="image"> The <img> tag to be validated </param>
-        public static bool ImgElementHasValidAltTag(XElement imageElement, ItemContext itemContext, ErrorSeverity errorSeverity)
+        public static bool ImgElementHasValidAltTag(XElement imageElement, ItemContext itemContext,
+            ErrorSeverity errorSeverity)
         {
             if (imageElement == null)
             {
@@ -183,24 +194,27 @@ namespace TabulateSmarterTestContentPackage.Validators
             ErrorSeverity errorSeverity)
         {
             var valid = true;
-            var glossaryTags = rootElement.XPathSelectElements(".//span[@data-tag='word' and @data-tag-boundary='start']//span[@data-tag='word' and @data-tag-boundary='start']");
+            var glossaryTags =
+                rootElement.XPathSelectElements(
+                    ".//span[@data-tag='word' and @data-tag-boundary='start']//span[@data-tag='word' and @data-tag-boundary='start']");
             glossaryTags.ToList().ForEach(x =>
-                {
-                    Logger.Error($"Glossary tag {x} is nested illegally within another span tag");
-                    ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
-                        $"Glossary tag {x} is nested illegally within another span tag");
-                    valid = false;
-                });
+            {
+                Logger.Error($"Glossary tag {x} is nested illegally within another span tag");
+                ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
+                    $"Glossary tag {x} is nested illegally within another span tag");
+                valid = false;
+            });
             return valid;
         }
 
-        public static List<string> CDataGlossaryTagStartAndEndTagsLineUpAppropriately(XElement rootElement,
+        public static IDictionary<string, int> CDataGlossaryTagStartAndEndTagsLineUpAppropriately(XElement rootElement,
             ItemContext itemContext,
             ErrorSeverity errorSeverity)
         {
-            var result = new List<string>();
+            var result = new Dictionary<string, int>();
 
-            var glossaryTags = rootElement.XPathSelectElements(".//span[@data-tag='word' and @data-tag-boundary='start']").ToList();
+            var glossaryTags =
+                rootElement.XPathSelectElements(".//span[@data-tag='word' and @data-tag-boundary='start']").ToList();
             glossaryTags.ForEach(x =>
             {
                 var id =
@@ -241,7 +255,16 @@ namespace TabulateSmarterTestContentPackage.Validators
                     // There's a glossary term here
                     if (!string.IsNullOrEmpty(current.Value))
                     {
-                        result.Add(current.Value);
+                        if (result.ContainsKey(current.Value))
+                        {
+                            // build up the full glossary term
+                            result[current.Value]++;
+                        }
+                        else
+                        {
+                            // add a new glossary entry
+                            result.Add(current.Value, 1);
+                        }
                         current = siblings.Count >= index ? siblings[index++] : null;
                         continue;
                     }
@@ -267,27 +290,68 @@ namespace TabulateSmarterTestContentPackage.Validators
 
         public static bool IsMatchingEndTag(XElement element, string id)
         {
-           return element.Name.LocalName.Equals("span", StringComparison.OrdinalIgnoreCase)
-                && element.HasAttributes
-                && element.Attributes().Any(x => x.Name.LocalName.Equals("data-tag-ref", StringComparison.OrdinalIgnoreCase))
-                && element.Attributes().First(x => x.Name.LocalName.Equals("data-tag-ref", StringComparison.OrdinalIgnoreCase))
-                    .Value.Equals(id, StringComparison.OrdinalIgnoreCase)
-                && element.Attributes().Any(x => x.Name.LocalName.Equals("data-tag-boundary", StringComparison.OrdinalIgnoreCase))
-                && element.Attributes().First(x => x.Name.LocalName.Equals("data-tag-boundary", StringComparison.OrdinalIgnoreCase))
-                    .Value.Equals("end", StringComparison.OrdinalIgnoreCase);
+            return element.Name.LocalName.Equals("span", StringComparison.OrdinalIgnoreCase)
+                   && element.HasAttributes
+                   &&
+                   element.Attributes()
+                       .Any(x => x.Name.LocalName.Equals("data-tag-ref", StringComparison.OrdinalIgnoreCase))
+                   &&
+                   element.Attributes()
+                       .First(x => x.Name.LocalName.Equals("data-tag-ref", StringComparison.OrdinalIgnoreCase))
+                       .Value.Equals(id, StringComparison.OrdinalIgnoreCase)
+                   &&
+                   element.Attributes()
+                       .Any(x => x.Name.LocalName.Equals("data-tag-boundary", StringComparison.OrdinalIgnoreCase))
+                   &&
+                   element.Attributes()
+                       .First(x => x.Name.LocalName.Equals("data-tag-boundary", StringComparison.OrdinalIgnoreCase))
+                       .Value.Equals("end", StringComparison.OrdinalIgnoreCase);
         }
 
         public static bool IsStartingTag(XElement element)
         {
             return element.Name.LocalName.Equals("span", StringComparison.OrdinalIgnoreCase)
-                 && element.HasAttributes
-                 && element.Attributes().Any(x => x.Name.LocalName.Equals("id", StringComparison.OrdinalIgnoreCase))
-                 && element.Attributes().Any(x => x.Name.LocalName.Equals("data-tag-boundary", StringComparison.OrdinalIgnoreCase))
-                 && element.Attributes().First(x => x.Name.LocalName.Equals("data-tag-boundary", StringComparison.OrdinalIgnoreCase))
-                     .Value.Equals("start", StringComparison.OrdinalIgnoreCase)
-                 && element.Attributes().Any(x => x.Name.LocalName.Equals("data-tag", StringComparison.OrdinalIgnoreCase))
-                 && element.Attributes().First(x => x.Name.LocalName.Equals("data-tag", StringComparison.OrdinalIgnoreCase))
-                     .Value.Equals("word", StringComparison.OrdinalIgnoreCase);
+                   && element.HasAttributes
+                   && element.Attributes().Any(x => x.Name.LocalName.Equals("id", StringComparison.OrdinalIgnoreCase))
+                   &&
+                   element.Attributes()
+                       .Any(x => x.Name.LocalName.Equals("data-tag-boundary", StringComparison.OrdinalIgnoreCase))
+                   &&
+                   element.Attributes()
+                       .First(x => x.Name.LocalName.Equals("data-tag-boundary", StringComparison.OrdinalIgnoreCase))
+                       .Value.Equals("start", StringComparison.OrdinalIgnoreCase)
+                   &&
+                   element.Attributes()
+                       .Any(x => x.Name.LocalName.Equals("data-tag", StringComparison.OrdinalIgnoreCase))
+                   &&
+                   element.Attributes()
+                       .First(x => x.Name.LocalName.Equals("data-tag", StringComparison.OrdinalIgnoreCase))
+                       .Value.Equals("word", StringComparison.OrdinalIgnoreCase);
+        }
+
+        public static bool AllMatchingTermsTagged(XElement rootElement,
+            ItemContext itemContext, ErrorSeverity errorSeverity, IDictionary<string, int> terms)
+        {
+            var result = true;
+            var words = rootElement.DescendantsAndSelf().Where(x => x.NodeType == XmlNodeType.Text).Select(x => x.Value);
+            terms.Keys.ToList().ForEach(x =>
+            {
+                var wordcount = words.Count(y => y.Contains(x));
+                if (wordcount != terms[x])
+                {
+                    result = false;
+                    Logger.Error(
+                        $"There is a mismatch between the incidence of the glossary term {x} " +
+                        $"within a formal glossary element {terms[x]} " +
+                        $"and the incidence of the same term within the text of the CData element {wordcount}");
+                    ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
+                        $"There is a mismatch between the incidence of the glossary term {x}"
+                        + $" within a formal glossary element {terms[x]}"
+                        + $" and the incidence of the same term within the text of the CData element {wordcount}"
+                    );
+                }
+            });
+            return result;
         }
     }
 }
