@@ -251,7 +251,8 @@ namespace TabulateSmarterTestContentPackage
             // TODO: Add CsvHelper library to allow expandable headers
             mItemReport.WriteLine("Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL," +
                                   "BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice,MaxPoints," +
-                                  "CommonCore,ClaimContentTarget,SecondaryCommonCore,SecondaryClaimContentTarget");
+                                  "CommonCore,ClaimContentTarget,SecondaryCommonCore,SecondaryClaimContentTarget, MeasurementModel," +
+                                  "ScorePoints,Dimension,Weight,Parameters");
 
             mStimulusReport = new StreamWriter(string.Concat(reportPrefix, cStimulusReportFn), false, Encoding.UTF8);
             mStimulusReport.WriteLine("Folder,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,Media,Size,WordCount");
@@ -555,11 +556,21 @@ namespace TabulateSmarterTestContentPackage
                 return;
             }
 
+            IList<ItemScoring> scoringInformation = new List<ItemScoring>();
             // Load metadata
             var xmlMetadata = new XmlDocument(sXmlNt);
             if (!TryLoadXml(it.FfItem, "metadata.xml", xmlMetadata))
             {
-                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Invalid metadata.xml.", LoadXmlErrorDetail);
+                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Invalid metadata.xml.",
+                    LoadXmlErrorDetail);
+            }
+            else
+            {
+                scoringInformation = IrtExtractor.RetrieveIrtInformation(xmlMetadata.MapToXElement()).ToList();
+            }
+            if (!scoringInformation.Any())
+            {
+                scoringInformation.Add(new ItemScoring());
             }
 
             // Check interaction type
@@ -873,12 +884,16 @@ namespace TabulateSmarterTestContentPackage
             var standardClaimTarget = new ReportingStandard(primaryStandards, secondaryStandards); 
 
             // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,
-            // MathematicalPractice, MaxPoints, CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget
+            // MathematicalPractice, MaxPoints, CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget, measurementmodel, scorepoints,
+            // dimension, weight, parameters
             mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(version), CsvEncode(subject), 
                 CsvEncode(grade), CsvEncode(answerKey), CsvEncode(assessmentType), CsvEncode(wordlistId), 
                 CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), CsvEncode(media), size.ToString(), CsvEncode(depthOfKnowledge), CsvEncode(allowCalculator), 
                 CsvEncode(mathematicalPractice), CsvEncode(maximumNumberOfPoints), CsvEncode(standardClaimTarget.PrimaryCommonCore), CsvEncode(standardClaimTarget.PrimaryClaimsContentTargets),
-                CsvEncode(standardClaimTarget.SecondaryCommonCore), CsvEncode(standardClaimTarget.SecondaryClaimsContentTargets), string.Empty));
+                CsvEncode(standardClaimTarget.SecondaryCommonCore), CsvEncode(standardClaimTarget.SecondaryClaimsContentTargets), 
+                CsvEncode(scoringInformation.Select(x => x.MeasurementModel).Aggregate((x,y) => $"{x};{y}")), CsvEncode(scoringInformation.Select(x => x.ScorePoints).Aggregate((x, y) => $"{x};{y}")),
+                CsvEncode(scoringInformation.Select(x => x.Dimension).Aggregate((x, y) => $"{x};{y}")), CsvEncode(scoringInformation.Select(x => x.Weight).Aggregate((x, y) => $"{x};{y}")),
+                CsvEncode(scoringInformation.Select(x => x.GetParameters()).Aggregate((x, y) => $"{x};{y}"))));
 
             // === Tabulation is complete, check for other errors
 
@@ -1215,10 +1230,12 @@ namespace TabulateSmarterTestContentPackage
             var translation = GetTranslation(it, xml, xmlMetadata);
 
             // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,MathematicalPractice, MaxPoints, 
-            // CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget
+            // CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget , measurementmodel, scorepoints,
+            // dimension, weight, parameters
             mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(version),
                 CsvEncode(subject), CsvEncode(grade), CsvEncode(answerKey), CsvEncode(assessmentType), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation),
-                string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty));
+                string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty,
+                string.Empty, string.Empty, string.Empty, string.Empty, string.Empty));
 
         } // TabulateTutorial
 
