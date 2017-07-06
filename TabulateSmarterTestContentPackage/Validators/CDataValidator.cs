@@ -52,6 +52,13 @@ namespace TabulateSmarterTestContentPackage.Validators
                     "text-shadow"
                 }, itemContext, errorSeverity);
 
+                // Check for nested glossary tags in CData
+                var noNestedGlossaryTags = CDataGlossaryTagsAreNotIllegallyNested(cDataSection.Root, itemContext, errorSeverity);
+
+                // Check for a whole host of glossary tag errors
+                var noGlossaryTagErrors = CDataGlossaryTagStartAndEndTagsLineUpAppropriately(cDataSection.Root,
+                    itemContext, errorSeverity);
+
                 return imgTagsValid.All(x => x)
                        && noColorAlterations
                        && noViolatingStyleTags;
@@ -170,6 +177,117 @@ namespace TabulateSmarterTestContentPackage.Validators
                 return false;
             }
             return true;
+        }
+
+        public static bool CDataGlossaryTagsAreNotIllegallyNested(XElement rootElement, ItemContext itemContext,
+            ErrorSeverity errorSeverity)
+        {
+            var valid = true;
+            var glossaryTags = rootElement.XPathSelectElements(".//span[@data-tag='word' and @data-tag-boundary='start']//span[@data-tag='word' and @data-tag-boundary='start']");
+            glossaryTags.ToList().ForEach(x =>
+                {
+                    Logger.Error($"Glossary tag {x} is nested illegally within another span tag");
+                    ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
+                        $"Glossary tag {x} is nested illegally within another span tag");
+                    valid = false;
+                });
+            return valid;
+        }
+
+        public static List<string> CDataGlossaryTagStartAndEndTagsLineUpAppropriately(XElement rootElement,
+            ItemContext itemContext,
+            ErrorSeverity errorSeverity)
+        {
+            var result = new List<string>();
+
+            var glossaryTags = rootElement.XPathSelectElements(".//span[@data-tag='word' and @data-tag-boundary='start']").ToList();
+            glossaryTags.ForEach(x =>
+            {
+                var id =
+                    x.Attributes()
+                        .FirstOrDefault(y => y.Name.LocalName.Equals("id", StringComparison.OrdinalIgnoreCase))?
+                        .Value;
+                if (string.IsNullOrEmpty(id))
+                {
+                    // We have a span without an ID which is bad
+                    Logger.Error($"Glossary start tag {x} does not have a required ID value");
+                    ReportingUtility.ReportError(itemContext, ErrorCategory.Wordlist, errorSeverity,
+                        $"Glossary start tag {x} does not have a required ID value");
+                    return;
+                }
+                var siblings = x.ElementsAfterSelf().ToList();
+                var current = siblings.FirstOrDefault();
+                var index = 0;
+
+                var closingSpanTag = false;
+
+                while (current != null && !IsMatchingEndTag(current, id))
+                {
+                    // The first element we expect to find as a sibling is the closing span tag to match the opening one
+                    if (current.Name.LocalName.Equals("span", StringComparison.OrdinalIgnoreCase) && current.IsEmpty)
+                    {
+                        closingSpanTag = true;
+                        current = siblings.Count >= index ? siblings[index++] : null;
+                        continue;
+                    }
+                    // We found a value nested in this span, which is illegal
+                    if (!string.IsNullOrEmpty(current.Value) && !closingSpanTag)
+                    {
+                        Logger.Error($"Glossary tag {x} has an illegally nested value '{current.Value}'");
+                        ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
+                            $"Glossary tag {x} has an illegally nested value '{current.Value}'");
+                        return;
+                    }
+                    // There's a glossary term here
+                    if (!string.IsNullOrEmpty(current.Value))
+                    {
+                        result.Add(current.Value);
+                        current = siblings.Count >= index ? siblings[index++] : null;
+                        continue;
+                    }
+                    // Check for another opening tag (which means they are overlapping inappropriately)
+                    if (IsStartingTag(current))
+                    {
+                        Logger.Error($"Glossary tag {current} overlaps with another tag {x}");
+                        ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
+                            $"Glossary tag {current} overlaps with another tag {x}");
+                        return;
+                    }
+                    // We found something that shouldn't be here
+                    Logger.Error($"Unrecognized element {current} encountered while processing siblings of {x}");
+                    ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
+                        $"Unrecognized element {current} encountered while processing siblings of {x}");
+                    // We're going to continue processing
+                    current = siblings.Count >= index ? siblings[index++] : null;
+                }
+            });
+
+            return result;
+        }
+
+        public static bool IsMatchingEndTag(XElement element, string id)
+        {
+           return element.Name.LocalName.Equals("span", StringComparison.OrdinalIgnoreCase)
+                && element.HasAttributes
+                && element.Attributes().Any(x => x.Name.LocalName.Equals("data-tag-ref", StringComparison.OrdinalIgnoreCase))
+                && element.Attributes().First(x => x.Name.LocalName.Equals("data-tag-ref", StringComparison.OrdinalIgnoreCase))
+                    .Value.Equals(id, StringComparison.OrdinalIgnoreCase)
+                && element.Attributes().Any(x => x.Name.LocalName.Equals("data-tag-boundary", StringComparison.OrdinalIgnoreCase))
+                && element.Attributes().First(x => x.Name.LocalName.Equals("data-tag-boundary", StringComparison.OrdinalIgnoreCase))
+                    .Value.Equals("end", StringComparison.OrdinalIgnoreCase);
+        }
+
+        public static bool IsStartingTag(XElement element)
+        {
+            return element.Name.LocalName.Equals("span", StringComparison.OrdinalIgnoreCase)
+                 && element.HasAttributes
+                 && element.Attributes().Any(x => x.Name.LocalName.Equals("id", StringComparison.OrdinalIgnoreCase))
+                 && element.Attributes().Any(x => x.Name.LocalName.Equals("data-tag-boundary", StringComparison.OrdinalIgnoreCase))
+                 && element.Attributes().First(x => x.Name.LocalName.Equals("data-tag-boundary", StringComparison.OrdinalIgnoreCase))
+                     .Value.Equals("start", StringComparison.OrdinalIgnoreCase)
+                 && element.Attributes().Any(x => x.Name.LocalName.Equals("data-tag", StringComparison.OrdinalIgnoreCase))
+                 && element.Attributes().First(x => x.Name.LocalName.Equals("data-tag", StringComparison.OrdinalIgnoreCase))
+                     .Value.Equals("word", StringComparison.OrdinalIgnoreCase);
         }
     }
 }

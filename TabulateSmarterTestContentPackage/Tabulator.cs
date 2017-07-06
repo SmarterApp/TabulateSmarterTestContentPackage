@@ -420,25 +420,24 @@ namespace TabulateSmarterTestContentPackage
                 return;
             }
 
-            var isCDataValid = CDataExtractor.ExtractCData(new XDocument().LoadXml(xml.OuterXml).Root)
-                .Select(x => CDataValidator.IsValid(x, new ItemContext(this, ffItem, null, null), x.Parent.Name.LocalName.Equals("val", StringComparison.OrdinalIgnoreCase) ? 
-                    ErrorSeverity.Benign : 
-                    ErrorSeverity.Degraded)).ToList();
-
             // Get the details
-            var itemType = xml.XpEval("itemrelease/item/@format");
-            if (itemType == null) itemType = xml.XpEval("itemrelease/item/@type");
+            var itemType = xml.XpEval("itemrelease/item/@format") ?? xml.XpEval("itemrelease/item/@type");
             if (itemType == null)
             {
                 ReportingUtility.ReportError(new ItemContext(this, ffItem, null, null), ErrorCategory.Item, ErrorSeverity.Severe, "Item type not specified.", LoadXmlErrorDetail);
                 return;
             }
-            string itemId = xml.XpEval("itemrelease/item/@id");
+            var itemId = xml.XpEval("itemrelease/item/@id");
             if (string.IsNullOrEmpty(itemId))
             {
                 ReportingUtility.ReportError(new ItemContext(this, ffItem, null, null), ErrorCategory.Item, ErrorSeverity.Severe, "Item ID not specified.", LoadXmlErrorDetail);
                 return;
             }
+
+            var isCDataValid = CDataExtractor.ExtractCData(new XDocument().LoadXml(xml.OuterXml).Root)
+                .Select(x => CDataValidator.IsValid(x, new ItemContext(this, ffItem, itemId, itemType), x.Parent.Name.LocalName.Equals("val", StringComparison.OrdinalIgnoreCase) ?
+                    ErrorSeverity.Benign :
+                    ErrorSeverity.Degraded)).ToList();
 
             var bankKey = xml.XpEvalE("itemrelease/item/@bankkey");
 
@@ -1504,24 +1503,24 @@ namespace TabulateSmarterTestContentPackage
             string wordlistId = xml.XpEval(xp);
 
             // Compose lists of referenced term Indices and Names
-            List<int> termIndices = new List<int>();
-            List<string> terms = new List<string>();
+            var termIndices = new List<int>();
+            var terms = new List<string>();
 
             // Process all CDATA (embedded HTML) sections in the content
             {
-                XmlNode contentNode = xml.SelectSingleNode(it.IsPassage ? "itemrelease/passage/content" : "itemrelease/item/content");
+                var contentNode = xml.SelectSingleNode(it.IsPassage ? "itemrelease/passage/content" : "itemrelease/item/content");
                 if (contentNode == null)
                 {
                     ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Item has no content element.");
                 }
                 else
                 {
-                    foreach(XmlNode node in new XmlSubtreeEnumerable(contentNode))
+                    foreach(var node in new XmlSubtreeEnumerable(contentNode))
                     {
                         if (node.NodeType == XmlNodeType.CDATA)
                         {
                             var html = LoadHtml(it, node);
-                            ValidateContentCData(it, xml, termIndices, terms, html);
+                            ValidateContentCData(it, termIndices, terms, html);
                         }
                     }
                 }
@@ -1543,7 +1542,7 @@ namespace TabulateSmarterTestContentPackage
 
         static readonly char[] s_WhiteAndPunct = { '\t', '\n', '\r', ' ', '!', '"', '#', '$', '%', '&', '\'', '(', ')', '*', '+', ',', '-', '.', '/', ':', ';', '<', '=', '>', '?', '@', '[', '\\', ']', '^', '_', '`', '{', '|', '~' };
 
-        void ValidateContentCData(ItemContext it, XmlDocument xml, List<int> termIndices, List<string> terms, XmlDocument html)
+        private void ValidateContentCData(ItemContext it, IList<int> termIndices, IList<string> terms, XmlDocument html)
         {
             /* Word list references look like this:
             <span id="item_998_TAG_2" class="its-tag" data-tag="word" data-tag-boundary="start" data-word-index="1"></span>
@@ -1556,13 +1555,13 @@ namespace TabulateSmarterTestContentPackage
             {
 
                 // For a word reference, get attributes and look for the end tag
-                string id = node.GetAttribute("id");
+                var id = node.GetAttribute("id");
                 if (string.IsNullOrEmpty(id))
                 {
                     ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "WordList reference lacks an ID");
                     continue;
                 }
-                string scratch = node.GetAttribute("data-word-index");
+                var scratch = node.GetAttribute("data-word-index");
                 int termIndex;
                 if (!int.TryParse(scratch, out termIndex))
                 {
@@ -1570,7 +1569,7 @@ namespace TabulateSmarterTestContentPackage
                     continue;
                 }
 
-                string term = string.Empty;
+                var term = string.Empty;
                 var snode = node.NextNode();
                 for (;;)
                 {
@@ -1611,7 +1610,7 @@ namespace TabulateSmarterTestContentPackage
             }
         }
 
-        XmlDocument LoadHtml(ItemContext it, XmlNode content)
+        static XmlDocument LoadHtml(ItemContext it, XmlNode content)
         {
             // Parse the HTML into an XML DOM
             XmlDocument html = null;
@@ -1669,7 +1668,7 @@ namespace TabulateSmarterTestContentPackage
 
         }
 
-        bool ElementExistsAndIsNonEmpty(XmlNode xml, string path)
+        private static bool ElementExistsAndIsNonEmpty(XmlNode xml, string path)
         {
             var node = xml.SelectSingleNode(path);
             return !string.IsNullOrEmpty(node?.InnerText);
@@ -1779,7 +1778,7 @@ namespace TabulateSmarterTestContentPackage
         }
 
         static readonly HashSet<string> sMediaFileTypes = new HashSet<string>(
-            new string[] {"MP4", "MP3", "M4A", "OGG", "VTT", "M4V", "MPG", "MPEG"  });
+            new[] {"MP4", "MP3", "M4A", "OGG", "VTT", "M4V", "MPG", "MPEG"  });
 
         string GetMedia(ItemContext it, XmlDocument xml)
         {
