@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
 using System.Xml.XPath;
@@ -336,6 +337,16 @@ namespace TabulateSmarterTestContentPackage.Validators
             var words = rootElement.DescendantsAndSelf().Where(x => x.NodeType == XmlNodeType.Text).Select(x => x.Value);
             terms.Keys.ToList().ForEach(x =>
             {
+                if (!IsValidTag(x))
+                {
+                    result = false;
+                    Logger.Error(
+                        $"Tagged section {x} contains an illegal character. Only letters, punctuation, " +
+                        "and spaces are permitted");
+                    ReportingUtility.ReportError(itemContext, ErrorCategory.Wordlist, errorSeverity,
+                        $"Tagged section {x} contains an illegal character. Only letters, punctuation, " +
+                        "and spaces are permitted");
+                }
                 var wordcount = words.Count(y => y.Contains(x));
                 if (wordcount != terms[x])
                 {
@@ -352,6 +363,12 @@ namespace TabulateSmarterTestContentPackage.Validators
                 }
             });
             return result;
+        }
+
+        public static bool IsValidTag(string tag)
+        {
+            const string pattern = @"^([a-zA-Z,'.\-\s])+$";
+            return Regex.IsMatch(tag, pattern);
         }
     }
 }
