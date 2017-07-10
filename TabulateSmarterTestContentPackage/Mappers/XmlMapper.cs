@@ -9,5 +9,10 @@ namespace TabulateSmarterTestContentPackage.Mappers
         {
             return XDocument.Parse(document.OuterXml).Root;
         }
+
+        public static XDocument MapToXDocument(this XmlDocument document)
+        {
+            return XDocument.Parse(document.OuterXml);
+        }
     }
 }

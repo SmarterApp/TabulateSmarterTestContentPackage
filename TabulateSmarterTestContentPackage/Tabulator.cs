@@ -251,7 +251,8 @@ namespace TabulateSmarterTestContentPackage
             // TODO: Add CsvHelper library to allow expandable headers
             mItemReport.WriteLine("Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL," +
                                   "BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice,MaxPoints," +
-                                  "CommonCore,ClaimContentTarget,SecondaryCommonCore,SecondaryClaimContentTarget");
+                                  "CommonCore,ClaimContentTarget,SecondaryCommonCore,SecondaryClaimContentTarget, MeasurementModel," +
+                                  "ScorePoints,Dimension,Weight,Parameters");
 
             mStimulusReport = new StreamWriter(string.Concat(reportPrefix, cStimulusReportFn), false, Encoding.UTF8);
             mStimulusReport.WriteLine("Folder,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,Media,Size,WordCount");
@@ -420,25 +421,24 @@ namespace TabulateSmarterTestContentPackage
                 return;
             }
 
-            var isCDataValid = CDataExtractor.ExtractCData(new XDocument().LoadXml(xml.OuterXml).Root)
-                .Select(x => CDataValidator.IsValid(x, new ItemContext(this, ffItem, null, null), x.Parent.Name.LocalName.Equals("val", StringComparison.OrdinalIgnoreCase) ? 
-                    ErrorSeverity.Benign : 
-                    ErrorSeverity.Degraded)).ToList();
-
             // Get the details
-            var itemType = xml.XpEval("itemrelease/item/@format");
-            if (itemType == null) itemType = xml.XpEval("itemrelease/item/@type");
+            var itemType = xml.XpEval("itemrelease/item/@format") ?? xml.XpEval("itemrelease/item/@type");
             if (itemType == null)
             {
                 ReportingUtility.ReportError(new ItemContext(this, ffItem, null, null), ErrorCategory.Item, ErrorSeverity.Severe, "Item type not specified.", LoadXmlErrorDetail);
                 return;
             }
-            string itemId = xml.XpEval("itemrelease/item/@id");
+            var itemId = xml.XpEval("itemrelease/item/@id");
             if (string.IsNullOrEmpty(itemId))
             {
                 ReportingUtility.ReportError(new ItemContext(this, ffItem, null, null), ErrorCategory.Item, ErrorSeverity.Severe, "Item ID not specified.", LoadXmlErrorDetail);
                 return;
             }
+
+            var isCDataValid = CDataExtractor.ExtractCData(new XDocument().LoadXml(xml.OuterXml).Root)
+                .Select(x => CDataValidator.IsValid(x, new ItemContext(this, ffItem, itemId, itemType), x.Parent.Name.LocalName.Equals("val", StringComparison.OrdinalIgnoreCase) ?
+                    ErrorSeverity.Benign :
+                    ErrorSeverity.Degraded)).ToList();
 
             var bankKey = xml.XpEvalE("itemrelease/item/@bankkey");
 
@@ -556,11 +556,21 @@ namespace TabulateSmarterTestContentPackage
                 return;
             }
 
+            IList<ItemScoring> scoringInformation = new List<ItemScoring>();
             // Load metadata
             var xmlMetadata = new XmlDocument(sXmlNt);
             if (!TryLoadXml(it.FfItem, "metadata.xml", xmlMetadata))
             {
-                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Invalid metadata.xml.", LoadXmlErrorDetail);
+                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Invalid metadata.xml.",
+                    LoadXmlErrorDetail);
+            }
+            else
+            {
+                scoringInformation = IrtExtractor.RetrieveIrtInformation(xmlMetadata.MapToXDocument()).ToList();
+            }
+            if (!scoringInformation.Any())
+            {
+                scoringInformation.Add(new ItemScoring());
             }
 
             // Check interaction type
@@ -874,12 +884,16 @@ namespace TabulateSmarterTestContentPackage
             var standardClaimTarget = new ReportingStandard(primaryStandards, secondaryStandards); 
 
             // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,
-            // MathematicalPractice, MaxPoints, CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget
+            // MathematicalPractice, MaxPoints, CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget, measurementmodel, scorepoints,
+            // dimension, weight, parameters
             mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(version), CsvEncode(subject), 
                 CsvEncode(grade), CsvEncode(answerKey), CsvEncode(assessmentType), CsvEncode(wordlistId), 
                 CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), CsvEncode(media), size.ToString(), CsvEncode(depthOfKnowledge), CsvEncode(allowCalculator), 
                 CsvEncode(mathematicalPractice), CsvEncode(maximumNumberOfPoints), CsvEncode(standardClaimTarget.PrimaryCommonCore), CsvEncode(standardClaimTarget.PrimaryClaimsContentTargets),
-                CsvEncode(standardClaimTarget.SecondaryCommonCore), CsvEncode(standardClaimTarget.SecondaryClaimsContentTargets), string.Empty));
+                CsvEncode(standardClaimTarget.SecondaryCommonCore), CsvEncode(standardClaimTarget.SecondaryClaimsContentTargets), 
+                CsvEncode(scoringInformation.Select(x => x.MeasurementModel).Aggregate((x,y) => $"{x};{y}")), CsvEncode(scoringInformation.Select(x => x.ScorePoints).Aggregate((x, y) => $"{x};{y}")),
+                CsvEncode(scoringInformation.Select(x => x.Dimension).Aggregate((x, y) => $"{x};{y}")), CsvEncode(scoringInformation.Select(x => x.Weight).Aggregate((x, y) => $"{x};{y}")),
+                CsvEncode(scoringInformation.Select(x => x.GetParameters()).Aggregate((x, y) => $"{x};{y}"))));
 
             // === Tabulation is complete, check for other errors
 
@@ -1216,10 +1230,12 @@ namespace TabulateSmarterTestContentPackage
             var translation = GetTranslation(it, xml, xmlMetadata);
 
             // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,MathematicalPractice, MaxPoints, 
-            // CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget
+            // CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget , measurementmodel, scorepoints,
+            // dimension, weight, parameters
             mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(version),
                 CsvEncode(subject), CsvEncode(grade), CsvEncode(answerKey), CsvEncode(assessmentType), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation),
-                string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty));
+                string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty,
+                string.Empty, string.Empty, string.Empty, string.Empty, string.Empty));
 
         } // TabulateTutorial
 
@@ -1504,24 +1520,24 @@ namespace TabulateSmarterTestContentPackage
             string wordlistId = xml.XpEval(xp);
 
             // Compose lists of referenced term Indices and Names
-            List<int> termIndices = new List<int>();
-            List<string> terms = new List<string>();
+            var termIndices = new List<int>();
+            var terms = new List<string>();
 
             // Process all CDATA (embedded HTML) sections in the content
             {
-                XmlNode contentNode = xml.SelectSingleNode(it.IsPassage ? "itemrelease/passage/content" : "itemrelease/item/content");
+                var contentNode = xml.SelectSingleNode(it.IsPassage ? "itemrelease/passage/content" : "itemrelease/item/content");
                 if (contentNode == null)
                 {
                     ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Item has no content element.");
                 }
                 else
                 {
-                    foreach(XmlNode node in new XmlSubtreeEnumerable(contentNode))
+                    foreach(var node in new XmlSubtreeEnumerable(contentNode))
                     {
                         if (node.NodeType == XmlNodeType.CDATA)
                         {
                             var html = LoadHtml(it, node);
-                            ValidateContentCData(it, xml, termIndices, terms, html);
+                            ValidateContentCData(it, termIndices, terms, html);
                         }
                     }
                 }
@@ -1543,7 +1559,7 @@ namespace TabulateSmarterTestContentPackage
 
         static readonly char[] s_WhiteAndPunct = { '\t', '\n', '\r', ' ', '!', '"', '#', '$', '%', '&', '\'', '(', ')', '*', '+', ',', '-', '.', '/', ':', ';', '<', '=', '>', '?', '@', '[', '\\', ']', '^', '_', '`', '{', '|', '~' };
 
-        void ValidateContentCData(ItemContext it, XmlDocument xml, List<int> termIndices, List<string> terms, XmlDocument html)
+        private void ValidateContentCData(ItemContext it, IList<int> termIndices, IList<string> terms, XmlDocument html)
         {
             /* Word list references look like this:
             <span id="item_998_TAG_2" class="its-tag" data-tag="word" data-tag-boundary="start" data-word-index="1"></span>
@@ -1556,13 +1572,13 @@ namespace TabulateSmarterTestContentPackage
             {
 
                 // For a word reference, get attributes and look for the end tag
-                string id = node.GetAttribute("id");
+                var id = node.GetAttribute("id");
                 if (string.IsNullOrEmpty(id))
                 {
                     ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "WordList reference lacks an ID");
                     continue;
                 }
-                string scratch = node.GetAttribute("data-word-index");
+                var scratch = node.GetAttribute("data-word-index");
                 int termIndex;
                 if (!int.TryParse(scratch, out termIndex))
                 {
@@ -1570,7 +1586,7 @@ namespace TabulateSmarterTestContentPackage
                     continue;
                 }
 
-                string term = string.Empty;
+                var term = string.Empty;
                 var snode = node.NextNode();
                 for (;;)
                 {
@@ -1611,7 +1627,7 @@ namespace TabulateSmarterTestContentPackage
             }
         }
 
-        XmlDocument LoadHtml(ItemContext it, XmlNode content)
+        static XmlDocument LoadHtml(ItemContext it, XmlNode content)
         {
             // Parse the HTML into an XML DOM
             XmlDocument html = null;
@@ -1669,7 +1685,7 @@ namespace TabulateSmarterTestContentPackage
 
         }
 
-        bool ElementExistsAndIsNonEmpty(XmlNode xml, string path)
+        private static bool ElementExistsAndIsNonEmpty(XmlNode xml, string path)
         {
             var node = xml.SelectSingleNode(path);
             return !string.IsNullOrEmpty(node?.InnerText);
@@ -1779,7 +1795,7 @@ namespace TabulateSmarterTestContentPackage
         }
 
         static readonly HashSet<string> sMediaFileTypes = new HashSet<string>(
-            new string[] {"MP4", "MP3", "M4A", "OGG", "VTT", "M4V", "MPG", "MPEG"  });
+            new[] {"MP4", "MP3", "M4A", "OGG", "VTT", "M4V", "MPG", "MPEG"  });
 
         string GetMedia(ItemContext it, XmlDocument xml)
         {
