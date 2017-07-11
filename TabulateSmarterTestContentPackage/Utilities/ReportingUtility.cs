@@ -32,7 +32,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
 
         public static void ReportError(ItemContext it, ErrorCategory category, ErrorSeverity severity, string msg)
         {
-            ReportingUtility.ReportError(it, category, severity, msg, null);
+            ReportError(it, category, severity, msg, null);
         }
 
         public static void ReportError(string validationOption, ItemContext it, ErrorCategory category,
@@ -40,7 +40,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
         {
             if (Program.gValidationOptions.IsEnabled(validationOption))
             {
-                ReportingUtility.ReportError(it, category, severity, msg, detail, args);
+                ReportError(it, category, severity, msg, detail, args);
             }
         }
 
@@ -48,7 +48,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
             string detail, params object[] args)
         {
             detail = string.Concat($"wordlistId='{witIt.ItemId}' ", detail);
-            ReportingUtility.ReportError(it, ErrorCategory.Wordlist, severity, msg, detail, args);
+            ReportError(it, ErrorCategory.Wordlist, severity, msg, detail, args);
         }
     }
 }

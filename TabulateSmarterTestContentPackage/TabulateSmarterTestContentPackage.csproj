@@ -54,7 +54,9 @@
     <Compile Include="ConsoleHelper.cs" />
     <Compile Include="Extensions\XDocumentExtensions.cs" />
     <Compile Include="Extensions\XElementExtensions.cs" />
+    <Compile Include="Extensions\XNodeExtensions.cs" />
     <Compile Include="Extractors\CDataExtractor.cs" />
+    <Compile Include="Extractors\IrtExtractor.cs" />
     <Compile Include="Extractors\ItemStandardExtractor.cs" />
     <Compile Include="FileFolder.cs" />
     <Compile Include="HtmlReader.cs" />
@@ -63,6 +65,7 @@
     <Compile Include="Models\ErrorSeverity.cs" />
     <Compile Include="Models\HtmlImageTag.cs" />
     <Compile Include="Models\ItemContext.cs" />
+    <Compile Include="Models\ItemScoring.cs" />
     <Compile Include="Models\ItemStandard.cs" />
     <Compile Include="Models\ReportingStandard.cs" />
     <Compile Include="Models\ScoringType.cs" />

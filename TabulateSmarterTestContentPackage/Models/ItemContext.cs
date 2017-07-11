@@ -9,7 +9,7 @@ namespace TabulateSmarterTestContentPackage.Models
             FfItem = ffItem;
             ItemId = itemId ?? string.Empty;
             ItemType = itemType ?? string.Empty;
-            Folder = tabulator.mPackageName + ffItem.RootedName;
+            Folder = (tabulator?.mPackageName ?? string.Empty) + ffItem?.RootedName;
         }
 
         public FileFolder FfItem { get; }
