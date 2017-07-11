@@ -5,6 +5,7 @@ using NUnit.Framework;
 using TabulateSmarterTestContentPackage.Extensions;
 using TabulateSmarterTestContentPackage.Extractors;
 using TabulateSmarterTestContentPackage.Models;
+using TabulateSmarterTestContentPackage.Utilities;
 using TabulateSmarterTestContentPackage.Validators;
 
 namespace TabulateSmarterTestContentPackage.Tests.Validators
@@ -28,6 +29,7 @@ namespace TabulateSmarterTestContentPackage.Tests.Validators
                                "</rubriclist>\r\n" +
                                "</content>";
             ItemXml = new XDocument().LoadXml(xml).Root;
+            ReportingUtility.ErrorReportPath = "./debugErrors.csv";
         }
 
         // Source: item-187-1832 2016.2.24 IrpTestPackageAndContent
@@ -58,7 +60,175 @@ namespace TabulateSmarterTestContentPackage.Tests.Validators
             Assert.IsNotNull(result);
             Assert.IsTrue(result.Any());
             Assert.IsFalse(result.First());
-            Assert.IsFalse(result.Last());
+            Assert.IsTrue(result.Last());
+        }
+
+        [Test]
+        public void ValidStartTagShouldReturnTrue()
+        {
+            // Arrange
+            const string nodeText = "<span id=\"item_1832_TAG_3\" class=\"its-tag\" data-tag=\"word\" data-tag-boundary=\"start\" data-word-index=\"1\"></span>";
+            var node = XDocument.Parse(nodeText).Root;
+
+            // Act
+            var result = CDataValidator.IsStartingTag(node);
+
+            // Assert
+            Assert.IsTrue(result);
+        }
+
+        [Test]
+        public void StartTagMissingDataTagAttributesShouldReturnFalse()
+        {
+            // Arrange
+            const string nodeText = "<span id=\"item_1832_TAG_3\" class=\"its-tag\" data-tag-boundary=\"start\" data-word-index=\"1\"></span>";
+            var node = XDocument.Parse(nodeText).Root;
+
+            // Act
+            var result = CDataValidator.IsStartingTag(node);
+
+            // Assert
+            Assert.IsFalse(result);
+        }
+
+        [Test]
+        public void StartTagMissingDataTagBoundaryAttributesShouldReturnFalse()
+        {
+            // Arrange
+            const string nodeText = "<span id=\"item_1832_TAG_3\" class=\"its-tag\" data-tag=\"word\" data-word-index=\"1\"></span>";
+            var node = XDocument.Parse(nodeText).Root;
+
+            // Act
+            var result = CDataValidator.IsStartingTag(node);
+
+            // Assert
+            Assert.IsFalse(result);
+        }
+
+        [Test]
+        public void StartTagMissingIdAttributesShouldReturnFalse()
+        {
+            // Arrange
+            const string nodeText = "<span class=\"its-tag\" data-tag=\"word\" data-word-index=\"1\" data-tag-boundary=\"start\"></span>";
+            var node = XDocument.Parse(nodeText).Root;
+
+            // Act
+            var result = CDataValidator.IsStartingTag(node);
+
+            // Assert
+            Assert.IsFalse(result);
+        }
+
+        [Test]
+        public void EmptyStartTagShouldReturnFalse()
+        {
+            // Arrange
+            const string nodeText = "<span></span>";
+            var node = XDocument.Parse(nodeText).Root;
+
+            // Act
+            var result = CDataValidator.IsStartingTag(node);
+
+            // Assert
+            Assert.IsFalse(result);
+        }
+
+        [Test]
+        public void NonSpanStartTagShouldReturnFalse()
+        {
+            // Arrange
+            const string nodeText = "<div id=\"item_1832_TAG_3\" class=\"its-tag\" data-tag=\"word\" data-tag-boundary=\"start\" data-word-index=\"1\"></div>";
+            var node = XDocument.Parse(nodeText).Root;
+
+            // Act
+            var result = CDataValidator.IsStartingTag(node);
+
+            // Assert
+            Assert.IsFalse(result);
+        }
+
+        [Test]
+        public void MatchingEndTagShouldReturnTrue()
+        {
+            // Arrange
+            const string nodeText = "<span class=\"its-tag\" data-tag-ref=\"item_1832_TAG_3\" data-tag-boundary=\"end\"></span>";
+            var node = XDocument.Parse(nodeText).Root;
+
+            // Act
+            var result = CDataValidator.IsMatchingEndTag(node, "item_1832_TAG_3");
+
+            // Assert
+            Assert.IsTrue(result);
+        }
+
+        [Test]
+        public void MatchingEndTagMissingDataTagRefAttributesShouldReturnFalse()
+        {
+            // Arrange
+            const string nodeText = "<span class=\"its-tag\" data-tag-boundary=\"end\"></span>";
+            var node = XDocument.Parse(nodeText).Root;
+
+            // Act
+            var result = CDataValidator.IsMatchingEndTag(node, "item_1832_TAG_3");
+
+            // Assert
+            Assert.IsFalse(result);
+        }
+
+        [Test]
+        public void MatchingEndTagMissingDataTagBoundaryAttributesShouldReturnFalse()
+        {
+            // Arrange
+            const string nodeText = "<span class=\"its-tag\" data-tag-ref=\"item_1832_TAG_3\"></span>";
+            var node = XDocument.Parse(nodeText).Root;
+
+            // Act
+            var result = CDataValidator.IsMatchingEndTag(node, "item_1832_TAG_3");
+
+            // Assert
+            Assert.IsFalse(result);
+        }
+
+        [Test]
+        public void EmptyEndTagShouldReturnFalse()
+        {
+            // Arrange
+            const string nodeText = "<span></span>";
+            var node = XDocument.Parse(nodeText).Root;
+
+            // Act
+            var result = CDataValidator.IsMatchingEndTag(node, "item_1832_TAG_3");
+
+            // Assert
+            Assert.IsFalse(result);
+        }
+
+        [Test]
+        public void NonSpanEndTagShouldReturnFalse()
+        {
+            // Arrange
+            const string nodeText = "<div class=\"its-tag\" data-tag-ref=\"item_1832_TAG_3\" data-tag-boundary=\"end\"></div>";
+            var node = XDocument.Parse(nodeText).Root;
+
+            // Act
+            var result = CDataValidator.IsMatchingEndTag(node, "item_1832_TAG_3");
+
+            // Assert
+            Assert.IsFalse(result);
+        }
+
+        [Test]
+        public void NonMatchingEndTagShouldReturnFalsse()
+        {
+            // Arrange
+            const string nodeText = "<span class=\"its-tag\" data-tag-ref=\"item_1832_TAG_3\" data-tag-boundary=\"end\"></span>";
+            var node = XDocument.Parse(nodeText).Root;
+
+            // Act
+            var result = CDataValidator.IsMatchingEndTag(node, "id");
+
+            // Assert
+            Assert.IsFalse(result);
         }
     }
 }

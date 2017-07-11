@@ -230,67 +230,82 @@ namespace TabulateSmarterTestContentPackage.Validators
                         $"Glossary start tag {x} does not have a required ID value");
                     return;
                 }
-                var siblings = x.ElementsAfterSelf().ToList();
-                var current = siblings.FirstOrDefault();
+                var siblings = x.NodesAfterSelf().ToList();
+
+                // Ensure that the start tag has a matching sibling end tag before continuing
+                if (siblings.All(y => !IsMatchingEndTag(y, id)))
+                {
+                    Logger.Error($"Glossary start tag {x} does not have a matching sibling end tag");
+                    ReportingUtility.ReportError(itemContext, ErrorCategory.Wordlist, errorSeverity,
+                        $"Glossary start tag {x} does not have a matching sibling end tag");
+                    return;
+                }
+                var node = siblings.FirstOrDefault();
                 var index = 0;
 
                 var closingSpanTag = false;
 
-                while (current != null && !IsMatchingEndTag(current, id))
+                while (node != null && !IsMatchingEndTag(node, id))
                 {
+                    var element = node.Cast();
                     // The first element we expect to find as a sibling is the closing span tag to match the opening one
-                    if (current.Name.LocalName.Equals("span", StringComparison.OrdinalIgnoreCase) && current.IsEmpty)
+                    if (element != null && element.Name.LocalName.Equals("span", StringComparison.OrdinalIgnoreCase) && element.IsEmpty)
                     {
                         closingSpanTag = true;
-                        current = siblings.Count >= index ? siblings[index++] : null;
+                        node = siblings.Count >= index ? siblings[index++] : null;
                         continue;
                     }
                     // We found a value nested in this span, which is illegal
-                    if (!string.IsNullOrEmpty(current.Value) && !closingSpanTag)
+                    if (!string.IsNullOrEmpty(element?.Value) && !closingSpanTag)
                     {
-                        Logger.Error($"Glossary tag {x} has an illegally nested value '{current.Value}'");
+                        Logger.Error($"Glossary tag {x} has an illegally nested value '{element.Value}'");
                         ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
-                            $"Glossary tag {x} has an illegally nested value '{current.Value}'");
+                            $"Glossary tag {x} has an illegally nested value '{element.Value}'");
                         return;
                     }
                     // There's a glossary term here
-                    if (!string.IsNullOrEmpty(current.Value))
+                    if (node.NodeType == XmlNodeType.Text)
                     {
-                        if (result.ContainsKey(current.Value))
+                        if (result.ContainsKey(node.ToString()))
                         {
                             // build up the full glossary term
-                            result[current.Value]++;
+                            result[node.ToString()]++;
                         }
                         else
                         {
                             // add a new glossary entry
-                            result.Add(current.Value, 1);
+                            result.Add(node.ToString(), 1);
                         }
-                        current = siblings.Count >= index ? siblings[index++] : null;
+                        node = siblings.Count >= index ? siblings[++index] : null;
                         continue;
                     }
                     // Check for another opening tag (which means they are overlapping inappropriately)
-                    if (IsStartingTag(current))
+                    if (IsStartingTag(node))
                     {
-                        Logger.Error($"Glossary tag {current} overlaps with another tag {x}");
+                        Logger.Error($"Glossary tag {element ?? node} overlaps with another tag {x}");
                         ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
-                            $"Glossary tag {current} overlaps with another tag {x}");
+                            $"Glossary tag {element ?? node} overlaps with another tag {x}");
                         return;
                     }
                     // We found something that shouldn't be here
-                    Logger.Error($"Unrecognized element {current} encountered while processing siblings of {x}");
+                    Logger.Error($"Unrecognized element {element ?? node} encountered while processing siblings of {x}");
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
-                        $"Unrecognized element {current} encountered while processing siblings of {x}");
+                        $"Unrecognized element {element ?? node} encountered while processing siblings of {x}");
                     // We're going to continue processing
-                    current = siblings.Count >= index ? siblings[index++] : null;
+                    node = siblings.Count >= index ? siblings[++index] : null;
                 }
             });
 
             return result;
         }
 
-        public static bool IsMatchingEndTag(XElement element, string id)
+        public static bool IsMatchingEndTag(XNode node, string id)
         {
+            var element = node.Cast();
+            if (element == null)
+            {
+                return false;
+            }
             return element.Name.LocalName.Equals("span", StringComparison.OrdinalIgnoreCase)
                    && element.HasAttributes
                    &&
@@ -309,8 +324,13 @@ namespace TabulateSmarterTestContentPackage.Validators
                        .Value.Equals("end", StringComparison.OrdinalIgnoreCase);
         }
 
-        public static bool IsStartingTag(XElement element)
+        public static bool IsStartingTag(XNode node)
         {
+            var element = node.Cast();
+            if (element == null)
+            {
+                return false;
+            }
             return element.Name.LocalName.Equals("span", StringComparison.OrdinalIgnoreCase)
                    && element.HasAttributes
                    && element.Attributes().Any(x => x.Name.LocalName.Equals("id", StringComparison.OrdinalIgnoreCase))
@@ -334,7 +354,7 @@ namespace TabulateSmarterTestContentPackage.Validators
             ItemContext itemContext, ErrorSeverity errorSeverity, IDictionary<string, int> terms)
         {
             var result = true;
-            var words = rootElement.DescendantsAndSelf().Where(x => x.NodeType == XmlNodeType.Text).Select(x => x.Value);
+            var words = rootElement.DescendantNodesAndSelf().Where(x => x.NodeType == XmlNodeType.Text).Select(x => x.ToString());
             terms.Keys.ToList().ForEach(x =>
             {
                 if (!IsValidTag(x))
@@ -347,18 +367,18 @@ namespace TabulateSmarterTestContentPackage.Validators
                         $"Tagged section {x} contains an illegal character. Only letters, punctuation, " +
                         "and spaces are permitted");
                 }
-                var wordcount = words.Count(y => y.Contains(x));
-                if (wordcount != terms[x])
+                var wordMatches = words.Where(y => y.Contains(x)).ToList();
+                if (wordMatches.Count() != terms[x])
                 {
                     result = false;
                     Logger.Error(
-                        $"There is a mismatch between the incidence of the glossary term {x} " +
-                        $"within a formal glossary element {terms[x]} " +
-                        $"and the incidence of the same term within the text of the CData element {wordcount}");
+                        $"There is a mismatch between the incidence of the glossary term '{x}' " +
+                        $"within a formal glossary element '{terms[x]}' " +
+                        $"and the incidence of the same term within the text of the CData element [{wordMatches.Aggregate((y,z) => $"'{y}'|'{z}'")}]");
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
-                        $"There is a mismatch between the incidence of the glossary term {x}"
-                        + $" within a formal glossary element {terms[x]}"
-                        + $" and the incidence of the same term within the text of the CData element {wordcount}"
+                        $"There is a mismatch between the incidence of the glossary term '{x}'"
+                        + $" within a formal glossary element '{terms[x]}'"
+                        + $" and the incidence of the same term within the text of the CData element [{wordMatches.Aggregate((y, z) => $"'{y}'|'{z}'")}]"
                     );
                 }
             });
