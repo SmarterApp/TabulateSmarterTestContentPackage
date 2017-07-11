@@ -367,7 +367,8 @@ namespace TabulateSmarterTestContentPackage.Validators
                         $"Tagged section {x} contains an illegal character. Only letters, punctuation, " +
                         "and spaces are permitted");
                 }
-                var wordMatches = words.Where(y => y.Contains(x)).ToList();
+                var regex = @"(?>^|\W+)(" + x + @")(?>\W+|$)";
+                var wordMatches = words.Where(y => Regex.Matches(y, regex, RegexOptions.IgnoreCase).Count > 0).ToList();
                 if (wordMatches.Count() != terms[x])
                 {
                     result = false;
