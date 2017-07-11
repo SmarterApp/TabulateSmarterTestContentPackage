@@ -60,7 +60,7 @@ namespace TabulateSmarterTestContentPackage.Tests.Validators
             var node = XDocument.Parse(nodeText).Root;
             var dictionary = new Dictionary<string, int>
             {
-                {"over", 1 }
+                {"over", 1}
             };
 
             // Act
@@ -69,80 +69,6 @@ namespace TabulateSmarterTestContentPackage.Tests.Validators
 
             // Assert
             Assert.IsTrue(result);
-        }
-
-        // There are non-tagged duplicates of tagged terms
-        [Test]
-        public void NotAllTermsTaggedShouldReturnFalse()
-        {
-            // Arrange
-            const string nodeText =
-                "<choiceInteraction responseIdentifier=\"EBSR2\" shuffle=\"false\" maxChoice=\"1\"><prompt>"
-                +
-                "<p style=\"\">Which sentence from the passage <span style=\"\">best </span>supports your answer in part A?</p></prompt>"
-                + "<simpleChoice identifier=\"A\">"
-                +
-                "<span id=\"item_2493_TAG_10\" class=\"its-tag\" data-tag=\"word\" data-tag-boundary=\"start\" data-word-index=\"1\"></span>over<span class=\"its-tag\" data-tag-ref=\"item_2493_TAG_10\" data-tag-boundary=\"end\"></span>"
-                +
-                "<p style=\"\">“A bird's nest sat right in the middle of over <span id=\"item_2493_TAG_5_BEGIN\">Mrs.</span> Baxter's wreath.”</p></simpleChoice>"
-                + "<simpleChoice identifier=\"B\">"
-                +
-                "<p style=\"\">“Jessie and <span id=\"item_2493_TAG_6_BEGIN\">Mrs.</span> Baxter talked about the birds for a while.”</p></simpleChoice>"
-                + "<simpleChoice identifier=\"C\">"
-                + "<p style=\"\">“One morning, Jessie saw a pink head poking out of the nest.”</p></simpleChoice>"
-                + "<simpleChoice identifier=\"D\">"
-                +
-                "<p style=\"\">“‘You can't use this door,’ Jessie said, holding her arms out stiff.”</p></simpleChoice></choiceInteraction>";
-            var node = XDocument.Parse(nodeText).Root;
-            var dictionary = new Dictionary<string, int>
-            {
-                {"over", 1 }
-            };
-
-            // Act
-            var result = CDataValidator.AllMatchingTermsTagged(node, new ItemContext(null, null, null, null),
-                ErrorSeverity.Degraded, dictionary);
-
-            // Assert
-            Assert.IsFalse(result);
-        }
-
-        // There are tagged terms within other tags ('over' and 'over again' both contain distinct term 'over')
-        [Test]
-        public void OverlappingTagsShouldReturnFalse()
-        {
-            // Arrange
-            const string nodeText =
-                "<choiceInteraction responseIdentifier=\"EBSR2\" shuffle=\"false\" maxChoice=\"1\"><prompt>"
-                +
-                "<p style=\"\">Which sentence from the passage <span style=\"\">best </span>supports your answer in part A?</p></prompt>"
-                + "<simpleChoice identifier=\"A\">"
-                +
-                "<span id=\"item_2493_TAG_10\" class=\"its-tag\" data-tag=\"word\" data-tag-boundary=\"start\" data-word-index=\"1\"></span>over<span class=\"its-tag\" data-tag-ref=\"item_2493_TAG_10\" data-tag-boundary=\"end\"></span>"
-                + "<span id=\"item_2493_TAG_11\" class=\"its-tag\" data-tag=\"word\" data-tag-boundary=\"start\" data-word-index=\"1\"></span>over again<span class=\"its-tag\" data-tag-ref=\"item_2493_TAG_11\" data-tag-boundary=\"end\"></span>"
-                +
-                "<p style=\"\">“A bird's nest sat right in the middle of <span id=\"item_2493_TAG_5_BEGIN\">Mrs.</span> Baxter's wreath.”</p></simpleChoice>"
-                + "<simpleChoice identifier=\"B\">"
-                +
-                "<p style=\"\">“Jessie and <span id=\"item_2493_TAG_6_BEGIN\">Mrs.</span> Baxter talked about the birds for a while.”</p></simpleChoice>"
-                + "<simpleChoice identifier=\"C\">"
-                + "<p style=\"\">“One morning, Jessie saw a pink head poking out of the nest.”</p></simpleChoice>"
-                + "<simpleChoice identifier=\"D\">"
-                +
-                "<p style=\"\">“‘You can't use this door,’ Jessie said, holding her arms out stiff.”</p></simpleChoice></choiceInteraction>";
-            var node = XDocument.Parse(nodeText).Root;
-            var dictionary = new Dictionary<string, int>
-            {
-                {"over", 1 },
-                {"over again", 1 }
-            };
-
-            // Act
-            var result = CDataValidator.AllMatchingTermsTagged(node, new ItemContext(null, null, null, null),
-                ErrorSeverity.Degraded, dictionary);
-
-            // Assert
-            Assert.IsFalse(result);
         }
 
         [Test]
@@ -298,6 +224,81 @@ namespace TabulateSmarterTestContentPackage.Tests.Validators
             Assert.IsFalse(result);
         }
 
+        // There are non-tagged duplicates of tagged terms
+        [Test]
+        public void NotAllTermsTaggedShouldReturnFalse()
+        {
+            // Arrange
+            const string nodeText =
+                "<choiceInteraction responseIdentifier=\"EBSR2\" shuffle=\"false\" maxChoice=\"1\"><prompt>"
+                +
+                "<p style=\"\">Which sentence from the passage <span style=\"\">best </span>supports your answer in part A?</p></prompt>"
+                + "<simpleChoice identifier=\"A\">"
+                +
+                "<span id=\"item_2493_TAG_10\" class=\"its-tag\" data-tag=\"word\" data-tag-boundary=\"start\" data-word-index=\"1\"></span>over<span class=\"its-tag\" data-tag-ref=\"item_2493_TAG_10\" data-tag-boundary=\"end\"></span>"
+                +
+                "<p style=\"\">“A bird's nest sat right in the middle of over <span id=\"item_2493_TAG_5_BEGIN\">Mrs.</span> Baxter's wreath.”</p></simpleChoice>"
+                + "<simpleChoice identifier=\"B\">"
+                +
+                "<p style=\"\">“Jessie and <span id=\"item_2493_TAG_6_BEGIN\">Mrs.</span> Baxter talked about the birds for a while.”</p></simpleChoice>"
+                + "<simpleChoice identifier=\"C\">"
+                + "<p style=\"\">“One morning, Jessie saw a pink head poking out of the nest.”</p></simpleChoice>"
+                + "<simpleChoice identifier=\"D\">"
+                +
+                "<p style=\"\">“‘You can't use this door,’ Jessie said, holding her arms out stiff.”</p></simpleChoice></choiceInteraction>";
+            var node = XDocument.Parse(nodeText).Root;
+            var dictionary = new Dictionary<string, int>
+            {
+                {"over", 1}
+            };
+
+            // Act
+            var result = CDataValidator.AllMatchingTermsTagged(node, new ItemContext(null, null, null, null),
+                ErrorSeverity.Degraded, dictionary);
+
+            // Assert
+            Assert.IsFalse(result);
+        }
+
+        // There are tagged terms within other tags ('over' and 'over again' both contain distinct term 'over')
+        [Test]
+        public void OverlappingTagsShouldReturnFalse()
+        {
+            // Arrange
+            const string nodeText =
+                "<choiceInteraction responseIdentifier=\"EBSR2\" shuffle=\"false\" maxChoice=\"1\"><prompt>"
+                +
+                "<p style=\"\">Which sentence from the passage <span style=\"\">best </span>supports your answer in part A?</p></prompt>"
+                + "<simpleChoice identifier=\"A\">"
+                +
+                "<span id=\"item_2493_TAG_10\" class=\"its-tag\" data-tag=\"word\" data-tag-boundary=\"start\" data-word-index=\"1\"></span>over<span class=\"its-tag\" data-tag-ref=\"item_2493_TAG_10\" data-tag-boundary=\"end\"></span>"
+                +
+                "<span id=\"item_2493_TAG_11\" class=\"its-tag\" data-tag=\"word\" data-tag-boundary=\"start\" data-word-index=\"1\"></span>over again<span class=\"its-tag\" data-tag-ref=\"item_2493_TAG_11\" data-tag-boundary=\"end\"></span>"
+                +
+                "<p style=\"\">“A bird's nest sat right in the middle of <span id=\"item_2493_TAG_5_BEGIN\">Mrs.</span> Baxter's wreath.”</p></simpleChoice>"
+                + "<simpleChoice identifier=\"B\">"
+                +
+                "<p style=\"\">“Jessie and <span id=\"item_2493_TAG_6_BEGIN\">Mrs.</span> Baxter talked about the birds for a while.”</p></simpleChoice>"
+                + "<simpleChoice identifier=\"C\">"
+                + "<p style=\"\">“One morning, Jessie saw a pink head poking out of the nest.”</p></simpleChoice>"
+                + "<simpleChoice identifier=\"D\">"
+                +
+                "<p style=\"\">“‘You can't use this door,’ Jessie said, holding her arms out stiff.”</p></simpleChoice></choiceInteraction>";
+            var node = XDocument.Parse(nodeText).Root;
+            var dictionary = new Dictionary<string, int>
+            {
+                {"over", 1},
+                {"over again", 1}
+            };
+
+            // Act
+            var result = CDataValidator.AllMatchingTermsTagged(node, new ItemContext(null, null, null, null),
+                ErrorSeverity.Degraded, dictionary);
+
+            // Assert
+            Assert.IsFalse(result);
+        }
+
         [Test]
         public void RetrieveAllCData()
         {
@@ -385,6 +386,41 @@ namespace TabulateSmarterTestContentPackage.Tests.Validators
 
             // Assert
             Assert.IsTrue(result);
+        }
+
+        [Test]
+        public void ValidStartEndTagsShouldReturnValidDictionary()
+        {
+            // Arrange
+            const string nodeText =
+                "<choiceInteraction responseIdentifier=\"EBSR2\" shuffle=\"false\" maxChoice=\"1\"><prompt>"
+                +
+                "<p style=\"\">Which sentence from the passage <span style=\"\">best </span>supports your answer in part A?</p></prompt>"
+                + "<simpleChoice identifier=\"A\">"
+                +
+                "<span id=\"item_2493_TAG_10\" class=\"its-tag\" data-tag=\"word\" data-tag-boundary=\"start\" data-word-index=\"1\"></span>over<span class=\"its-tag\" data-tag-ref=\"item_2493_TAG_10\" data-tag-boundary=\"end\"></span>"
+                +
+                "<span id=\"item_2493_TAG_11\" class=\"its-tag\" data-tag=\"word\" data-tag-boundary=\"start\" data-word-index=\"1\"></span>over again<span class=\"its-tag\" data-tag-ref=\"item_2493_TAG_11\" data-tag-boundary=\"end\"></span>"
+                +
+                "<p style=\"\">“A bird's nest sat right in the middle of <span id=\"item_2493_TAG_5_BEGIN\">Mrs.</span> Baxter's wreath.”</p></simpleChoice>"
+                + "<simpleChoice identifier=\"B\">"
+                +
+                "<p style=\"\">“Jessie and <span id=\"item_2493_TAG_6_BEGIN\">Mrs.</span> Baxter talked about the birds for a while.”</p></simpleChoice>"
+                + "<simpleChoice identifier=\"C\">"
+                + "<p style=\"\">“One morning, Jessie saw a pink head poking out of the nest.”</p></simpleChoice>"
+                + "<simpleChoice identifier=\"D\">"
+                +
+                "<p style=\"\">“‘You can't use this door,’ Jessie said, holding her arms out stiff.”</p></simpleChoice></choiceInteraction>";
+            var node = XDocument.Parse(nodeText).Root;
+
+            // Act
+            var result = CDataValidator.CDataGlossaryTagStartAndEndTagsLineUpAppropriately(node, new ItemContext(null, null, null, null), ErrorSeverity.Benign);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.AreEqual(result.Keys.Count, 2);
+            Assert.IsTrue(result.Keys.Contains("over again"));
+            Assert.IsTrue(result.Values.All(x => x == 1));
         }
     }
 }
