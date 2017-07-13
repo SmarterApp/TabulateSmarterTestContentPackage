@@ -7,6 +7,7 @@ using System.Linq;
 using System.Xml;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
+using System.Xml.XPath;
 using TabulateSmarterTestContentPackage.Extensions;
 using TabulateSmarterTestContentPackage.Extractors;
 using TabulateSmarterTestContentPackage.Mappers;
@@ -114,6 +115,9 @@ namespace TabulateSmarterTestContentPackage
         TextWriter mGlossaryReport;
         string mSummaryReportPath;
 
+        // Statistical Variables
+        public IList<ASLVideo> TextAndVideoRatios { get; set; } = new List<ASLVideo>();
+
         // Tabulate a package in the specified directory
         public void TabulateOne(string path)
         {
@@ -199,7 +203,7 @@ namespace TabulateSmarterTestContentPackage
         // Tabulate packages in subdirectories and aggregate the results
         public void TabulateAggregate(string rootPath)
         {
-            DirectoryInfo diRoot = new DirectoryInfo(rootPath);
+            var diRoot = new DirectoryInfo(rootPath);
             try
             {
                 Initialize(Path.Combine(rootPath, "Aggregate"));
@@ -215,9 +219,9 @@ namespace TabulateSmarterTestContentPackage
                 }
 
                 // Tabulate packed packages
-                foreach (FileInfo fiPackageFile in diRoot.GetFiles("*.zip"))
+                foreach (var fiPackageFile in diRoot.GetFiles("*.zip"))
                 {
-                    string filepath = fiPackageFile.FullName;
+                    var filepath = fiPackageFile.FullName;
                     Console.WriteLine("Opening " + fiPackageFile.Name);
                     using (ZipFileTree tree = new ZipFileTree(filepath))
                     {
@@ -409,6 +413,9 @@ namespace TabulateSmarterTestContentPackage
                     ReportingUtility.ReportError(it, ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
                 }
             }
+
+            //var stdDev = MathUtility.StandardDeviation(TextAndVideoRatios.Select(x => (double)x.StimLength).ToList());
+            Console.Write("test");
         }
 
         private void TabulateItem_Pass1(FileFolder ffItem)
@@ -1259,7 +1266,7 @@ namespace TabulateSmarterTestContentPackage
                     }
                     catch (Exception err)
                     {
-                        LoadXmlErrorDetail = string.Format("filename='{0}' detail='{1}'", Path.GetFileName(filename), err.Message);
+                        LoadXmlErrorDetail = $"filename='{Path.GetFileName(filename)}' detail='{err.Message}'";
                         return false;
                     }
                 }
@@ -1267,41 +1274,43 @@ namespace TabulateSmarterTestContentPackage
             return true;
         }
 
-        bool CheckForAttachment(ItemContext it, XmlDocument xml, string attachType, string expectedExtension)
+        public static string GetAttachmentFilename(ItemContext it, XmlDocument xml, string attachType)
         {
-            string xp = (!it.IsPassage)
+            var xp = !it.IsPassage
                 ? string.Concat("itemrelease/item/content/attachmentlist/attachment[@type='", attachType, "']")
                 : string.Concat("itemrelease/passage/content/attachmentlist/attachment[@type='", attachType, "']");
 
-            XmlElement xmlEle = xml.SelectSingleNode(xp) as XmlElement;
-            if (xmlEle != null)
-            {
-                string filename = xmlEle.GetAttribute("file");
-                if (string.IsNullOrEmpty(filename))
-                {
-                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Attachment missing file attribute.", "attachType='{0}'", attachType);
-                    return false;
-                }
-                if (!it.FfItem.FileExists(filename))
-                {
-                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Dangling reference to attached file that does not exist.", "attachType='{0}' Filename='{1}'", attachType, filename);
-                    return false;
-                }
+            var xmlEle = xml.SelectSingleNode(xp) as XmlElement;
+            return xmlEle?.GetAttribute("file") ?? string.Empty;
 
-                string extension = Path.GetExtension(filename);
-                if (extension.Length > 0) extension = extension.Substring(1); // Strip leading "."
-                if (!string.Equals(extension, expectedExtension, StringComparison.OrdinalIgnoreCase))
-                {
-                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, "Unexpected extension for attached file.", "attachType='{0}' extension='{1}' expected='{2}' filename='{3}'", attachType, extension, expectedExtension, filename);
-                }
-                return true;
-            }
-            return false;
         }
 
-        void ReportUnexpectedFiles(ItemContext it, string fileType, string regexPattern, params object[] args)
+        static bool CheckForAttachment(ItemContext it, XmlDocument xml, string attachType, string expectedExtension)
         {
-            Regex regex = new Regex(string.Format(regexPattern, args));
+            var fileName = GetAttachmentFilename(it, xml, attachType);
+            if (string.IsNullOrEmpty(fileName))
+            {
+                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Attachment missing file attribute.", "attachType='{0}'", attachType);
+                return false;
+            }
+            if (!it.FfItem.FileExists(fileName))
+            {
+                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Dangling reference to attached file that does not exist.", "attachType='{0}' Filename='{1}'", attachType, fileName);
+                return false;
+            }
+
+            var extension = Path.GetExtension(fileName);
+            if (extension.Length > 0) extension = extension.Substring(1); // Strip leading "."
+            if (!string.Equals(extension, expectedExtension, StringComparison.OrdinalIgnoreCase))
+            {
+                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, "Unexpected extension for attached file.", "attachType='{0}' extension='{1}' expected='{2}' filename='{3}'", attachType, extension, expectedExtension, fileName);
+            }
+            return true;
+        }
+
+        static void ReportUnexpectedFiles(ItemContext it, string fileType, string regexPattern, params object[] args)
+        {
+            var regex = new Regex(string.Format(regexPattern, args));
             foreach (FileFile file in it.FfItem.Files)
             {
                 Match match = regex.Match(file.Name);
@@ -1312,7 +1321,7 @@ namespace TabulateSmarterTestContentPackage
             }
         }
 
-        void CheckDependencyInManifest(ItemContext it, string dependencyFilename, string dependencyType)
+        private void CheckDependencyInManifest(ItemContext it, string dependencyFilename, string dependencyType)
         {
             // Suppress manifest checks if the manifest is empty
             if (mFilenameToResourceId.Count == 0) return;
@@ -1340,12 +1349,31 @@ namespace TabulateSmarterTestContentPackage
             }
         }
 
-        string GetAslType(ItemContext it, XmlDocument xml, XmlDocument xmlMetadata)
+        private string GetAslType(ItemContext it, XmlDocument xml, XmlDocument xmlMetadata)
         {
-            bool aslFound = CheckForAttachment(it, xml, "ASL", "MP4");
-            if (!aslFound) ReportUnexpectedFiles(it, "ASL video", "^item_{0}_ASL", it.ItemId);
+            var aslFound = CheckForAttachment(it, xml, "ASL", "MP4");
+            if (!aslFound)
+            {
+                ReportUnexpectedFiles(it, "ASL video", "^item_{0}_ASL", it.ItemId);
+            }
+            else
+            {
+                var attachmentFile = GetAttachmentFilename(it, xml, "MP4");
+                if (!string.IsNullOrEmpty(attachmentFile))
+                {
+                    TextAndVideoRatios.Add(new ASLVideo
+                    {
+                        ItemContext = it,
+                        StimLength =
+                            xml.MapToXDocument()
+                                .XPathSelectElement("itemrelease/item/content[@language='ENU']/stem")
+                                .Value.Length,
+                        VideoDurationMilliseconds = Mp4.GetDuration(attachmentFile)
+                    });
+                }
+            }
 
-            bool aslInMetadata = string.Equals(xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:AccessibilityTagsASLLanguage", sXmlNs), "Y", StringComparison.OrdinalIgnoreCase);
+            var aslInMetadata = string.Equals(xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:AccessibilityTagsASLLanguage", sXmlNs), "Y", StringComparison.OrdinalIgnoreCase);
             if (aslInMetadata && !aslFound) ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Severe, "Item metadata specifies ASL but no ASL in item.");
             if (!aslInMetadata && aslFound) ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Item has ASL but not indicated in the metadata.");
 
