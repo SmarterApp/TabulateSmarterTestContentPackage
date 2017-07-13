@@ -218,6 +218,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                 rootElement.XPathSelectElements(".//span[@data-tag='word' and @data-tag-boundary='start']").ToList();
             glossaryTags.ForEach(x =>
             {
+                ReportInappropriateGlossarySpanValues(x, itemContext, errorSeverity);
                 var id =
                     x.Attributes()
                         .FirstOrDefault(y => y.Name.LocalName.Equals("id", StringComparison.OrdinalIgnoreCase))?
@@ -235,18 +236,34 @@ namespace TabulateSmarterTestContentPackage.Validators
                 // Ensure that the start tag has a matching sibling end tag before continuing
                 if (siblings.All(y => !IsMatchingEndTag(y, id)))
                 {
-                    Logger.Error($"Glossary start tag {x} does not have a matching sibling end tag");
+                    Logger.Error($"Glossary start tag '{x}' does not have a matching sibling end tag");
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Wordlist, errorSeverity,
-                        $"Glossary start tag {x} does not have a matching sibling end tag");
+                        $"Glossary start tag '{x}' does not have a matching sibling end tag");
                     return;
                 }
                 var node = siblings.FirstOrDefault();
                 var index = 0;
 
+                // Empty glossary term
+                if (IsMatchingEndTag(node, id))
+                {
+                    ReportInappropriateGlossarySpanValues(node.Cast(), itemContext, errorSeverity);
+                    Logger.Error($"Glossary tag '{x}' does not have a value");
+                    ReportingUtility.ReportError(itemContext, ErrorCategory.Wordlist, errorSeverity,
+                        $"Glossary tag '{x}' does not have a value");
+                    return;
+                }
+
                 var closingSpanTag = false;
 
-                while (node != null && !IsMatchingEndTag(node, id))
+                while (node != null)
                 {
+                    if (IsMatchingEndTag(node, id))
+                    {
+                        ReportInappropriateGlossarySpanValues(node.Cast(), itemContext, errorSeverity);
+                        return;
+                    }
+
                     var element = node.Cast();
                     // The first element we expect to find as a sibling is the closing span tag to match the opening one
                     if (element != null && element.Name.LocalName.Equals("span", StringComparison.OrdinalIgnoreCase) && element.IsEmpty)
@@ -261,7 +278,8 @@ namespace TabulateSmarterTestContentPackage.Validators
                         Logger.Error($"Glossary tag {x} has an illegally nested value '{element.Value}'");
                         ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
                             $"Glossary tag {x} has an illegally nested value '{element.Value}'");
-                        return;
+                        node = siblings.Count >= index ? siblings[index++] : null;
+                        continue;
                     }
                     // There's a glossary term here
                     if (node.NodeType == XmlNodeType.Text)
@@ -285,6 +303,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                         Logger.Error($"Glossary tag {element ?? node} overlaps with another tag {x}");
                         ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
                             $"Glossary tag {element ?? node} overlaps with another tag {x}");
+                        node = siblings.Count >= index ? siblings[index++] : null;
                         return;
                     }
                     // We found something that shouldn't be here
@@ -322,6 +341,16 @@ namespace TabulateSmarterTestContentPackage.Validators
                    element.Attributes()
                        .First(x => x.Name.LocalName.Equals("data-tag-boundary", StringComparison.OrdinalIgnoreCase))
                        .Value.Equals("end", StringComparison.OrdinalIgnoreCase);
+        }
+
+        public static void ReportInappropriateGlossarySpanValues(XElement element, ItemContext itemContext, ErrorSeverity errorSeverity)
+        {
+            if (!string.IsNullOrEmpty(element.Value))
+            {
+                Logger.Error($"Glossary element '{element}' contains inappropriate value '{element.Value}'");
+                ReportingUtility.ReportError(itemContext, ErrorCategory.Wordlist, errorSeverity,
+                    $"Glossary element '{element}' contains inappropriate value '{element.Value}'");
+            }
         }
 
         public static bool IsStartingTag(XNode node)
