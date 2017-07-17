@@ -62,7 +62,6 @@
     <Compile Include="FileFolder.cs" />
     <Compile Include="HtmlReader.cs" />
     <Compile Include="Mappers\XmlMapper.cs" />
-    <Compile Include="Models\ASLVideo.cs" />
     <Compile Include="Models\ErrorCategory.cs" />
     <Compile Include="Models\ErrorSeverity.cs" />
     <Compile Include="Models\HtmlImageTag.cs" />

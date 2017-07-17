@@ -119,10 +119,6 @@ namespace TabulateSmarterTestContentPackage
         TextWriter mGlossaryReport;
         string mSummaryReportPath;
 
-        // Statistical Variables
-        public IList<AslVideo> TextAndVideoRatios { get; set; } = new List<AslVideo>();
-        public IList<XElement> ErnieElements { get; set; } = new List<XElement>();
-
         // Tabulate a package in the specified directory
         public void TabulateOne(string path)
         {
@@ -418,17 +414,6 @@ namespace TabulateSmarterTestContentPackage
                     ReportingUtility.ReportError(it, ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
                 }
             }
-
-            var throwTheseOut = TextAndVideoRatios.Where(x => x.StimLength == 0 || x.VideoDurationMilliseconds == 0);
-            var ratioOfTextToVideo =
-                TextAndVideoRatios.Where(x => x.StimLength != 0 && x.VideoDurationMilliseconds != 0)
-                    .Select(x => (((double)x.VideoDurationMilliseconds)*1000) / x.StimLength).ToList();
-            var stdDev = MathUtility.StandardDeviation(ratioOfTextToVideo);
-            var mean = ratioOfTextToVideo.Average();
-            ReportingUtility.ReportError(new ItemContext(this, null, "info", null), ErrorCategory.Metadata, ErrorSeverity.Severe, 
-                $"Standard Deviation of items: {stdDev} Mean: {mean} Count: {ratioOfTextToVideo.Count} Items: " +
-                $"[{TextAndVideoRatios.Select(x => x.ItemContext.ItemId).Aggregate((y,z) => $"{y}|{z}")}] " +
-                $"Removed: [{throwTheseOut.Select(x => x.ItemContext.ItemId).Aggregate((y, z) => $"{y}|{z}")}]");
         }
 
         private void TabulateItem_Pass1(FileFolder ffItem)
@@ -485,16 +470,6 @@ namespace TabulateSmarterTestContentPackage
 
             // count wordlist reference
             CountWordlistReferences(it, xml);
-
-
-            var xdoc = xml.MapToXDocument();
-            var element = xdoc.XPathSelectElement("itemrelease/item/content[@language='ENU']/constraints");
-            if (element != null)
-            {
-                ErnieElements.Add(element);
-                Logger.Error($"{itemId} Element: {element} Value: {element.Value}");
-                ReportingUtility.ReportError(it, ErrorCategory.Unsupported, ErrorSeverity.Severe, $"Element: {element}");
-            }
         }
 
         private void TabulateStim_Pass1(FileFolder ffItem)
@@ -1379,7 +1354,7 @@ namespace TabulateSmarterTestContentPackage
             {
                 ReportUnexpectedFiles(it, "ASL video", "^item_{0}_ASL", it.ItemId);
             }
-            else if(!it.IsPassage)
+            else if(!it.IsPassage && Program.gValidationOptions.IsEnabled("asl"))
             {
                 var attachmentFile = GetAttachmentFilename(it, xml, "ASL");
                 FileFolder ffItems;
@@ -1388,17 +1363,27 @@ namespace TabulateSmarterTestContentPackage
                 {
                     try
                     {
-                        TextAndVideoRatios.Add(new AslVideo
+                        var videoSeconds = Mp4VideoUtility.GetDuration(Path.Combine(((FsFolder) ffItems).mPhysicalPath,
+                                               it.FfItem.Name,
+                                               attachmentFile)) * 1000;
+                        var characterCount = xml.MapToXDocument()
+                             .XPathSelectElement("itemrelease/item/content[@language='ENU']/stem")?
+                             .Value.Length;
+                        if (characterCount == null || characterCount == 0)
                         {
-                            ItemContext = it,
-                            StimLength =
-                                xml.MapToXDocument()
-                                    .XPathSelectElement("itemrelease/item/content[@language='ENU']/stem")?
-                                    .Value.Length ?? 0,
-                            VideoDurationMilliseconds =
-                                Mp4VideoUtility.GetDuration(Path.Combine(((FsFolder) ffItems).mPhysicalPath, it.FfItem.Name,
-                                    attachmentFile))
-                        });
+                            ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
+                                "ASL enabled element does not contain an english language stem");
+                        }
+                        else if(videoSeconds/characterCount > 
+                                TabulatorSettings.AslMean+TabulatorSettings.AslStandardDeviation*TabulatorSettings.AslTolerance
+                                || videoSeconds/characterCount <
+                                TabulatorSettings.AslMean - TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslTolerance)
+                        {
+                                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
+                                    $"ASL enabled element's video length to character count ratio {videoSeconds/characterCount} falls more than " +
+                                    $"{TabulatorSettings.AslTolerance} standard deviations ({TabulatorSettings.AslStandardDeviation}) from" +
+                                    $"the mean value {TabulatorSettings.AslMean}.");
+                            }
                     }
                     catch (Exception ex)
                     {
