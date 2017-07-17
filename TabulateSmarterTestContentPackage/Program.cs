@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using NLog;
+using TabulateSmarterTestContentPackage.Utilities;
 using Win32Interop;
 
 namespace TabulateSmarterTestContentPackage
@@ -8,8 +9,8 @@ namespace TabulateSmarterTestContentPackage
     internal class Program
     {
 // 78 character margin                                                       |
-        private const string cSyntax = 
-@"Syntax: TabulateSmarterTestContentPackage [options] <path>
+        private const string cSyntax =
+            @"Syntax: TabulateSmarterTestContentPackage [options] <path>
 
 Options:
     -s       Individually tabulate each package in Subdirectories of the
@@ -46,6 +47,9 @@ Validation Options:
             tutorial references and dependencies. This is valuable when
             tutorials are packaged separately from the balance of the
             content.
+    -v-asl  ASL video: Disables checking for ASL video whose ratio of video
+            length to item stim length falls outside of two standard deviations
+            from mean (adjustible through app.config).
 
     -v+all  Enable all optional validation and tabulation features.
     -v+ebt  Embedded Braille Text: Enables checking embedded <brailleText>
@@ -92,13 +96,13 @@ Error severity definitions:
             long startTicks = Environment.TickCount;
 
             // Default options
-            gValidationOptions.Disable("ebt");  // Disable EmptyBrailleText test.
-            gValidationOptions.Disable("tgs");  // Disable Target Grade Suffix
-            gValidationOptions.Disable("umf");  // Disable checking for Unreferenced Media Files
-            gValidationOptions.Disable("gtr");  // Disable Glossary Text Report
-            gValidationOptions.Disable("uwt");  // Disable Glossary Text Report
-            gValidationOptions.Disable("mwa");  // Disable checking for attachments on unreferenced wordlist terms
-            gValidationOptions.Disable("iat");  // Disable checking for images without alternate text
+            gValidationOptions.Disable("ebt"); // Disable EmptyBrailleText test.
+            gValidationOptions.Disable("tgs"); // Disable Target Grade Suffix
+            gValidationOptions.Disable("umf"); // Disable checking for Unreferenced Media Files
+            gValidationOptions.Disable("gtr"); // Disable Glossary Text Report
+            gValidationOptions.Disable("uwt"); // Disable Unreferenced Wordlist Terms
+            gValidationOptions.Disable("mwa"); // Disable checking for attachments on unreferenced wordlist terms
+            gValidationOptions.Disable("iat"); // Disable checking for images without alternate text
 
             try
             {
@@ -120,20 +124,27 @@ Error severity definitions:
                                 operation = 'h'; // Help
                                 break;
                             case 'v':
-                                if (arg[2] != '+' && arg[2] != '-') throw new ArgumentException("Invalid command-line option: " + arg);
+                                if (arg[2] != '+' && arg[2] != '-')
                                 {
-                                    var key = arg.Substring(3).ToLowerInvariant();
-                                    var value = arg[2] == '+';
-                                    if (key.Equals("all", StringComparison.Ordinal))
-                                    {
-                                        if (!value) throw new ArgumentException("Invalid command-line option '-v-all'. Options must be disabled one at a time.");
-                                        gValidationOptions.EnableAll();
-                                    }
-                                    else
-                                    {
-                                        gValidationOptions[key] = value;
-                                    }
+                                    throw new ArgumentException("Invalid command-line option: " + arg);
                                 }
+                            {
+                                var key = arg.Substring(3).ToLowerInvariant();
+                                var value = arg[2] == '+';
+                                if (key.Equals("all", StringComparison.Ordinal))
+                                {
+                                    if (!value)
+                                    {
+                                        throw new ArgumentException(
+                                            "Invalid command-line option '-v-all'. Options must be disabled one at a time.");
+                                    }
+                                    gValidationOptions.EnableAll();
+                                }
+                                else
+                                {
+                                    gValidationOptions[key] = value;
+                                }
+                            }
                                 break;
                             default:
                                 throw new ArgumentException("Unexpected command-line option: " + arg);
@@ -152,6 +163,11 @@ Error severity definitions:
                 if (rootPath == null)
                 {
                     operation = 'h';
+                }
+
+                if (gValidationOptions.IsEnabled("asl"))
+                {
+                    SettingsUtility.RetrieveAslValues();
                 }
 
                 var tab = new Tabulator();
@@ -173,7 +189,6 @@ Error severity definitions:
                         Console.WriteLine(cSyntax);
                         break;
                 }
-
             }
             catch (Exception ex)
             {
@@ -206,7 +221,7 @@ Error severity definitions:
 
         public void EnableAll()
         {
-            Clear();    // Since options default to enabled, clearing enables all.
+            Clear(); // Since options default to enabled, clearing enables all.
         }
 
         public bool IsEnabled(string option)
@@ -214,6 +229,5 @@ Error severity definitions:
             bool value;
             return !TryGetValue(option, out value) || value;
         }
-
     }
 }
