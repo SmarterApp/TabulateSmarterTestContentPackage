@@ -475,7 +475,7 @@ namespace TabulateSmarterTestContentPackage
         private void TabulateStim_Pass1(FileFolder ffItem)
         {
             // Read the item XML
-            XmlDocument xml = new XmlDocument(sXmlNt);
+            var xml = new XmlDocument(sXmlNt);
             if (!TryLoadXml(ffItem, ffItem.Name + ".xml", xml))
             {
                 ReportingUtility.ReportError(new ItemContext(this, ffItem, null, null), ErrorCategory.Item, ErrorSeverity.Severe, "Invalid stimulus file.", LoadXmlErrorDetail);
@@ -483,7 +483,7 @@ namespace TabulateSmarterTestContentPackage
             }
 
             // See if passage
-            XmlElement xmlPassage = xml.SelectSingleNode("itemrelease/passage") as XmlElement;
+            var xmlPassage = xml.SelectSingleNode("itemrelease/passage") as XmlElement;
             if (xmlPassage == null) throw new InvalidDataException("Stimulus does not have passage xml.");
 
             string itemType = "pass";
@@ -839,8 +839,14 @@ namespace TabulateSmarterTestContentPackage
                 }
             }
 
-            var primaryStandards = ItemStandardExtractor.Extract(xmlMetadata.MapToXElement()).ToList();
-            var secondaryStandards = ItemStandardExtractor.Extract(xmlMetadata.MapToXElement(), "SecondaryStandard").ToList();
+            var primaryStandards = new List<ItemStandard>();
+            var secondaryStandards = new List<ItemStandard>();
+            if (!string.IsNullOrEmpty(xmlMetadata.OuterXml))
+            {
+                primaryStandards = ItemStandardExtractor.Extract(xmlMetadata.MapToXElement()).ToList();
+                secondaryStandards =
+                    ItemStandardExtractor.Extract(xmlMetadata.MapToXElement(), "SecondaryStandard").ToList();
+            }
             if (primaryStandards.Any(x => string.IsNullOrEmpty(x.Standard)))
             {
                 ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Degraded, "No PrimaryStandard specified in metadata.");
@@ -1374,14 +1380,15 @@ namespace TabulateSmarterTestContentPackage
                             ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
                                 "ASL enabled element does not contain an english language stem");
                         }
-                        else if(videoSeconds/characterCount > 
-                                TabulatorSettings.AslMean+TabulatorSettings.AslStandardDeviation*TabulatorSettings.AslTolerance
-                                || videoSeconds/characterCount <
-                                TabulatorSettings.AslMean - TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslTolerance)
+                            var secondToCountRatio = videoSeconds / characterCount;
+                            var highStandard = TabulatorSettings.AslMean + (TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslTolerance);
+                            var lowStandard = TabulatorSettings.AslMean - (TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslTolerance);
+                        if (secondToCountRatio > highStandard
+                                || secondToCountRatio < lowStandard)
                         {
                                 ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                    $"ASL enabled element's video length to character count ratio {videoSeconds/characterCount} falls more than " +
-                                    $"{TabulatorSettings.AslTolerance} standard deviations ({TabulatorSettings.AslStandardDeviation}) from" +
+                                    $"ASL enabled element's video length ({videoSeconds}) to character count ({characterCount}) ratio ({secondToCountRatio}) falls more than " +
+                                    $"{TabulatorSettings.AslTolerance} standard deviations ({TabulatorSettings.AslStandardDeviation}) from " +
                                     $"the mean value {TabulatorSettings.AslMean}.");
                             }
                     }
@@ -1402,20 +1409,20 @@ namespace TabulateSmarterTestContentPackage
         string GetBrailleType(ItemContext it, XmlDocument xml, XmlDocument xmlMetadata)
         {
             // First, check metadata
-            string brailleTypeMeta = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:BrailleType", sXmlNs);
+            var brailleTypeMeta = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:BrailleType", sXmlNs);
 
-            SortedSet<string> brailleTypes = new SortedSet<string>(new BrailleTypeComparer());
+            var brailleTypes = new SortedSet<string>(new BrailleTypeComparer());
 
             // Enumerate all of the braille attachments
             {
-                string xp = (!it.IsPassage)
+                var xp = (!it.IsPassage)
                     ? string.Concat("itemrelease/item/content/attachmentlist/attachment")
                     : string.Concat("itemrelease/passage/content/attachmentlist/attachment");
 
                 foreach(XmlElement xmlEle in xml.SelectNodes(xp))
                 {
                     // Get attachment type and check if braille
-                    string attachType = xmlEle.GetAttribute("type");
+                    var attachType = xmlEle.GetAttribute("type");
                     if (string.IsNullOrEmpty(attachType))
                     {
                         ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Attachment missing type attribute.");
