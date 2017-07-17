@@ -8,6 +8,7 @@ using System.Xml;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using System.Xml.XPath;
+using NLog;
 using TabulateSmarterTestContentPackage.Extensions;
 using TabulateSmarterTestContentPackage.Extractors;
 using TabulateSmarterTestContentPackage.Mappers;
@@ -19,6 +20,9 @@ namespace TabulateSmarterTestContentPackage
 {
     public class Tabulator
     {
+
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
         const string cImsManifest = "imsmanifest.xml";
         static NameTable sXmlNt;
         static XmlNamespaceManager sXmlNs;
@@ -116,7 +120,8 @@ namespace TabulateSmarterTestContentPackage
         string mSummaryReportPath;
 
         // Statistical Variables
-        public IList<ASLVideo> TextAndVideoRatios { get; set; } = new List<ASLVideo>();
+        public IList<AslVideo> TextAndVideoRatios { get; set; } = new List<AslVideo>();
+        public IList<XElement> ErnieElements { get; set; } = new List<XElement>();
 
         // Tabulate a package in the specified directory
         public void TabulateOne(string path)
@@ -414,8 +419,16 @@ namespace TabulateSmarterTestContentPackage
                 }
             }
 
-            //var stdDev = MathUtility.StandardDeviation(TextAndVideoRatios.Select(x => (double)x.StimLength).ToList());
-            Console.Write("test");
+            var throwTheseOut = TextAndVideoRatios.Where(x => x.StimLength == 0 || x.VideoDurationMilliseconds == 0);
+            var ratioOfTextToVideo =
+                TextAndVideoRatios.Where(x => x.StimLength != 0 && x.VideoDurationMilliseconds != 0)
+                    .Select(x => (((double)x.VideoDurationMilliseconds)*1000) / x.StimLength).ToList();
+            var stdDev = MathUtility.StandardDeviation(ratioOfTextToVideo);
+            var mean = ratioOfTextToVideo.Average();
+            ReportingUtility.ReportError(new ItemContext(this, null, "info", null), ErrorCategory.Metadata, ErrorSeverity.Severe, 
+                $"Standard Deviation of items: {stdDev} Mean: {mean} Count: {ratioOfTextToVideo.Count} Items: " +
+                $"[{TextAndVideoRatios.Select(x => x.ItemContext.ItemId).Aggregate((y,z) => $"{y}|{z}")}] " +
+                $"Removed: [{throwTheseOut.Select(x => x.ItemContext.ItemId).Aggregate((y, z) => $"{y}|{z}")}]");
         }
 
         private void TabulateItem_Pass1(FileFolder ffItem)
@@ -442,10 +455,10 @@ namespace TabulateSmarterTestContentPackage
                 return;
             }
 
-            var isCDataValid = CDataExtractor.ExtractCData(new XDocument().LoadXml(xml.OuterXml).Root)
-                .Select(x => CDataValidator.IsValid(x, new ItemContext(this, ffItem, itemId, itemType), x.Parent.Name.LocalName.Equals("val", StringComparison.OrdinalIgnoreCase) ?
-                    ErrorSeverity.Benign :
-                    ErrorSeverity.Degraded)).ToList();
+            //var isCDataValid = CDataExtractor.ExtractCData(new XDocument().LoadXml(xml.OuterXml).Root)
+            //    .Select(x => CDataValidator.IsValid(x, new ItemContext(this, ffItem, itemId, itemType), x.Parent.Name.LocalName.Equals("val", StringComparison.OrdinalIgnoreCase) ?
+            //        ErrorSeverity.Benign :
+            //        ErrorSeverity.Degraded)).ToList();
 
             var bankKey = xml.XpEvalE("itemrelease/item/@bankkey");
 
@@ -472,6 +485,16 @@ namespace TabulateSmarterTestContentPackage
 
             // count wordlist reference
             CountWordlistReferences(it, xml);
+
+
+            var xdoc = xml.MapToXDocument();
+            var element = xdoc.XPathSelectElement("itemrelease/item/content[@language='ENU']/constraints");
+            if (element != null)
+            {
+                ErnieElements.Add(element);
+                Logger.Error($"{itemId} Element: {element} Value: {element.Value}");
+                ReportingUtility.ReportError(it, ErrorCategory.Unsupported, ErrorSeverity.Severe, $"Element: {element}");
+            }
         }
 
         private void TabulateStim_Pass1(FileFolder ffItem)
@@ -1356,20 +1379,31 @@ namespace TabulateSmarterTestContentPackage
             {
                 ReportUnexpectedFiles(it, "ASL video", "^item_{0}_ASL", it.ItemId);
             }
-            else
+            else if(!it.IsPassage)
             {
-                var attachmentFile = GetAttachmentFilename(it, xml, "MP4");
-                if (!string.IsNullOrEmpty(attachmentFile))
+                var attachmentFile = GetAttachmentFilename(it, xml, "ASL");
+                FileFolder ffItems;
+                if (mPackageFolder.TryGetFolder("Items", out ffItems))
+                    if (!string.IsNullOrEmpty(attachmentFile))
                 {
-                    TextAndVideoRatios.Add(new ASLVideo
+                    try
                     {
-                        ItemContext = it,
-                        StimLength =
-                            xml.MapToXDocument()
-                                .XPathSelectElement("itemrelease/item/content[@language='ENU']/stem")
-                                .Value.Length,
-                        VideoDurationMilliseconds = Mp4.GetDuration(attachmentFile)
-                    });
+                        TextAndVideoRatios.Add(new AslVideo
+                        {
+                            ItemContext = it,
+                            StimLength =
+                                xml.MapToXDocument()
+                                    .XPathSelectElement("itemrelease/item/content[@language='ENU']/stem")?
+                                    .Value.Length ?? 0,
+                            VideoDurationMilliseconds =
+                                Mp4VideoUtility.GetDuration(Path.Combine(((FsFolder) ffItems).mPhysicalPath, it.FfItem.Name,
+                                    attachmentFile))
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex);
+                    }
                 }
             }
 

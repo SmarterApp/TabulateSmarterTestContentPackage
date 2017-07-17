@@ -75,7 +75,7 @@
     <Compile Include="Tabulator.cs" />
     <Compile Include="Utilities\MathUtility.cs" />
     <Compile Include="Utilities\ReportingUtility.cs" />
-    <Compile Include="Utilities\VideoUtility.cs" />
+    <Compile Include="Utilities\Mp4VideoUtility.cs" />
     <Compile Include="Validators\CDataValidator.cs" />
     <Compile Include="WordStemmer.cs" />
   </ItemGroup>

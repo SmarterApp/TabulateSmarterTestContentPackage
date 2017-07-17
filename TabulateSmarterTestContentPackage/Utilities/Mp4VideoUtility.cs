@@ -8,7 +8,7 @@ MP4 File Format Reference: http://standards.iso.org/ittf/PubliclyAvailableStanda
 
 namespace TabulateSmarterTestContentPackage.Utilities
 {
-    public class Mp4 : IDisposable
+    public class Mp4VideoUtility : IDisposable
     {
         private BinaryReader m_reader;
         private readonly Box m_root;
@@ -17,7 +17,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
         ///     Create the MP4 object from a filename.
         /// </summary>
         /// <param name="filename">Name of an MP4 file.</param>
-        public Mp4(string filename)
+        public Mp4VideoUtility(string filename)
         {
             m_reader = new BinaryReader(new FileStream(filename, FileMode.Open, FileAccess.Read, FileShare.Read),
                 Encoding.UTF8, false);
@@ -49,7 +49,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
         /// </remarks>
         public static long GetDuration(string filename)
         {
-            using (var mp4 = new Mp4(filename))
+            using (var mp4 = new Mp4VideoUtility(filename))
             {
                 return mp4.GetDuration();
             }
@@ -155,15 +155,15 @@ namespace TabulateSmarterTestContentPackage.Utilities
                 }
             }
 
-            public ulong Start { get; }
+            private ulong Start { get; }
 
-            public ulong Size { get; }
+            private ulong Size { get; }
 
             public string BoxType { get; }
 
             public ulong Body { get; }
 
-            public Box Parent { get; }
+            private Box Parent { get; }
 
             public Box FirstChild => new Box(this, Body);
 

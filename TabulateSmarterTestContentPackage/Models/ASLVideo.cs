@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace TabulateSmarterTestContentPackage.Models
 {
-    public class ASLVideo
+    public class AslVideo
     {
         public ItemContext ItemContext { get; set; }
         public int StimLength { get; set; }
