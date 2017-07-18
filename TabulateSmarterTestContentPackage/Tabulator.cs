@@ -6,8 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Xml;
 using System.Text.RegularExpressions;
-using System.Xml.Linq;
-using TabulateSmarterTestContentPackage.Extensions;
+using NLog;
 using TabulateSmarterTestContentPackage.Extractors;
 using TabulateSmarterTestContentPackage.Mappers;
 using TabulateSmarterTestContentPackage.Models;
@@ -18,6 +17,9 @@ namespace TabulateSmarterTestContentPackage
 {
     public class Tabulator
     {
+
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
         const string cImsManifest = "imsmanifest.xml";
         static NameTable sXmlNt;
         static XmlNamespaceManager sXmlNs;
@@ -199,7 +201,7 @@ namespace TabulateSmarterTestContentPackage
         // Tabulate packages in subdirectories and aggregate the results
         public void TabulateAggregate(string rootPath)
         {
-            DirectoryInfo diRoot = new DirectoryInfo(rootPath);
+            var diRoot = new DirectoryInfo(rootPath);
             try
             {
                 Initialize(Path.Combine(rootPath, "Aggregate"));
@@ -215,9 +217,9 @@ namespace TabulateSmarterTestContentPackage
                 }
 
                 // Tabulate packed packages
-                foreach (FileInfo fiPackageFile in diRoot.GetFiles("*.zip"))
+                foreach (var fiPackageFile in diRoot.GetFiles("*.zip"))
                 {
-                    string filepath = fiPackageFile.FullName;
+                    var filepath = fiPackageFile.FullName;
                     Console.WriteLine("Opening " + fiPackageFile.Name);
                     using (ZipFileTree tree = new ZipFileTree(filepath))
                     {
@@ -435,10 +437,10 @@ namespace TabulateSmarterTestContentPackage
                 return;
             }
 
-            var isCDataValid = CDataExtractor.ExtractCData(new XDocument().LoadXml(xml.OuterXml).Root)
-                .Select(x => CDataValidator.IsValid(x, new ItemContext(this, ffItem, itemId, itemType), x.Parent.Name.LocalName.Equals("val", StringComparison.OrdinalIgnoreCase) ?
-                    ErrorSeverity.Benign :
-                    ErrorSeverity.Degraded)).ToList();
+            //var isCDataValid = CDataExtractor.ExtractCData(new XDocument().LoadXml(xml.OuterXml).Root)
+            //    .Select(x => CDataValidator.IsValid(x, new ItemContext(this, ffItem, itemId, itemType), x.Parent.Name.LocalName.Equals("val", StringComparison.OrdinalIgnoreCase) ?
+            //        ErrorSeverity.Benign :
+            //        ErrorSeverity.Degraded)).ToList();
 
             var bankKey = xml.XpEvalE("itemrelease/item/@bankkey");
 
@@ -470,7 +472,7 @@ namespace TabulateSmarterTestContentPackage
         private void TabulateStim_Pass1(FileFolder ffItem)
         {
             // Read the item XML
-            XmlDocument xml = new XmlDocument(sXmlNt);
+            var xml = new XmlDocument(sXmlNt);
             if (!TryLoadXml(ffItem, ffItem.Name + ".xml", xml))
             {
                 ReportingUtility.ReportError(new ItemContext(this, ffItem, null, null), ErrorCategory.Item, ErrorSeverity.Severe, "Invalid stimulus file.", LoadXmlErrorDetail);
@@ -478,7 +480,7 @@ namespace TabulateSmarterTestContentPackage
             }
 
             // See if passage
-            XmlElement xmlPassage = xml.SelectSingleNode("itemrelease/passage") as XmlElement;
+            var xmlPassage = xml.SelectSingleNode("itemrelease/passage") as XmlElement;
             if (xmlPassage == null) throw new InvalidDataException("Stimulus does not have passage xml.");
 
             string itemType = "pass";
@@ -834,8 +836,14 @@ namespace TabulateSmarterTestContentPackage
                 }
             }
 
-            var primaryStandards = ItemStandardExtractor.Extract(xmlMetadata.MapToXElement()).ToList();
-            var secondaryStandards = ItemStandardExtractor.Extract(xmlMetadata.MapToXElement(), "SecondaryStandard").ToList();
+            var primaryStandards = new List<ItemStandard>();
+            var secondaryStandards = new List<ItemStandard>();
+            if (!string.IsNullOrEmpty(xmlMetadata.OuterXml))
+            {
+                primaryStandards = ItemStandardExtractor.Extract(xmlMetadata.MapToXElement()).ToList();
+                secondaryStandards =
+                    ItemStandardExtractor.Extract(xmlMetadata.MapToXElement(), "SecondaryStandard").ToList();
+            }
             if (primaryStandards.Any(x => string.IsNullOrEmpty(x.Standard)))
             {
                 ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Degraded, "No PrimaryStandard specified in metadata.");
@@ -881,7 +889,12 @@ namespace TabulateSmarterTestContentPackage
             // Size
             var size = GetItemSize(it);
 
-            var standardClaimTarget = new ReportingStandard(primaryStandards, secondaryStandards); 
+            var standardClaimTarget = new ReportingStandard(primaryStandards, secondaryStandards);
+
+            if (!it.IsPassage && Program.gValidationOptions.IsEnabled("asl"))
+            {
+                AslVideoValidator.Validate(mPackageFolder, it, xml);
+            }
 
             // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,
             // MathematicalPractice, MaxPoints, CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget, measurementmodel, scorepoints,
@@ -1259,7 +1272,7 @@ namespace TabulateSmarterTestContentPackage
                     }
                     catch (Exception err)
                     {
-                        LoadXmlErrorDetail = string.Format("filename='{0}' detail='{1}'", Path.GetFileName(filename), err.Message);
+                        LoadXmlErrorDetail = $"filename='{Path.GetFileName(filename)}' detail='{err.Message}'";
                         return false;
                     }
                 }
@@ -1267,41 +1280,32 @@ namespace TabulateSmarterTestContentPackage
             return true;
         }
 
-        bool CheckForAttachment(ItemContext it, XmlDocument xml, string attachType, string expectedExtension)
+        static bool CheckForAttachment(ItemContext it, XmlDocument xml, string attachType, string expectedExtension)
         {
-            string xp = (!it.IsPassage)
-                ? string.Concat("itemrelease/item/content/attachmentlist/attachment[@type='", attachType, "']")
-                : string.Concat("itemrelease/passage/content/attachmentlist/attachment[@type='", attachType, "']");
-
-            XmlElement xmlEle = xml.SelectSingleNode(xp) as XmlElement;
-            if (xmlEle != null)
+            var fileName = FileUtility.GetAttachmentFilename(it, xml, attachType);
+            if (string.IsNullOrEmpty(fileName))
             {
-                string filename = xmlEle.GetAttribute("file");
-                if (string.IsNullOrEmpty(filename))
-                {
-                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Attachment missing file attribute.", "attachType='{0}'", attachType);
-                    return false;
-                }
-                if (!it.FfItem.FileExists(filename))
-                {
-                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Dangling reference to attached file that does not exist.", "attachType='{0}' Filename='{1}'", attachType, filename);
-                    return false;
-                }
-
-                string extension = Path.GetExtension(filename);
-                if (extension.Length > 0) extension = extension.Substring(1); // Strip leading "."
-                if (!string.Equals(extension, expectedExtension, StringComparison.OrdinalIgnoreCase))
-                {
-                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, "Unexpected extension for attached file.", "attachType='{0}' extension='{1}' expected='{2}' filename='{3}'", attachType, extension, expectedExtension, filename);
-                }
-                return true;
+                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Attachment missing file attribute.", "attachType='{0}'", attachType);
+                return false;
             }
-            return false;
+            if (!it.FfItem.FileExists(fileName))
+            {
+                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Dangling reference to attached file that does not exist.", "attachType='{0}' Filename='{1}'", attachType, fileName);
+                return false;
+            }
+
+            var extension = Path.GetExtension(fileName);
+            if (extension.Length > 0) extension = extension.Substring(1); // Strip leading "."
+            if (!string.Equals(extension, expectedExtension, StringComparison.OrdinalIgnoreCase))
+            {
+                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, "Unexpected extension for attached file.", "attachType='{0}' extension='{1}' expected='{2}' filename='{3}'", attachType, extension, expectedExtension, fileName);
+            }
+            return true;
         }
 
-        void ReportUnexpectedFiles(ItemContext it, string fileType, string regexPattern, params object[] args)
+        static void ReportUnexpectedFiles(ItemContext it, string fileType, string regexPattern, params object[] args)
         {
-            Regex regex = new Regex(string.Format(regexPattern, args));
+            var regex = new Regex(string.Format(regexPattern, args));
             foreach (FileFile file in it.FfItem.Files)
             {
                 Match match = regex.Match(file.Name);
@@ -1312,7 +1316,7 @@ namespace TabulateSmarterTestContentPackage
             }
         }
 
-        void CheckDependencyInManifest(ItemContext it, string dependencyFilename, string dependencyType)
+        private void CheckDependencyInManifest(ItemContext it, string dependencyFilename, string dependencyType)
         {
             // Suppress manifest checks if the manifest is empty
             if (mFilenameToResourceId.Count == 0) return;
@@ -1340,12 +1344,15 @@ namespace TabulateSmarterTestContentPackage
             }
         }
 
-        string GetAslType(ItemContext it, XmlDocument xml, XmlDocument xmlMetadata)
+        private string GetAslType(ItemContext it, XmlDocument xml, XmlDocument xmlMetadata)
         {
-            bool aslFound = CheckForAttachment(it, xml, "ASL", "MP4");
-            if (!aslFound) ReportUnexpectedFiles(it, "ASL video", "^item_{0}_ASL", it.ItemId);
+            var aslFound = CheckForAttachment(it, xml, "ASL", "MP4");
+            if (!aslFound)
+            {
+                ReportUnexpectedFiles(it, "ASL video", "^item_{0}_ASL", it.ItemId);
+            }
 
-            bool aslInMetadata = string.Equals(xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:AccessibilityTagsASLLanguage", sXmlNs), "Y", StringComparison.OrdinalIgnoreCase);
+            var aslInMetadata = string.Equals(xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:AccessibilityTagsASLLanguage", sXmlNs), "Y", StringComparison.OrdinalIgnoreCase);
             if (aslInMetadata && !aslFound) ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Severe, "Item metadata specifies ASL but no ASL in item.");
             if (!aslInMetadata && aslFound) ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Item has ASL but not indicated in the metadata.");
 
@@ -1355,20 +1362,20 @@ namespace TabulateSmarterTestContentPackage
         string GetBrailleType(ItemContext it, XmlDocument xml, XmlDocument xmlMetadata)
         {
             // First, check metadata
-            string brailleTypeMeta = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:BrailleType", sXmlNs);
+            var brailleTypeMeta = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:BrailleType", sXmlNs);
 
-            SortedSet<string> brailleTypes = new SortedSet<string>(new BrailleTypeComparer());
+            var brailleTypes = new SortedSet<string>(new BrailleTypeComparer());
 
             // Enumerate all of the braille attachments
             {
-                string xp = (!it.IsPassage)
+                var xp = (!it.IsPassage)
                     ? string.Concat("itemrelease/item/content/attachmentlist/attachment")
                     : string.Concat("itemrelease/passage/content/attachmentlist/attachment");
 
                 foreach(XmlElement xmlEle in xml.SelectNodes(xp))
                 {
                     // Get attachment type and check if braille
-                    string attachType = xmlEle.GetAttribute("type");
+                    var attachType = xmlEle.GetAttribute("type");
                     if (string.IsNullOrEmpty(attachType))
                     {
                         ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Attachment missing type attribute.");
