@@ -892,11 +892,53 @@ namespace TabulateSmarterTestContentPackage
             // Size
             var size = GetItemSize(it);
 
-            var standardClaimTarget = new ReportingStandard(primaryStandards, secondaryStandards); 
+            var standardClaimTarget = new ReportingStandard(primaryStandards, secondaryStandards);
+
+            var videoSeconds = 0.0;
+            int? characterCount = 0;
+            double? secondToCountRatio = 0.0;
+            if (!it.IsPassage && Program.gValidationOptions.IsEnabled("asl"))
+            {
+                var attachmentFile = GetAttachmentFilename(it, xml, "ASL");
+                FileFolder ffItems;
+                if (mPackageFolder.TryGetFolder("Items", out ffItems))
+                    if (!string.IsNullOrEmpty(attachmentFile))
+                    {
+                        try
+                        {
+                            videoSeconds = Mp4VideoUtility.GetDuration(Path.Combine(((FsFolder)ffItems).mPhysicalPath,
+                                                   it.FfItem.Name,
+                                                   attachmentFile)) / 1000;
+                            characterCount = xml.MapToXDocument()
+                                 .XPathSelectElement("itemrelease/item/content[@language='ENU']/stem")?
+                                 .Value.Length;
+                            if (characterCount == null || characterCount == 0)
+                            {
+                                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
+                                    "ASL enabled element does not contain an english language stem");
+                            }
+                            secondToCountRatio = videoSeconds / characterCount;
+                            var highStandard = TabulatorSettings.AslMean + (TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslTolerance);
+                            var lowStandard = TabulatorSettings.AslMean - (TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslTolerance);
+                            if (secondToCountRatio > highStandard
+                                    || secondToCountRatio < lowStandard)
+                            {
+                                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
+                                    $"ASL enabled element's video length ({videoSeconds}) to character count ({characterCount}) ratio ({secondToCountRatio}) falls more than " +
+                                    $"{TabulatorSettings.AslTolerance} standard deviations ({TabulatorSettings.AslStandardDeviation}) from " +
+                                    $"the mean value {TabulatorSettings.AslMean}.");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine(ex);
+                        }
+                    }
+            }
 
             // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,
             // MathematicalPractice, MaxPoints, CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget, measurementmodel, scorepoints,
-            // dimension, weight, parameters
+            // dimension, weight, parameters, videoSeconds, characterCount, secondToCountRatio
             mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(version), CsvEncode(subject), 
                 CsvEncode(grade), CsvEncode(answerKey), CsvEncode(assessmentType), CsvEncode(wordlistId), 
                 CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), CsvEncode(media), size.ToString(), CsvEncode(depthOfKnowledge), CsvEncode(allowCalculator), 
@@ -904,7 +946,8 @@ namespace TabulateSmarterTestContentPackage
                 CsvEncode(standardClaimTarget.SecondaryCommonCore), CsvEncode(standardClaimTarget.SecondaryClaimsContentTargets), 
                 CsvEncode(scoringInformation.Select(x => x.MeasurementModel).Aggregate((x,y) => $"{x};{y}")), CsvEncode(scoringInformation.Select(x => x.ScorePoints).Aggregate((x, y) => $"{x};{y}")),
                 CsvEncode(scoringInformation.Select(x => x.Dimension).Aggregate((x, y) => $"{x};{y}")), CsvEncode(scoringInformation.Select(x => x.Weight).Aggregate((x, y) => $"{x};{y}")),
-                CsvEncode(scoringInformation.Select(x => x.GetParameters()).Aggregate((x, y) => $"{x};{y}"))));
+                CsvEncode(scoringInformation.Select(x => x.GetParameters()).Aggregate((x, y) => $"{x};{y}")), CsvEncode(videoSeconds == 0 ? string.Empty : videoSeconds.ToString()), 
+                CsvEncode(characterCount == 0 ? string.Empty : characterCount.ToString()), CsvEncode(secondToCountRatio == 0 ? string.Empty : secondToCountRatio.ToString())));
 
             // === Tabulation is complete, check for other errors
 
@@ -1359,44 +1402,6 @@ namespace TabulateSmarterTestContentPackage
             if (!aslFound)
             {
                 ReportUnexpectedFiles(it, "ASL video", "^item_{0}_ASL", it.ItemId);
-            }
-            else if(!it.IsPassage && Program.gValidationOptions.IsEnabled("asl"))
-            {
-                var attachmentFile = GetAttachmentFilename(it, xml, "ASL");
-                FileFolder ffItems;
-                if (mPackageFolder.TryGetFolder("Items", out ffItems))
-                    if (!string.IsNullOrEmpty(attachmentFile))
-                {
-                    try
-                    {
-                        var videoSeconds = Mp4VideoUtility.GetDuration(Path.Combine(((FsFolder) ffItems).mPhysicalPath,
-                                               it.FfItem.Name,
-                                               attachmentFile)) * 1000;
-                        var characterCount = xml.MapToXDocument()
-                             .XPathSelectElement("itemrelease/item/content[@language='ENU']/stem")?
-                             .Value.Length;
-                        if (characterCount == null || characterCount == 0)
-                        {
-                            ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                "ASL enabled element does not contain an english language stem");
-                        }
-                            var secondToCountRatio = videoSeconds / characterCount;
-                            var highStandard = TabulatorSettings.AslMean + (TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslTolerance);
-                            var lowStandard = TabulatorSettings.AslMean - (TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslTolerance);
-                        if (secondToCountRatio > highStandard
-                                || secondToCountRatio < lowStandard)
-                        {
-                                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                    $"ASL enabled element's video length ({videoSeconds}) to character count ({characterCount}) ratio ({secondToCountRatio}) falls more than " +
-                                    $"{TabulatorSettings.AslTolerance} standard deviations ({TabulatorSettings.AslStandardDeviation}) from " +
-                                    $"the mean value {TabulatorSettings.AslMean}.");
-                            }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine(ex);
-                    }
-                }
             }
 
             var aslInMetadata = string.Equals(xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:AccessibilityTagsASLLanguage", sXmlNs), "Y", StringComparison.OrdinalIgnoreCase);
