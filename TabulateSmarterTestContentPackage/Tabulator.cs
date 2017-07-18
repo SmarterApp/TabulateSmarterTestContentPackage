@@ -6,10 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Xml;
 using System.Text.RegularExpressions;
-using System.Xml.Linq;
-using System.Xml.XPath;
 using NLog;
-using TabulateSmarterTestContentPackage.Extensions;
 using TabulateSmarterTestContentPackage.Extractors;
 using TabulateSmarterTestContentPackage.Mappers;
 using TabulateSmarterTestContentPackage.Models;
@@ -894,57 +891,14 @@ namespace TabulateSmarterTestContentPackage
 
             var standardClaimTarget = new ReportingStandard(primaryStandards, secondaryStandards);
 
-            var videoSeconds = 0.0;
-            int? characterCount = 0;
-            double? secondToCountRatio = 0.0;
             if (!it.IsPassage && Program.gValidationOptions.IsEnabled("asl"))
             {
-                var attachmentFile = GetAttachmentFilename(it, xml, "ASL");
-                FileFolder ffItems;
-                if (mPackageFolder.TryGetFolder("Items", out ffItems))
-                    if (!string.IsNullOrEmpty(attachmentFile))
-                    {
-                        try
-                        {
-                            videoSeconds = Mp4VideoUtility.GetDuration(Path.Combine(((FsFolder)ffItems).mPhysicalPath,
-                                                   it.FfItem.Name,
-                                                   attachmentFile)) / 1000;
-                            var cData = CDataExtractor.ExtractCData(xml.MapToXDocument()
-                                .XPathSelectElement("itemrelease/item/content[@language='ENU']/stem"))?.FirstOrDefault();
-                            if (cData != null)
-                            {
-                                var cDataSection = new XDocument().LoadXml($"<root>{cData.Value}</root>");
-                                characterCount = cDataSection.DescendantNodes()
-                                    .Where(x => x.NodeType == XmlNodeType.Text)
-                                    .Sum(x => x.ToString().Length);
-                            }
-                            if (characterCount == null || characterCount == 0)
-                            {
-                                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                    "ASL enabled element does not contain an english language stem");
-                            }
-                            secondToCountRatio = videoSeconds / characterCount;
-                            var highStandard = TabulatorSettings.AslMean + (TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslTolerance);
-                            var lowStandard = TabulatorSettings.AslMean - (TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslTolerance);
-                            if (secondToCountRatio > highStandard
-                                    || secondToCountRatio < lowStandard)
-                            {
-                                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                    $"ASL enabled element's video length ({videoSeconds}) to character count ({characterCount}) ratio ({secondToCountRatio}) falls more than " +
-                                    $"{TabulatorSettings.AslTolerance} standard deviations ({TabulatorSettings.AslStandardDeviation}) from " +
-                                    $"the mean value ({TabulatorSettings.AslMean}).");
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine(ex);
-                        }
-                    }
+                AslVideoValidator.Validate(mPackageFolder, it, xml);
             }
 
             // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,
             // MathematicalPractice, MaxPoints, CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget, measurementmodel, scorepoints,
-            // dimension, weight, parameters, videoSeconds, characterCount, secondToCountRatio
+            // dimension, weight, parameters
             mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(version), CsvEncode(subject), 
                 CsvEncode(grade), CsvEncode(answerKey), CsvEncode(assessmentType), CsvEncode(wordlistId), 
                 CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), CsvEncode(media), size.ToString(), CsvEncode(depthOfKnowledge), CsvEncode(allowCalculator), 
@@ -952,8 +906,7 @@ namespace TabulateSmarterTestContentPackage
                 CsvEncode(standardClaimTarget.SecondaryCommonCore), CsvEncode(standardClaimTarget.SecondaryClaimsContentTargets), 
                 CsvEncode(scoringInformation.Select(x => x.MeasurementModel).Aggregate((x,y) => $"{x};{y}")), CsvEncode(scoringInformation.Select(x => x.ScorePoints).Aggregate((x, y) => $"{x};{y}")),
                 CsvEncode(scoringInformation.Select(x => x.Dimension).Aggregate((x, y) => $"{x};{y}")), CsvEncode(scoringInformation.Select(x => x.Weight).Aggregate((x, y) => $"{x};{y}")),
-                CsvEncode(scoringInformation.Select(x => x.GetParameters()).Aggregate((x, y) => $"{x};{y}")), CsvEncode(videoSeconds == 0 ? string.Empty : videoSeconds.ToString()), 
-                CsvEncode(characterCount == 0 ? string.Empty : characterCount.ToString()), CsvEncode(secondToCountRatio == 0 ? string.Empty : secondToCountRatio.ToString())));
+                CsvEncode(scoringInformation.Select(x => x.GetParameters()).Aggregate((x, y) => $"{x};{y}"))));
 
             // === Tabulation is complete, check for other errors
 
@@ -1327,20 +1280,9 @@ namespace TabulateSmarterTestContentPackage
             return true;
         }
 
-        public static string GetAttachmentFilename(ItemContext it, XmlDocument xml, string attachType)
-        {
-            var xp = !it.IsPassage
-                ? string.Concat("itemrelease/item/content/attachmentlist/attachment[@type='", attachType, "']")
-                : string.Concat("itemrelease/passage/content/attachmentlist/attachment[@type='", attachType, "']");
-
-            var xmlEle = xml.SelectSingleNode(xp) as XmlElement;
-            return xmlEle?.GetAttribute("file") ?? string.Empty;
-
-        }
-
         static bool CheckForAttachment(ItemContext it, XmlDocument xml, string attachType, string expectedExtension)
         {
-            var fileName = GetAttachmentFilename(it, xml, attachType);
+            var fileName = FileUtility.GetAttachmentFilename(it, xml, attachType);
             if (string.IsNullOrEmpty(fileName))
             {
                 ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Attachment missing file attribute.", "attachType='{0}'", attachType);
