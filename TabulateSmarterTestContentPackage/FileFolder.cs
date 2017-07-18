@@ -117,9 +117,9 @@ namespace TabulateSmarterTestContentPackage
 
     }
 
-    class FsFolder : FileFolder
+    public class FsFolder : FileFolder
     {
-        string mPhysicalPath;
+        public string mPhysicalPath { get; set; }
 
         public FsFolder(string physicalRoot)
             : base("/", string.Empty)
@@ -141,9 +141,9 @@ namespace TabulateSmarterTestContentPackage
                 if (mFolders == null)
                 {
                     mFolders = new List<FileFolder>();
-                    string rootedNamePrefix = (RootedName.Length <= 1) ? RootedName : string.Concat(RootedName, "/");
-                    DirectoryInfo diThis = new DirectoryInfo(mPhysicalPath);
-                    foreach (DirectoryInfo di in diThis.EnumerateDirectories())
+                    var rootedNamePrefix = (RootedName.Length <= 1) ? RootedName : string.Concat(RootedName, "/");
+                    var diThis = new DirectoryInfo(mPhysicalPath);
+                    foreach (var di in diThis.EnumerateDirectories())
                     {
                         mFolders.Add(new FsFolder(di.FullName, string.Concat(rootedNamePrefix, di.Name), di.Name));
                     }

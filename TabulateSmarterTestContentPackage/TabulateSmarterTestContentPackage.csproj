@@ -41,6 +41,7 @@
       <HintPath>..\packages\NLog.4.4.11\lib\net45\NLog.dll</HintPath>
     </Reference>
     <Reference Include="System" />
+    <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
     <Reference Include="System.IO.Compression" />
     <Reference Include="System.IO.Compression.FileSystem" />
@@ -69,10 +70,14 @@
     <Compile Include="Models\ItemStandard.cs" />
     <Compile Include="Models\ReportingStandard.cs" />
     <Compile Include="Models\ScoringType.cs" />
+    <Compile Include="Models\TabulatorSettings.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Tabulator.cs" />
+    <Compile Include="Utilities\MathUtility.cs" />
     <Compile Include="Utilities\ReportingUtility.cs" />
+    <Compile Include="Utilities\Mp4VideoUtility.cs" />
+    <Compile Include="Utilities\SettingsUtility.cs" />
     <Compile Include="Validators\CDataValidator.cs" />
     <Compile Include="WordStemmer.cs" />
   </ItemGroup>

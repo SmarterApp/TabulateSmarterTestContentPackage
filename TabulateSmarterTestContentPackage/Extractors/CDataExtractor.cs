@@ -9,7 +9,7 @@ namespace TabulateSmarterTestContentPackage.Extractors
     {
         public static IEnumerable<XCData> ExtractCData(XElement document)
         {
-            return document.DescendantNodes()
+            return document?.DescendantNodes()
                 .Where(x => x.NodeType == XmlNodeType.CDATA)
                 .Cast<XCData>();
         }
