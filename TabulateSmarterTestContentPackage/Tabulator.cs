@@ -909,9 +909,15 @@ namespace TabulateSmarterTestContentPackage
                             videoSeconds = Mp4VideoUtility.GetDuration(Path.Combine(((FsFolder)ffItems).mPhysicalPath,
                                                    it.FfItem.Name,
                                                    attachmentFile)) / 1000;
-                            characterCount = xml.MapToXDocument()
-                                 .XPathSelectElement("itemrelease/item/content[@language='ENU']/stem")?
-                                 .Value.Length;
+                            var cData = CDataExtractor.ExtractCData(xml.MapToXDocument()
+                                .XPathSelectElement("itemrelease/item/content[@language='ENU']/stem"))?.FirstOrDefault();
+                            if (cData != null)
+                            {
+                                var cDataSection = new XDocument().LoadXml($"<root>{cData.Value}</root>");
+                                characterCount = cDataSection.DescendantNodes()
+                                    .Where(x => x.NodeType == XmlNodeType.Text)
+                                    .Sum(x => x.ToString().Length);
+                            }
                             if (characterCount == null || characterCount == 0)
                             {
                                 ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
@@ -926,7 +932,7 @@ namespace TabulateSmarterTestContentPackage
                                 ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
                                     $"ASL enabled element's video length ({videoSeconds}) to character count ({characterCount}) ratio ({secondToCountRatio}) falls more than " +
                                     $"{TabulatorSettings.AslTolerance} standard deviations ({TabulatorSettings.AslStandardDeviation}) from " +
-                                    $"the mean value {TabulatorSettings.AslMean}.");
+                                    $"the mean value ({TabulatorSettings.AslMean}).");
                             }
                         }
                         catch (Exception ex)
