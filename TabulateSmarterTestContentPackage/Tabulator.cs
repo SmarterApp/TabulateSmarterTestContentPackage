@@ -1567,7 +1567,11 @@ namespace TabulateSmarterTestContentPackage
                 brailleList.Clear();
             }
 
-            return brailleFiles.FirstOrDefault()?.Type + "|" + brailleList.Select(x => x.ToString()).Aggregate((x, y) => $"{x};{y}");
+            return brailleFiles.FirstOrDefault()?.Type + (brailleList.Any() ?
+                "|" + brailleList
+                    .Select(x => x.ToString())
+                    .Aggregate((y, z) => $"{y};{z}")
+                    : string.Empty);
         }
 
         private class BrailleTypeComparer : IComparer<string>
