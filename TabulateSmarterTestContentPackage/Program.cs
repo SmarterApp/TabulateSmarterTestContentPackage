@@ -67,6 +67,7 @@ Validation Options:
     -v+iat  Image Alternate Text: Reports errors when images are present
             without alternate text.
     -v+mst  Enable manifest (imsmanifest.xml) validation.
+    -v+tss  Check for text-to-speech silencing tags.
 
 Error severity definitions:
     Severe     The error will prevent the test item from functioning properly
@@ -103,6 +104,7 @@ Error severity definitions:
                 gValidationOptions.Disable("mwa");  // Disable checking for attachments on unreferenced wordlist terms
                 gValidationOptions.Disable("iat");  // Disable checking for images without alternate text
                 gValidationOptions.Disable("mst");  // Disable checking for manifest errors
+                gValidationOptions.Disable("tss");  // Disable checking for text-to-speech silencing tags
 
                 string rootPath = null;
                 char operation = 'o'; // o=one, s=packages in Subdirectories, a=aggregate packages in subdirectories

@@ -795,6 +795,15 @@ namespace TabulateSmarterTestContentPackage
 
             string mathematicalPractice = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:MathematicalPractice", sXmlNs);
 
+            // Check for silencing tags
+            if (Program.gValidationOptions.IsEnabled("tss"))
+            {
+                if (HasTtsSilencingTags(it, xml))
+                {
+                    ReportError(it, ErrCat.Item, ErrSeverity.Tolerable, "Has TTS Silencing Tag", "subject='{0}' claim='{1}' target='{2}'", subject, primaryStandard[(int)StandardPart.Claim], primaryStandard[(int)StandardPart.Target]);
+                }
+            }
+
             // Folder,ItemId,ItemType,Version,Subject,Grade,Rubric,AsmtType,Standard,Claim,Target,ContentDomain,ContentCategory,TargetSet,Emphasis,CCSS,WordlistId,ASL,BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice
             mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(version), CsvEncode(subject),
                 CsvEncode(grade), CsvEncode(rubric), CsvEncode(assessmentType),
@@ -1370,6 +1379,19 @@ namespace TabulateSmarterTestContentPackage
             }
 
             return string.Join(";", brailleTypes);
+        }
+
+        bool HasTtsSilencingTags(ItemContext it, XmlDocument xml)
+        {
+            foreach (XmlElement node in xml.SelectNodes("//readAloud/textToSpeechPronunciation"))
+            {
+                if (node.InnerText.Length == 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private class CompareBrailleType : IComparer<string>
