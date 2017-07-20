@@ -6,7 +6,9 @@ using System.IO;
 using System.Linq;
 using System.Xml;
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 using NLog;
+using TabulateSmarterTestContentPackage.Extensions;
 using TabulateSmarterTestContentPackage.Extractors;
 using TabulateSmarterTestContentPackage.Mappers;
 using TabulateSmarterTestContentPackage.Models;
@@ -437,10 +439,16 @@ namespace TabulateSmarterTestContentPackage
                 return;
             }
 
-            //var isCDataValid = CDataExtractor.ExtractCData(new XDocument().LoadXml(xml.OuterXml).Root)
-            //    .Select(x => CDataValidator.IsValid(x, new ItemContext(this, ffItem, itemId, itemType), x.Parent.Name.LocalName.Equals("val", StringComparison.OrdinalIgnoreCase) ?
-            //        ErrorSeverity.Benign :
-            //        ErrorSeverity.Degraded)).ToList();
+            if (Program.gValidationOptions.IsEnabled("cdt"))
+            {
+                var isCDataValid = CDataExtractor.ExtractCData(new XDocument().LoadXml(xml.OuterXml).Root)
+                    .Select(
+                        x =>
+                            CDataValidator.IsValid(x, new ItemContext(this, ffItem, itemId, itemType),
+                                x.Parent.Name.LocalName.Equals("val", StringComparison.OrdinalIgnoreCase)
+                                    ? ErrorSeverity.Benign
+                                    : ErrorSeverity.Degraded)).ToList();
+            }
 
             var bankKey = xml.XpEvalE("itemrelease/item/@bankkey");
 
