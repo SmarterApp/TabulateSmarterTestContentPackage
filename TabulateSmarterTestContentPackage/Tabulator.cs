@@ -899,6 +899,19 @@ namespace TabulateSmarterTestContentPackage
 
             var standardClaimTarget = new ReportingStandard(primaryStandards, secondaryStandards);
 
+            // Check for silencing tags
+            if (Program.gValidationOptions.IsEnabled("tss"))
+            {
+                var primaryStandard = primaryStandards.FirstOrDefault();
+                if (primaryStandard != null && HasTtsSilencingTags(xml) 
+                    && !primaryStandard.Claim.Split('-').FirstOrDefault().Equals("2")
+                    && !primaryStandard.Target.Split('-').FirstOrDefault().Equals("9"))
+                {
+                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable, "Has TTS Silencing Tag", "subject='{0}' claim='{1}' target='{2}'", subject, 
+                        primaryStandard.Claim, primaryStandard.Target);
+                }
+            }
+
             if (!it.IsPassage && Program.gValidationOptions.IsEnabled("asl"))
             {
                 AslVideoValidator.Validate(mPackageFolder, it, xml);
@@ -1617,6 +1630,13 @@ namespace TabulateSmarterTestContentPackage
                     .Distinct()
                     .Aggregate((y, z) => $"{y};{z}")
                     : string.Empty);
+        }
+
+        private static bool HasTtsSilencingTags(XmlNode xml)
+        {
+            return xml.SelectNodes("//readAloud/textToSpeechPronunciation")
+                .Cast<XmlElement>()
+                .Any(node => node.InnerText.Length == 0);
         }
 
         private class BrailleTypeComparer : IComparer<string>

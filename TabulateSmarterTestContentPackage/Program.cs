@@ -52,6 +52,7 @@ Validation Options:
             length to item stim length falls outside of two standard deviations
             from mean (adjustible through app.config).
     -v-cdt  Disables CData validations including glossary tags and restricted css
+    -v-tss  Check for text-to-speech silencing tags.
 
     -v+all  Enable all optional validation and tabulation features.
     -v+ebt  Embedded Braille Text: Enables checking embedded <brailleText>
