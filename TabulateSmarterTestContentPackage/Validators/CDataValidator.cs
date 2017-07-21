@@ -40,7 +40,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                 var noColorAlterations = ElementsFreeOfColorAlterations(cDataSection.Root, itemContext, errorSeverity);
 
                 // Check for css elements inside style attributes that modify color (this searches by 'contains')
-                var noViolatingStyleTags = ElementsFreeOfViolatingStyleTags(cDataSection.Root, new List<string>
+                var noViolatingStyleTags = ElementsFreeOfViolatingStyleText(cDataSection.Root, new List<string>
                 {
                     "color",
                     "background",
@@ -118,34 +118,42 @@ namespace TabulateSmarterTestContentPackage.Validators
             return false;
         }
 
-        public static bool ElementsFreeOfViolatingStyleTags(XElement rootElement, IEnumerable<string> restrictedCss,
+        public static bool ElementsFreeOfViolatingStyleText(XElement rootElement, IEnumerable<string> restrictedCss,
             ItemContext itemContext, ErrorSeverity errorSeverity)
         {
-            var result = rootElement.ElementsByPathAndAttributeCaseInsensitive("//*", "style").ToList();
             var isValid = true;
-            if (result.Any())
+            var candidates = ExtractElementsWithCssStyling(rootElement);
+            candidates.ForEach(x =>
             {
-                var candidates = result.Select(x => new
+                var violations = restrictedCss.Where(x.Style.Contains).ToList();
+                if (violations.Any())
+                {
+                    isValid = false;
+                    var errorText =
+                        $"Element '{x.Element.Name.LocalName}' in CData contains illegal CSS marker(s) '{violations.Aggregate((y, z) => $"{y},{z}")}' in its 'style' attribute. Value: {x.Element}";
+                    Logger.Error(errorText);
+                    ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity, errorText);
+                }
+            });
+            
+            return isValid;
+        }
+
+        public static List<CssElement> ExtractElementsWithCssStyling(XElement rootElement)
+        {
+            var elements = rootElement.ElementsByPathAndAttributeCaseInsensitive("//*", "style").ToList();
+            var isValid = true;
+            if (elements.Any())
+            {
+                return elements.Select(x => new CssElement
                 {
                     Element = x,
                     Style = x.Attributes()
                         .First(y => y.Name.LocalName.Equals("style", StringComparison.OrdinalIgnoreCase))
                         .Value
-                });
-                candidates.ToList().ForEach(x =>
-                {
-                    var violations = restrictedCss.Where(x.Style.Contains).ToList();
-                    if (violations.Any())
-                    {
-                        isValid = false;
-                        var errorText =
-                            $"Element '{x.Element.Name.LocalName}' in CData contains illegal CSS marker(s) '{violations.Aggregate((y, z) => $"{y},{z}")}' in its 'style' attribute. Value: {x.Element}";
-                        Logger.Error(errorText);
-                        ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity, errorText);
-                    }
-                });
+                }).ToList();
             }
-            return isValid;
+            return new List<CssElement>();
         }
 
         //<summary>This method takes a <img> element tag and determines whether

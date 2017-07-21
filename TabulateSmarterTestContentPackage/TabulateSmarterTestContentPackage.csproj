@@ -66,6 +66,7 @@
     <Compile Include="Models\BrailleFile.cs" />
     <Compile Include="Models\BrailleFileType.cs" />
     <Compile Include="Models\BrailleSupport.cs" />
+    <Compile Include="Models\CssElement.cs" />
     <Compile Include="Models\ErrorCategory.cs" />
     <Compile Include="Models\ErrorSeverity.cs" />
     <Compile Include="Models\HtmlImageTag.cs" />

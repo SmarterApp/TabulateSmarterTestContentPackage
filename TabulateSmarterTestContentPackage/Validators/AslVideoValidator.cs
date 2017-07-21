@@ -23,9 +23,10 @@ namespace TabulateSmarterTestContentPackage.Validators
                 {
                     try
                     {
-                        double videoSeconds = Mp4VideoUtility.GetDuration(Path.Combine(((FsFolder)ffItems).mPhysicalPath,
-                                                  itemContext.FfItem.Name,
-                                                  attachmentFile)) / 1000;
+                        double videoSeconds = Mp4VideoUtility.GetDuration(
+                                                  Path.Combine(((FsFolder) ffItems).mPhysicalPath,
+                                                      itemContext.FfItem.Name,
+                                                      attachmentFile)) / 1000;
                         var cData = CDataExtractor.ExtractCData(xmlDocument.MapToXDocument()
                             .XPathSelectElement("itemrelease/item/content[@language='ENU']/stem"))?.FirstOrDefault();
                         int? characterCount = 0;
@@ -43,10 +44,12 @@ namespace TabulateSmarterTestContentPackage.Validators
                             return;
                         }
                         var secondToCountRatio = videoSeconds / characterCount;
-                        var highStandard = TabulatorSettings.AslMean + (TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslTolerance);
-                        var lowStandard = TabulatorSettings.AslMean - (TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslTolerance);
+                        var highStandard = TabulatorSettings.AslMean +
+                                           (TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslTolerance);
+                        var lowStandard = TabulatorSettings.AslMean -
+                                          (TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslTolerance);
                         if (secondToCountRatio > highStandard
-                                || secondToCountRatio < lowStandard)
+                            || secondToCountRatio < lowStandard)
                         {
                             ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Degraded,
                                 $"ASL enabled element's video length ({videoSeconds}) to character count ({characterCount}) ratio ({secondToCountRatio}) falls more than " +
@@ -58,6 +61,10 @@ namespace TabulateSmarterTestContentPackage.Validators
                     {
                         Console.WriteLine(ex);
                     }
+                }
+                else
+                {
+                    // throw errors
                 }
         }
     }

@@ -904,6 +904,8 @@ namespace TabulateSmarterTestContentPackage
                 AslVideoValidator.Validate(mPackageFolder, it, xml);
             }
 
+            Console.WriteLine($"Tabulating {it.ItemId}");
+
             // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,
             // MathematicalPractice, MaxPoints, CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget, measurementmodel, scorepoints,
             // dimension, weight, parameters
@@ -1391,8 +1393,24 @@ namespace TabulateSmarterTestContentPackage
                     ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, $"More than one Braille file type extension present in attachment list [{fileTypes.Aggregate((x,y) => $"{x}|{y}")}]");
                 }
 
+                var processedIds = new List<string>();
+
                 foreach (XmlElement xmlEle in xml.SelectNodes(attachmentXPath))
                 {
+                    // All attachments must have an ID and those IDs must be unique within their item
+                    var id = xmlEle.GetAttribute("id");
+                    if (string.IsNullOrEmpty(id))
+                    {
+                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Attachment missing id attribute.");
+                    } else if (processedIds.Contains(id))
+                    {
+                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Duplicate attachment IDs in attachmentlist element", $"ID: {id}");
+                    }
+                    else
+                    {
+                        processedIds.Add(id);
+                    }
+
                     // Get attachment type and check if braille
                     var attachType = xmlEle.GetAttribute("type");
                     if (string.IsNullOrEmpty(attachType))
@@ -1413,7 +1431,7 @@ namespace TabulateSmarterTestContentPackage
 
                     // Check that the file exists
                     var filename = xmlEle.GetAttribute("file");
-                    const string validFilePattern = @"(stim|item)_(\d+)_(enu)_(\D{3}|uncontracted|contracted|nemeth)(_transcript)*\.(brf|prn)";
+                    const string validFilePattern = @"(stim|item|passage)_(\d+)_(enu)_(\D{3}|uncontracted|contracted|nemeth)(_transcript)*\.(brf|prn)";
                     if (string.IsNullOrEmpty(filename))
                     {
                         ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Attachment missing file attribute.", "attachType='{0}'", attachType);
@@ -1449,11 +1467,24 @@ namespace TabulateSmarterTestContentPackage
                     if (Regex.IsMatch(filename, validFilePattern))
                     // We are not checking for these values if it's not a match.
                     {
-                        if (!matches[0].Groups[1].Value.Equals(type, StringComparison.OrdinalIgnoreCase))
+                        var itemOrStimText = it.IsPassage ? "stim" : "item";
+                        if (!matches[0].Groups[1].Value.Equals(itemOrStimText, StringComparison.OrdinalIgnoreCase))
                         // item or stim
                         {
-                            ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
-                                $"Current validation target is a {type}, but attachment {filename} designates its target as {matches[0].Groups[1].Value}");
+                            if (it.IsPassage &&
+                                !matches[0].Groups[1].Value.Equals("passage", StringComparison.OrdinalIgnoreCase))
+                            {
+                                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
+                                    $"Current validation target is a {itemOrStimText}, but attachment {filename} designates its target as {matches[0].Groups[1].Value}");
+                            }
+                            // According to the documentation, all stimuli braille attachments must be prefixed with "stim", 
+                            // but functionally, they may be "passage". Indicate a benign error.
+                            else
+                            {
+                                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Benign,
+                                    "Stimuli attachment designated as a \"passage\". Official documentation indicates all stimuli must be prefixed as \"stim\".",
+                                    filename);
+                            }
                         }
                         if (!matches[0].Groups[2].Value.Equals(it.ItemId, StringComparison.OrdinalIgnoreCase))
                         // item id
