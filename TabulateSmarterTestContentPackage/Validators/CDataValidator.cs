@@ -40,20 +40,9 @@ namespace TabulateSmarterTestContentPackage.Validators
                 var noColorAlterations = ElementsFreeOfColorAlterations(cDataSection.Root, itemContext, errorSeverity);
 
                 // Check for css elements inside style attributes that modify color (this searches by 'contains')
-                var noViolatingStyleTags = ElementsFreeOfViolatingStyleText(cDataSection.Root, new List<string>
-                {
-                    "color",
-                    "background",
-                    "border",
-                    "box-shadow",
-                    "column-rule",
-                    "filter",
-                    "font",
-                    "opacity",
-                    "outline",
-                    "text-decoration",
-                    "text-shadow"
-                }, itemContext, errorSeverity);
+                var noCssColorAlterations = ElementsFreeOfViolatingStyleText(cDataSection.Root, GetCssColorCodes(),
+                    GetCssColorPatterns(),
+                    itemContext, errorSeverity);
 
                 // Check for nested glossary tags in CData
                 var noNestedGlossaryTags = CDataGlossaryTagsAreNotIllegallyNested(cDataSection.Root, itemContext,
@@ -70,7 +59,7 @@ namespace TabulateSmarterTestContentPackage.Validators
 
                 return imgTagsValid.All(x => x)
                        && noColorAlterations
-                       && noViolatingStyleTags;
+                       && noCssColorAlterations;
             }
             catch (Exception ex)
             {
@@ -119,6 +108,7 @@ namespace TabulateSmarterTestContentPackage.Validators
         }
 
         public static bool ElementsFreeOfViolatingStyleText(XElement rootElement, IEnumerable<string> restrictedCss,
+            IDictionary<string, string> restrictedPatterns,
             ItemContext itemContext, ErrorSeverity errorSeverity)
         {
             var isValid = true;
@@ -126,6 +116,7 @@ namespace TabulateSmarterTestContentPackage.Validators
             candidates.ForEach(x =>
             {
                 var violations = restrictedCss.Where(x.Style.Contains).ToList();
+                violations.AddRange(restrictedPatterns.Keys.Where(y => Regex.IsMatch(x.Style, restrictedPatterns[y])));
                 if (violations.Any())
                 {
                     isValid = false;
@@ -135,7 +126,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity, errorText);
                 }
             });
-            
+
             return isValid;
         }
 
@@ -274,7 +265,8 @@ namespace TabulateSmarterTestContentPackage.Validators
 
                     var element = node.Cast();
                     // The first element we expect to find as a sibling is the closing span tag to match the opening one
-                    if (element != null && element.Name.LocalName.Equals("span", StringComparison.OrdinalIgnoreCase) && element.IsEmpty)
+                    if (element != null && element.Name.LocalName.Equals("span", StringComparison.OrdinalIgnoreCase) &&
+                        element.IsEmpty)
                     {
                         closingSpanTag = true;
                         node = siblings.Count >= index ? siblings[index++] : null;
@@ -351,7 +343,8 @@ namespace TabulateSmarterTestContentPackage.Validators
                        .Value.Equals("end", StringComparison.OrdinalIgnoreCase);
         }
 
-        public static void ReportInappropriateGlossarySpanValues(XElement element, ItemContext itemContext, ErrorSeverity errorSeverity)
+        public static void ReportInappropriateGlossarySpanValues(XElement element, ItemContext itemContext,
+            ErrorSeverity errorSeverity)
         {
             if (!string.IsNullOrEmpty(element.Value))
             {
@@ -391,7 +384,10 @@ namespace TabulateSmarterTestContentPackage.Validators
             ItemContext itemContext, ErrorSeverity errorSeverity, IDictionary<string, int> terms)
         {
             var result = true;
-            var words = rootElement.DescendantNodesAndSelf().Where(x => x.NodeType == XmlNodeType.Text).Select(x => x.ToString());
+            var words =
+                rootElement.DescendantNodesAndSelf()
+                    .Where(x => x.NodeType == XmlNodeType.Text)
+                    .Select(x => x.ToString());
             terms.Keys.ToList().ForEach(x =>
             {
                 if (!IsValidTag(x))
@@ -412,11 +408,12 @@ namespace TabulateSmarterTestContentPackage.Validators
                     Logger.Error(
                         $"There is a mismatch between the incidence of the glossary term '{x}' " +
                         $"within a formal glossary element '{terms[x]}' " +
-                        $"and the incidence of the same term within the text of the CData element [{wordMatches.Aggregate((y,z) => $"'{y}'|'{z}'")}]");
+                        $"and the incidence of the same term within the text of the CData element [{wordMatches.Aggregate((y, z) => $"'{y}'|'{z}'")}]");
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
                         $"There is a mismatch between the incidence of the glossary term '{x}'"
                         + $" within a formal glossary element '{terms[x]}'"
-                        + $" and the incidence of the same term within the text of the CData element [{wordMatches.Aggregate((y, z) => $"'{y}'|'{z}'")}]"
+                        +
+                        $" and the incidence of the same term within the text of the CData element [{wordMatches.Aggregate((y, z) => $"'{y}'|'{z}'")}]"
                     );
                 }
             });
@@ -427,6 +424,169 @@ namespace TabulateSmarterTestContentPackage.Validators
         {
             const string pattern = @"^([a-zA-Z,'.\-\s])+$";
             return Regex.IsMatch(tag, pattern);
+        }
+
+        public static IDictionary<string, string> GetCssColorPatterns()
+        {
+            return new Dictionary<string, string>
+            {
+                {"rgb", @"(((R|r)(G|g)(B|b))\s*\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\))"},
+                {"rgba", @"(((R|r)(G|g)(B|b)(A|a))\s*\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*(0|1)*\.\d+\s*\))"},
+                {"hsl", @"(((H|h)(S|s)(L|l))\s*\(\s*\d{1,3}\s*,\s*\d{1,3}\s*%\s*,\s*\d{1,3}\s*%\s*\))"},
+                {
+                    "hsla",
+                    @"(((H|h)(S|s)(L|l)(A|a))\s*\(\s*\d{1,3}\s*,\s*\d{1,3}\s*%\s*,\s*\d{1,3}\s*%\s*,\s*(0|1)*\.\d+\s*\))"
+                },
+                {"hexadecimal", @"#[a-fA-F0-9]{6}"}
+            };
+        }
+
+        public static IEnumerable<string> GetCssColorCodes()
+        {
+            return new List<string>
+            {
+                "aliceblue",
+                "antiquewhite",
+                "aqua",
+                "aquamarine",
+                "azure",
+                "beige",
+                "bisque",
+                "black",
+                "blanchedalmond",
+                "blue",
+                "blueviolet",
+                "brown",
+                "burlywood",
+                "cadetblue",
+                "chartreuse",
+                "chocolate",
+                "coral",
+                "cornflowerblue",
+                "cornsilk",
+                "crimson",
+                "cyan",
+                "darkblue",
+                "darkcyan",
+                "darkgoldenrod",
+                "darkgray",
+                "darkgreen",
+                "darkkhaki",
+                "darkmagenta",
+                "darkolivegreen",
+                "darkorange",
+                "darkorchid",
+                "darkred",
+                "darksalmon",
+                "darkseagreen",
+                "darkslateblue",
+                "darkslategray",
+                "darkturquoise",
+                "darkviolet",
+                "deeppink",
+                "deepskyblue",
+                "dimgray",
+                "dodgerblue",
+                "firebrick",
+                "floralwhite",
+                "forestgreen",
+                "fuchsia",
+                "gainsboro",
+                "ghostwhite",
+                "gold",
+                "goldenrod",
+                "gray",
+                "green",
+                "greenyellow",
+                "honeydew",
+                "hotpink",
+                "indianred",
+                "indigo",
+                "ivory",
+                "khaki",
+                "lavender",
+                "lavenderblush",
+                "lawngreen",
+                "lemonchiffon",
+                "lightblue",
+                "lightcoral",
+                "lightcyan",
+                "lightgoldenrodyellow",
+                "lightgray",
+                "lightgreen",
+                "lightpink",
+                "lightsalmon",
+                "lightseagreen",
+                "lightskyblue",
+                "lightslategray",
+                "lightsteelblue",
+                "lightyellow",
+                "lime",
+                "limegreen",
+                "linen",
+                "magenta",
+                "maroon",
+                "mediumaquamarine",
+                "mediumblue",
+                "mediumorchid",
+                "mediumpurple",
+                "mediumseagreen",
+                "mediumslateblue",
+                "mediumspringgreen",
+                "mediumturquoise",
+                "mediumvioletred",
+                "midnightblue",
+                "mintcream",
+                "mistyrose",
+                "moccasin",
+                "navajowhite",
+                "navy",
+                "oldlace",
+                "olive",
+                "olivedrab",
+                "orange",
+                "orangered",
+                "orchid",
+                "palegoldenrod",
+                "palegreen",
+                "paleturquoise",
+                "palevioletred",
+                "papayawhip",
+                "peachpuff",
+                "peru",
+                "pink",
+                "plum",
+                "powderblue",
+                "purple",
+                "rebeccapurple",
+                "red",
+                "rosybrown",
+                "royalblue",
+                "saddlebrown",
+                "salmon",
+                "sandybrown",
+                "seagreen",
+                "seashell",
+                "sienna",
+                "silver",
+                "skyblue",
+                "slateblue",
+                "slategray",
+                "snow",
+                "springgreen",
+                "steelblue",
+                "tan",
+                "teal",
+                "thistle",
+                "tomato",
+                "turquoise",
+                "violet",
+                "wheat",
+                "white",
+                "whitesmoke",
+                "yellow",
+                "yellowgreen"
+            };
         }
     }
 }
