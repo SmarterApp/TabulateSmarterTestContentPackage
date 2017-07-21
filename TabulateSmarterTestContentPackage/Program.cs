@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using NLog;
 using TabulateSmarterTestContentPackage.Utilities;
 using Win32Interop;
@@ -170,6 +171,17 @@ Error severity definitions:
                 {
                     SettingsUtility.RetrieveAslValues();
                 }
+
+                Console.WriteLine("Tabulator Flags");
+                Console.WriteLine(Enumerable.Repeat("-",20).Aggregate((x,y) => $"{x}{y}"));
+
+                gValidationOptions.Keys.ToList().ForEach(x =>
+                {
+                    Console.WriteLine($"[{x}: {gValidationOptions[x].ToString()}]");
+                });
+
+                Console.WriteLine(Enumerable.Repeat("-", 20).Aggregate((x, y) => $"{x}{y}"));
+                Console.WriteLine();
 
                 var tab = new Tabulator();
                 switch (operation)
