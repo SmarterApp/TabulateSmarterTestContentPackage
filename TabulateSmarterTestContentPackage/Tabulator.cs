@@ -1440,7 +1440,6 @@ namespace TabulateSmarterTestContentPackage
                     if (!it.FfItem.FileExists(filename))
                     {
                         ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable, "Dangling reference to attached file that does not exist.", "attachType='{0}' Filename='{1}'", attachType, filename);
-                        continue;
                     }
 
                     // Check the extension
