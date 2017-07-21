@@ -1608,6 +1608,7 @@ namespace TabulateSmarterTestContentPackage
             return brailleFiles.FirstOrDefault()?.Type + (brailleList.Any() ?
                 "|" + brailleList
                     .Select(x => x.ToString())
+                    .Distinct()
                     .Aggregate((y, z) => $"{y};{z}")
                     : string.Empty);
         }
