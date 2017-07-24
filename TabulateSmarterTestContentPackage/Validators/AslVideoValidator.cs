@@ -19,6 +19,7 @@ namespace TabulateSmarterTestContentPackage.Validators
             var attachmentFile = FileUtility.GetAttachmentFilename(itemContext, xmlDocument, "ASL");
             FileFolder ffItems;
             if (baseFolder.TryGetFolder("Items", out ffItems))
+            {
                 if (!string.IsNullOrEmpty(attachmentFile))
                 {
                     try
@@ -64,8 +65,15 @@ namespace TabulateSmarterTestContentPackage.Validators
                 }
                 else
                 {
-                    // throw errors
+                    ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe,
+                                "Unable to locate valid video file for item", attachmentFile ?? "Attachment filename does not exist");
                 }
+            }
+            else
+            {
+                ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe,
+                                "Unable to load item directory");
+            }
         }
     }
 }
