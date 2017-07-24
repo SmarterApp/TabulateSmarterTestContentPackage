@@ -156,10 +156,10 @@ namespace TabulateSmarterTestContentPackage
         // Individually tabulate each package in subdirectories
         public void TabulateEach(string rootPath)
         {
-            DirectoryInfo diRoot = new DirectoryInfo(rootPath);
+            var diRoot = new DirectoryInfo(rootPath);
 
             // Tablulate unpacked packages
-            foreach (DirectoryInfo diPackageFolder in diRoot.GetDirectories())
+            foreach (var diPackageFolder in diRoot.GetDirectories())
             {
                 if (File.Exists(Path.Combine(diPackageFolder.FullName, cImsManifest)))
                 {
@@ -177,11 +177,11 @@ namespace TabulateSmarterTestContentPackage
             }
 
             // Tabulate zipped packages
-            foreach (FileInfo fiPackageFile in diRoot.GetFiles("*.zip"))
+            foreach (var fiPackageFile in diRoot.GetFiles("*.zip"))
             {
-                string filepath = fiPackageFile.FullName;
+                var filepath = fiPackageFile.FullName;
                 Console.WriteLine("Opening " + fiPackageFile.Name);
-                using (ZipFileTree tree = new ZipFileTree(filepath))
+                using (var tree = new ZipFileTree(filepath))
                 {
                     if (tree.FileExists(cImsManifest))
                     {
@@ -2566,30 +2566,29 @@ namespace TabulateSmarterTestContentPackage
         }
 
         // Recursively check that files exist in the manifest
-        void ValidateDirectoryInManifest(ItemContext it, FileFolder ff)
+        private void ValidateDirectoryInManifest(ItemContext it, FileFolder ff)
         {
             // See if this is an item or stimulus directory
-            string itemFileName = null;
             string itemId = null;
             if (ff.Name.StartsWith("item-", StringComparison.OrdinalIgnoreCase) || ff.Name.StartsWith("stim-", StringComparison.OrdinalIgnoreCase))
             {
                 FileFile fi;
                 if (ff.TryGetFile(string.Concat(ff.Name, ".xml"), out fi))
-            {
-                    itemFileName = NormalizeFilenameInManifest(fi.RootedName);
+                {
+                    var itemFileName = NormalizeFilenameInManifest(fi.RootedName);
 
-                if (!mFilenameToResourceId.TryGetValue(itemFileName, out itemId))
+                    if (!mFilenameToResourceId.TryGetValue(itemFileName, out itemId))
                 {
                         ReportingUtility.ReportError(it, ErrorCategory.Manifest, ErrorSeverity.Benign, "Item does not appear in the manifest.", "ItemFilename='{0}'", itemFileName);
                     itemFileName = null;
                     itemId = null;
                 }
-            }
+                }
             }
 
-            foreach (FileFile fi in ff.Files)
+            foreach (var fi in ff.Files)
             {
-                string filename = NormalizeFilenameInManifest(fi.RootedName);
+                var filename = NormalizeFilenameInManifest(fi.RootedName);
 
                 string resourceId;
                 if (!mFilenameToResourceId.TryGetValue(filename, out resourceId))
@@ -2607,24 +2606,24 @@ namespace TabulateSmarterTestContentPackage
             }
 
             // Recurse
-            foreach(FileFolder ffSub in ff.Folders)
+            foreach(var ffSub in ff.Folders)
             {
                 ValidateDirectoryInManifest(it, ffSub);
             }
         }
 
-        string NormalizeFilenameInManifest(string filename)
+        private static string NormalizeFilenameInManifest(string filename)
         {
             filename = filename.ToLowerInvariant().Replace('\\', '/');
             return (filename[0] == '/') ? filename.Substring(1) : filename;
         }
 
-        static string ToDependsOnString(string itemId, string dependsOnId)
+        private static string ToDependsOnString(string itemId, string dependsOnId)
         {
             return string.Concat(itemId, "~", dependsOnId);
         }
 
-        void SummaryReport(TextWriter writer)
+        private void SummaryReport(TextWriter writer)
         {
             writer.WriteLine("Errors: {0}", ReportingUtility.ErrorCount);
             writer.WriteLine("Items: {0}", mItemCount);
@@ -2667,22 +2666,6 @@ namespace TabulateSmarterTestContentPackage
             return string.Concat("\"", text.Replace("\"", "\"\""), "\t\"");
         }
 
-        class WordlistRef
-        {
-            public WordlistRef(ItemContext it, string witId, int[] termIndices, string[] terms)
-            {
-                It = it;
-                WitId = witId;
-                TermIndices = termIndices;
-                Terms = terms;
-            }
-
-            public ItemContext It { get; private set; }
-            public string WitId { get; private set; }
-            public int[] TermIndices { get; private set; }
-            public string[] Terms { get; private set; }
-        }
-
         class TermAttachmentReference
         {
             public TermAttachmentReference(int termIndex, string listType, string filename)
@@ -2698,7 +2681,7 @@ namespace TabulateSmarterTestContentPackage
         }
     }
 
-    static class TabulatorHelp
+    internal static class TabulatorHelp
     {
         public static string XpEval(this XmlNode doc, string xpath, XmlNamespaceManager xmlns = null)
         {
@@ -2719,7 +2702,7 @@ namespace TabulateSmarterTestContentPackage
             if (node == null) throw new NullReferenceException("Null passed to NextNode.");
 
             // Try first child
-            XmlNode next = node.FirstChild;
+            var next = node.FirstChild;
             if (next != null) return next;
 
             // Try next sibling
@@ -2776,14 +2759,14 @@ namespace TabulateSmarterTestContentPackage
         public static string FirstWord(this string str)
         {
             str = str.Trim();
-            int space = str.IndexOfAny(cWhitespace);
+            var space = str.IndexOfAny(cWhitespace);
             return (space > 0) ? str.Substring(0, space) : str;
         }
 
         public static int ParseLeadingInteger(this string str)
         {
             str = str.Trim();
-            int i = 0;
+            var i = 0;
             foreach (char c in str)
             {
                 if (!char.IsDigit(c)) return i;
@@ -2793,7 +2776,7 @@ namespace TabulateSmarterTestContentPackage
         }
     }
 
-    class XmlSubtreeEnumerable : IEnumerable<XmlNode>
+    internal class XmlSubtreeEnumerable : IEnumerable<XmlNode>
     {
         XmlNode m_root;
 
@@ -2813,7 +2796,7 @@ namespace TabulateSmarterTestContentPackage
         }
     }
 
-    class XmlSubtreeEnumerator : IEnumerator<XmlNode>
+    internal class XmlSubtreeEnumerator : IEnumerator<XmlNode>
     {
         XmlNode m_root;
         XmlNode m_current;
