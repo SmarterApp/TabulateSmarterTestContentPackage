@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
 using System.Xml.XPath;
@@ -19,8 +20,10 @@ namespace TabulateSmarterTestContentPackage.Validators
             var attachmentFile = FileUtility.GetAttachmentFilename(itemContext, xmlDocument, "ASL");
             FileFolder ffItems;
             if (baseFolder.TryGetFolder("Items", out ffItems))
+            {
                 if (!string.IsNullOrEmpty(attachmentFile))
                 {
+                    ValidateFilename(attachmentFile, itemContext);
                     try
                     {
                         double videoSeconds = Mp4VideoUtility.GetDuration(
@@ -59,13 +62,62 @@ namespace TabulateSmarterTestContentPackage.Validators
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine(ex);
+                        ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe,
+                                "An error occurred when attempting to process an ASL video"
+                                , $"Filename: {attachmentFile} Exception: {ex.Message}");
                     }
                 }
                 else
                 {
-                    // throw errors
+                    ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe,
+                                "Unable to locate valid video file for item", attachmentFile ?? "Attachment filename does not exist");
                 }
+            }
+            else
+            {
+                ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe,
+                                "Unable to load item directory");
+            }
+        }
+
+        private static void ValidateFilename(string fileName, ItemContext itemContext)
+        {
+            const string pattern = @"(([Ss][Tt][Ii][Mm])|([Pp][Aa][Ss][Ss][Aa][Gg][Ee])|([Ii][Tt][Ee][Mm]))_(\d+)_ASL_STEM\.[Mm][Pp]4";
+            var matches = Regex.Matches(fileName, pattern).Cast<Match>().ToList();
+            if (Regex.IsMatch(fileName, pattern))
+            {
+                if (itemContext.IsPassage && matches[0].Groups[1].Value.Equals("passage", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Should be stim, but is passage
+                    ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Benign,
+                                "ASL video filename for stim is titled as 'passsage' instead of 'stim'", $"Filename: {fileName}");
+                } 
+                if (!matches[0].Groups[5].Value.Equals(itemContext.ItemId, StringComparison.OrdinalIgnoreCase))
+                {
+                    // Incorrect ItemId
+                    ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe,
+                                "ASL video filename contains an incorrect ID", $"Filename: {fileName} Expected ID: {itemContext.ItemId}");
+                }
+                if (itemContext.IsPassage &&
+                    matches[0].Groups[1].Value.Equals("item", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Item video in stim
+                    ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe,
+                                "ASL video filename indicates item, but base folder is a stim", $"Filename: {fileName}");
+                } else if (!itemContext.IsPassage &&
+                           (matches[0].Groups[1].Value.Equals("stim", StringComparison.OrdinalIgnoreCase)
+                            || matches[0].Groups[1].Value.Equals("passage", StringComparison.OrdinalIgnoreCase)))
+                {
+                    // Stim video in an item
+                    ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe,
+                                "ASL video filename indicates stim, but base folder is a item", $"Filename: {fileName}");
+                }
+            }
+            else
+            {
+                ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Degraded,
+                                "ASL video filename does not match expected pattern", $"Filename: {fileName} Pattern: {pattern}");
+            }
         }
     }
 }

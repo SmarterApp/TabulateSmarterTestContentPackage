@@ -1453,13 +1453,19 @@ namespace TabulateSmarterTestContentPackage
                     // Get the subtype (if any)
                     var subtype = xmlEle.GetAttribute("subtype");
                     BrailleCode attachmentSubtype;
-                    if (!string.IsNullOrEmpty(subtype) && !subtype.Contains('_') && Enum.TryParse(subtype.ToUpperInvariant(), out attachmentSubtype))
+                    if (!string.IsNullOrEmpty(subtype) && !subtype.Contains('_') &&
+                        Enum.TryParse(subtype.ToUpperInvariant(), out attachmentSubtype))
                     {
                         brailleFiles.Add(new BrailleFile
                         {
                             Type = attachmentType,
                             Code = attachmentSubtype
                         });
+                    }
+                    else
+                    {
+                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, 
+                            "Unknown subtype designation for attachment.", subtype ?? "Subtype not present");
                     }
 
                     var matches = Regex.Matches(filename, validFilePattern);
@@ -1608,6 +1614,7 @@ namespace TabulateSmarterTestContentPackage
             return brailleFiles.FirstOrDefault()?.Type + (brailleList.Any() ?
                 "|" + brailleList
                     .Select(x => x.ToString())
+                    .Distinct()
                     .Aggregate((y, z) => $"{y};{z}")
                     : string.Empty);
         }
