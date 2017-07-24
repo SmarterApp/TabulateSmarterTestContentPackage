@@ -907,7 +907,7 @@ namespace TabulateSmarterTestContentPackage
                     && !primaryStandard.Claim.Split('-').FirstOrDefault().Equals("2")
                     && !primaryStandard.Target.Split('-').FirstOrDefault().Equals("9"))
                 {
-                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable, "Has TTS Silencing Tag", "subject='{0}' claim='{1}' target='{2}'", subject, 
+                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable, "Item has improper TTS Silencing Tag", "subject='{0}' claim='{1}' target='{2}'", subject, 
                         primaryStandard.Claim, primaryStandard.Target);
                 }
             }
