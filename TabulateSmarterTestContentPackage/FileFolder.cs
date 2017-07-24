@@ -13,7 +13,7 @@ namespace TabulateSmarterTestContentPackage
     /// Implementations are on the convetional file system and on a .zip file.
     /// Nested .zip files are NOT supported.
     /// </summary>
-    abstract class FileFolder
+    public abstract class FileFolder
     {
         string mRootedName;
         string mName;
@@ -66,7 +66,7 @@ namespace TabulateSmarterTestContentPackage
         }
     }
 
-    abstract class FileFile
+    public abstract class FileFile
     {
         string mRootedName;
         string mName;
@@ -117,9 +117,9 @@ namespace TabulateSmarterTestContentPackage
 
     }
 
-    class FsFolder : FileFolder
+    public class FsFolder : FileFolder
     {
-        string mPhysicalPath;
+        public string mPhysicalPath { get; set; }
 
         public FsFolder(string physicalRoot)
             : base("/", string.Empty)
@@ -141,9 +141,9 @@ namespace TabulateSmarterTestContentPackage
                 if (mFolders == null)
                 {
                     mFolders = new List<FileFolder>();
-                    string rootedNamePrefix = (RootedName.Length <= 1) ? RootedName : string.Concat(RootedName, "/");
-                    DirectoryInfo diThis = new DirectoryInfo(mPhysicalPath);
-                    foreach (DirectoryInfo di in diThis.EnumerateDirectories())
+                    var rootedNamePrefix = (RootedName.Length <= 1) ? RootedName : string.Concat(RootedName, "/");
+                    var diThis = new DirectoryInfo(mPhysicalPath);
+                    foreach (var di in diThis.EnumerateDirectories())
                     {
                         mFolders.Add(new FsFolder(di.FullName, string.Concat(rootedNamePrefix, di.Name), di.Name));
                     }
@@ -276,7 +276,7 @@ namespace TabulateSmarterTestContentPackage
             catch (Exception err)
             {
                 Dispose(true);
-                throw new InvalidDataException(string.Format("Corrupted zip file '{0}': {1}", zipFileName, err.Message), err);
+                throw new InvalidDataException($"Corrupted zip file '{zipFileName}': {err.Message}", err);
             }
         }
 

@@ -1,17 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using NLog;
+using TabulateSmarterTestContentPackage.Utilities;
 using Win32Interop;
 
 namespace TabulateSmarterTestContentPackage
 {
-    class Program
+    internal class Program
     {
 // 78 character margin                                                       |
-        static readonly string cSyntax =
-@"Syntax: TabulateSmarterTestContentPackage [options] <path>
+        private const string cSyntax =
+            @"Syntax: TabulateSmarterTestContentPackage [options] <path>
 
 Options:
     -s       Individually tabulate each package in Subdirectories of the
@@ -48,6 +48,10 @@ Validation Options:
             tutorial references and dependencies. This is valuable when
             tutorials are packaged separately from the balance of the
             content.
+    -v-asl  ASL video: Disables checking for ASL video whose ratio of video
+            length to item stim length falls outside of two standard deviations
+            from mean (adjustible through app.config).
+    -v-cdt  Disables CData validations including glossary tags and restricted css
 
     -v+all  Enable all optional validation and tabulation features.
     -v+ebt  Embedded Braille Text: Enables checking embedded <brailleText>
@@ -66,8 +70,6 @@ Validation Options:
             is not referenced by any item.
     -v+iat  Image Alternate Text: Reports errors when images are present
             without alternate text.
-    -v+mst  Enable manifest (imsmanifest.xml) validation.
-    -v+tss  Check for text-to-speech silencing tags.
 
 Error severity definitions:
     Severe     The error will prevent the test item from functioning properly
@@ -85,30 +87,30 @@ Error severity definitions:
                may be missing data but if that term isn’t referenced in an
                item then it is benign.
 ";
-// 78 character margin                                                       |
+
+        // 78 character margin                                                       |
 
         public static ValidationOptions gValidationOptions = new ValidationOptions();
+        public static Logger Logger = LogManager.GetCurrentClassLogger();
 
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
             long startTicks = Environment.TickCount;
 
+            // Default options
+            gValidationOptions.Disable("ebt"); // Disable EmptyBrailleText test.
+            gValidationOptions.Disable("tgs"); // Disable Target Grade Suffix
+            gValidationOptions.Disable("umf"); // Disable checking for Unreferenced Media Files
+            gValidationOptions.Disable("gtr"); // Disable Glossary Text Report
+            gValidationOptions.Disable("uwt"); // Disable Unreferenced Wordlist Terms
+            gValidationOptions.Disable("mwa"); // Disable checking for attachments on unreferenced wordlist terms
+            gValidationOptions.Disable("iat"); // Disable checking for images without alternate text
+
             try
             {
-                // Default options
-                gValidationOptions.Disable("ebt");  // Disable EmptyBrailleText test.
-                gValidationOptions.Disable("tgs");  // Disable Target Grade Suffix
-                gValidationOptions.Disable("umf");  // Disable checking for Unreferenced Media Files
-                gValidationOptions.Disable("gtr");  // Disable Glossary Text Report
-                gValidationOptions.Disable("uwt");  // Disable Glossary Text Report
-                gValidationOptions.Disable("mwa");  // Disable checking for attachments on unreferenced wordlist terms
-                gValidationOptions.Disable("iat");  // Disable checking for images without alternate text
-                gValidationOptions.Disable("mst");  // Disable checking for manifest errors
-                gValidationOptions.Disable("tss");  // Disable checking for text-to-speech silencing tags
-
                 string rootPath = null;
-                char operation = 'o'; // o=one, s=packages in Subdirectories, a=aggregate packages in subdirectories
-                foreach (string arg in args)
+                var operation = 'o'; // o=one, s=packages in Subdirectories, a=aggregate packages in subdirectories
+                foreach (var arg in args)
                 {
                     if (arg[0] == '-') // Option
                     {
@@ -124,20 +126,27 @@ Error severity definitions:
                                 operation = 'h'; // Help
                                 break;
                             case 'v':
-                                if (arg[2] != '+' && arg[2] != '-') throw new ArgumentException("Invalid command-line option: " + arg);
+                                if (arg[2] != '+' && arg[2] != '-')
                                 {
-                                    string key = arg.Substring(3).ToLowerInvariant();
-                                    bool value = arg[2] == '+';
-                                    if (key.Equals("all", StringComparison.Ordinal))
-                                    {
-                                        if (!value) throw new ArgumentException("Invalid command-line option '-v-all'. Options must be disabled one at a time.");
-                                        gValidationOptions.EnableAll();
-                                    }
-                                    else
-                                    {
-                                        gValidationOptions[key] = value;
-                                    }
+                                    throw new ArgumentException("Invalid command-line option: " + arg);
                                 }
+                            {
+                                var key = arg.Substring(3).ToLowerInvariant();
+                                var value = arg[2] == '+';
+                                if (key.Equals("all", StringComparison.Ordinal))
+                                {
+                                    if (!value)
+                                    {
+                                        throw new ArgumentException(
+                                            "Invalid command-line option '-v-all'. Options must be disabled one at a time.");
+                                    }
+                                    gValidationOptions.EnableAll();
+                                }
+                                else
+                                {
+                                    gValidationOptions[key] = value;
+                                }
+                            }
                                 break;
                             default:
                                 throw new ArgumentException("Unexpected command-line option: " + arg);
@@ -158,7 +167,23 @@ Error severity definitions:
                     operation = 'h';
                 }
 
-                Tabulator tab = new Tabulator();
+                if (gValidationOptions.IsEnabled("asl"))
+                {
+                    SettingsUtility.RetrieveAslValues();
+                }
+
+                Console.WriteLine("Tabulator Flags");
+                Console.WriteLine(Enumerable.Repeat("-",20).Aggregate((x,y) => $"{x}{y}"));
+
+                gValidationOptions.Keys.ToList().ForEach(x =>
+                {
+                    Console.WriteLine($"[{x}: {gValidationOptions[x].ToString()}]");
+                });
+
+                Console.WriteLine(Enumerable.Repeat("-", 20).Aggregate((x, y) => $"{x}{y}"));
+                Console.WriteLine();
+
+                var tab = new Tabulator();
                 switch (operation)
                 {
                     default:
@@ -177,19 +202,14 @@ Error severity definitions:
                         Console.WriteLine(cSyntax);
                         break;
                 }
-
             }
-            catch (Exception err)
+            catch (Exception ex)
             {
-                Console.WriteLine(err.Message);
+                Logger.Error(ex.Message);
             }
 
-            long elapsedTicks;
-            unchecked
-            {
-                elapsedTicks = Environment.TickCount - startTicks;
-            }
-            Console.WriteLine("Elapsed time: {0}.{1:d3} seconds", elapsedTicks / 1000, elapsedTicks % 1000);
+            var elapsedTicks = Environment.TickCount - startTicks;
+            Logger.Info("Elapsed time: {0}.{1:d3} seconds", elapsedTicks / 1000, elapsedTicks % 1000);
 
             if (ConsoleHelper.IsSoleConsoleOwner)
             {
@@ -200,7 +220,7 @@ Error severity definitions:
         }
     }
 
-    class ValidationOptions : Dictionary<string, bool>
+    internal class ValidationOptions : Dictionary<string, bool>
     {
         public void Enable(string option)
         {
@@ -214,15 +234,13 @@ Error severity definitions:
 
         public void EnableAll()
         {
-            Clear();    // Since options default to enabled, clearing enables all.
+            Clear(); // Since options default to enabled, clearing enables all.
         }
 
         public bool IsEnabled(string option)
         {
             bool value;
-            if (!TryGetValue(option, out value)) return true;   // Options default to enabled
-            return value;
+            return !TryGetValue(option, out value) || value;
         }
-
     }
 }
