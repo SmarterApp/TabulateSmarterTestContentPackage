@@ -5,6 +5,7 @@ namespace TabulateSmarterTestContentPackage.Models
 {
     public class ItemScoring
     {
+        public string Domain { get; set; } = string.Empty;
         public string MeasurementModel { get; set; } = string.Empty;
         public string ScorePoints { get; set; } = string.Empty;
         public string Dimension { get; set; } = string.Empty;

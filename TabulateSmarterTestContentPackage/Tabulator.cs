@@ -813,7 +813,9 @@ namespace TabulateSmarterTestContentPackage
                     if (string.Equals(fi.Extension, ".qrx", StringComparison.OrdinalIgnoreCase)
                         && (machineScoringFilename == null || !string.Equals(fi.Name, machineScoringFilename, StringComparison.OrdinalIgnoreCase)))
                     {
-                        ReportingUtility.ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Severe, "Machine scoring file found but not referenced in <MachineRubric> element.", "Filename='{0}'", fi.Name);
+                        ReportingUtility.ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Severe, 
+                            "Machine scoring file found but not referenced in <MachineRubric> element.", 
+                            "Filename='{0}'", fi.Name);
                     }
                 }
 
@@ -825,7 +827,9 @@ namespace TabulateSmarterTestContentPackage
                         {
                             if (!(x.SelectSingleNode("./rubriclist/rubric/val") is XmlElement))
                             {
-                                ReportingUtility.ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Tolerable, $"Hand-scored or QRX-scored item lacks a human-readable rubric for language {x.SelectSingleNode("./@language")?.Value ?? string.Empty}", $"AnswerKey='{answerKey}'");
+                                ReportingUtility.ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Tolerable, 
+                                    "Hand-scored or QRX-scored item lacks a human-readable rubric", 
+                                    $"Language: {x.SelectSingleNode("./@language")?.Value ?? string.Empty} AnswerKey: '{answerKey}'");
                             }
                         });
                 }
