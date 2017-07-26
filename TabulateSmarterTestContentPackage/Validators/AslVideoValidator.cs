@@ -55,9 +55,10 @@ namespace TabulateSmarterTestContentPackage.Validators
                             || secondToCountRatio < lowStandard)
                         {
                             ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                $"ASL enabled element's video length ({videoSeconds}) to character count ({characterCount}) ratio ({secondToCountRatio}) falls more than " +
-                                $"{TabulatorSettings.AslTolerance} standard deviations ({TabulatorSettings.AslStandardDeviation}) from " +
-                                $"the mean value ({TabulatorSettings.AslMean}).");
+                                "ASL enabled element's video length to character count ratio is too far from the mean value",
+                                $"Video Length (seconds): {videoSeconds} Character Count: {characterCount} Ratio: {secondToCountRatio} " +
+                                $"Standard Deviation Tolerance: {TabulatorSettings.AslTolerance} Standard Deviation: {TabulatorSettings.AslStandardDeviation} " +
+                                $"Mean: {TabulatorSettings.AslMean}");
                         }
                     }
                     catch (Exception ex)
