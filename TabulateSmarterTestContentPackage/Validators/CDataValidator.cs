@@ -102,7 +102,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                     Logger.Error(
                         $"CData element {x.Name.LocalName} matches an illegal pattern: {path}[@{attribute.ToLower()}]");
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
-                        $"CData element {x.Name.LocalName} matches an illegal pattern: {path}[@{attribute.ToLower()}]");
+                        "CData element matches an illegal pattern", $"Element: {x.Name.LocalName} Pattern: {path}[@{attribute.ToLower()}]");
                 });
             return false;
         }
@@ -163,7 +163,7 @@ namespace TabulateSmarterTestContentPackage.Validators
             {
                 Logger.Error($"Image element contains no attributes. Value: {imageElement}");
                 ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
-                    $"Image element contains no attributes. Value: {imageElement}");
+                    "Image element contains no attributes", $"Value: {imageElement}");
                 return false;
             }
             var altTag = imageElement.Attributes().Select(x =>
@@ -176,14 +176,16 @@ namespace TabulateSmarterTestContentPackage.Validators
             {
                 Logger.Error($"Img element does not contain a valid alt attribute. Value: {imageElement}");
                 ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
-                    $"Img element does not contain a valid alt attribute. Value: {imageElement}");
+                    "Img element does not contain a valid alt attribute", $"Value: {imageElement}");
                 return false;
             }
             if (string.IsNullOrEmpty(altTag.Value))
             {
                 Logger.Error($"Img tag's alt attribute is not valid. Value: {imageElement}");
                 ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
-                    $"Img tag's alt attribute is not valid. Value: {imageElement}");
+                    "Img tag's alt attribute is not valid",
+                    $"Value: {imageElement}"
+                );
                 return false;
             }
             return true;
@@ -200,7 +202,8 @@ namespace TabulateSmarterTestContentPackage.Validators
             {
                 Logger.Error($"Glossary tag {x} is nested illegally within another span tag");
                 ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
-                    $"Glossary tag {x} is nested illegally within another span tag");
+                    "Glossary tag is nested illegally within another span tag",
+                    $"Value: {x}");
                 valid = false;
             });
             return valid;
@@ -226,7 +229,8 @@ namespace TabulateSmarterTestContentPackage.Validators
                     // We have a span without an ID which is bad
                     Logger.Error($"Glossary start tag {x} does not have a required ID value");
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Wordlist, errorSeverity,
-                        $"Glossary start tag {x} does not have a required ID value");
+                        "Glossary start tag does not have a required ID value",
+                        $"Tag: {x}");
                     return;
                 }
                 var siblings = x.NodesAfterSelf().ToList();
@@ -236,7 +240,8 @@ namespace TabulateSmarterTestContentPackage.Validators
                 {
                     Logger.Error($"Glossary start tag '{x}' does not have a matching sibling end tag");
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Wordlist, errorSeverity,
-                        $"Glossary start tag '{x}' does not have a matching sibling end tag");
+                        "Glossary start tag does not have a matching sibling end tag",
+                        $"Tag: {x}");
                     return;
                 }
                 var node = siblings.FirstOrDefault();
@@ -248,7 +253,8 @@ namespace TabulateSmarterTestContentPackage.Validators
                     ReportInappropriateGlossarySpanValues(node.Cast(), itemContext, errorSeverity);
                     Logger.Error($"Glossary tag '{x}' does not have a value");
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Wordlist, errorSeverity,
-                        $"Glossary tag '{x}' does not have a value");
+                        "Glossary tag does not have a value",
+                        $"Tag: {x}");
                     return;
                 }
 
@@ -276,7 +282,8 @@ namespace TabulateSmarterTestContentPackage.Validators
                     {
                         Logger.Error($"Glossary tag {x} has an illegally nested value '{element.Value}'");
                         ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
-                            $"Glossary tag {x} has an illegally nested value '{element.Value}'");
+                            "Glossary tag has an illegally nested value",
+                            $"Tag: {x} Value: {element.Value}");
                         node = siblings.Count >= index ? siblings[index++] : null;
                         continue;
                     }
@@ -301,14 +308,16 @@ namespace TabulateSmarterTestContentPackage.Validators
                     {
                         Logger.Error($"Glossary tag {element ?? node} overlaps with another tag {x}");
                         ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
-                            $"Glossary tag {element ?? node} overlaps with another tag {x}");
+                            "Glossary tag overlaps with another tag",
+                            $"Tag: {element ?? node} Overlaps: {x}");
                         node = siblings.Count >= index ? siblings[index++] : null;
                         return;
                     }
                     // We found something that shouldn't be here
                     Logger.Error($"Unrecognized element {element ?? node} encountered while processing siblings of {x}");
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
-                        $"Unrecognized element {element ?? node} encountered while processing siblings of {x}");
+                        "Unrecognized element encountered while processing sibling nodes in CData Glossary",
+                        $"Element: {element ?? node} Base Node: {x}");
                     // We're going to continue processing
                     node = siblings.Count >= index ? siblings[++index] : null;
                 }
@@ -349,7 +358,8 @@ namespace TabulateSmarterTestContentPackage.Validators
             {
                 Logger.Error($"Glossary element '{element}' contains inappropriate value '{element.Value}'");
                 ReportingUtility.ReportError(itemContext, ErrorCategory.Wordlist, errorSeverity,
-                    $"Glossary element '{element}' contains inappropriate value '{element.Value}'");
+                    "Glossary element contains inappropriate value",
+                    $"Element {element} Value: {element.Value}");
             }
         }
 
@@ -396,8 +406,9 @@ namespace TabulateSmarterTestContentPackage.Validators
                         $"Tagged section {x} contains an illegal character. Only letters, punctuation, " +
                         "and spaces are permitted");
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Wordlist, errorSeverity,
-                        $"Tagged section {x} contains an illegal character. Only letters, punctuation, " +
-                        "and spaces are permitted");
+                        "Tagged section contains an illegal character. Only letters, punctuation, " +
+                        "and spaces are permitted",
+                        $"Section: {x}");
                 }
                 var regex = @"(?>^|\W+)(" + x + @")(?>\W+|$)";
                 var wordMatches = words.Where(y => Regex.Matches(y, regex, RegexOptions.IgnoreCase).Count > 0).ToList();
@@ -409,10 +420,9 @@ namespace TabulateSmarterTestContentPackage.Validators
                         $"within a formal glossary element '{terms[x]}' " +
                         $"and the incidence of the same term within the text of the CData element [{wordMatches.Aggregate((y, z) => $"'{y}'|'{z}'")}]");
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
-                        $"There is a mismatch between the incidence of the glossary term '{x}'"
-                        + $" within a formal glossary element '{terms[x]}'"
-                        +
-                        $" and the incidence of the same term within the text of the CData element [{wordMatches.Aggregate((y, z) => $"'{y}'|'{z}'")}]"
+                        "There is a mismatch between the incidence of the glossary term within a formal glossary element " +
+                        "and the incidence of the same term within the text of the CData element",
+                        $"Term: {x} Element: {terms[x]} Counts: [{wordMatches.Aggregate((y, z) => $"'{y}'|'{z}'")}]"
                     );
                 }
             });
