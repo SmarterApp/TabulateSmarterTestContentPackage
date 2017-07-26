@@ -120,10 +120,9 @@ namespace TabulateSmarterTestContentPackage.Validators
                 if (violations.Any())
                 {
                     isValid = false;
-                    var errorText =
-                        $"Element '{x.Element.Name.LocalName}' in CData contains illegal CSS marker(s) '{violations.Aggregate((y, z) => $"{y},{z}")}' in its 'style' attribute. Value: {x.Element}";
-                    Logger.Error(errorText);
-                    ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity, errorText);
+                    ReportingUtility.ReportError(itemContext, ErrorCategory.Item,
+                        errorSeverity, "CData css style tags contain restricted keywords or patterns", 
+                        $"Element: {x.Element.Name.LocalName} Value: {x.Element} Violates: [{violations.Aggregate((y, z) => $"{y},{z}")}]");
                 }
             });
 
