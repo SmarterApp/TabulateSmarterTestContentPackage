@@ -102,7 +102,8 @@ namespace TabulateSmarterTestContentPackage.Validators
                     Logger.Error(
                         $"CData element {x.Name.LocalName} matches an illegal pattern: {path}[@{attribute.ToLower()}]");
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
-                        "CData element matches an illegal pattern", $"Element: {x.Name.LocalName} Pattern: {path}[@{attribute.ToLower()}]");
+                        "CData element matches an illegal pattern",
+                        $"Element: {x.Name.LocalName} Pattern: {path}[@{attribute.ToLower()}]");
                 });
             return false;
         }
@@ -121,7 +122,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                 {
                     isValid = false;
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Item,
-                        errorSeverity, "CData css style tags contain restricted keywords or patterns", 
+                        errorSeverity, "CData css style tags contain restricted keywords or patterns",
                         $"Element: {x.Element.Name.LocalName} Value: {x.Element} Violates: [{violations.Aggregate((y, z) => $"{y},{z}")}]");
                 }
             });

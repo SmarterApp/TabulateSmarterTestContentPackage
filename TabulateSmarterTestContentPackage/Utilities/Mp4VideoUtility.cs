@@ -10,8 +10,8 @@ namespace TabulateSmarterTestContentPackage.Utilities
 {
     public class Mp4VideoUtility : IDisposable
     {
-        private BinaryReader m_reader;
         private readonly Box m_root;
+        private BinaryReader m_reader;
 
         /// <summary>
         ///     Create the MP4 object from a filename.

@@ -31,8 +31,9 @@ namespace TabulateSmarterTestContentPackage.Models
                 b4,
                 c
             };
-            return stringList.Any(x => !string.IsNullOrEmpty(x)) ?
-                stringList.Where(x => !string.IsNullOrEmpty(x)).Aggregate((x, y) => $"{x}|{y}") : string.Empty;
+            return stringList.Any(x => !string.IsNullOrEmpty(x))
+                ? stringList.Where(x => !string.IsNullOrEmpty(x)).Aggregate((x, y) => $"{x}|{y}")
+                : string.Empty;
         }
     }
 }

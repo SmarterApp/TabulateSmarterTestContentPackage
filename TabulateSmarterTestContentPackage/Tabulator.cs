@@ -1403,7 +1403,8 @@ namespace TabulateSmarterTestContentPackage
                 var fileTypes = extensions.Select(x => x.Key.ToLower()).ToList();
                 if (fileTypes.Contains("brf") && fileTypes.Contains("prn")) // We have more than one Braille file extension present
                 {
-                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, $"More than one Braille file type extension present in attachment list [{fileTypes.Aggregate((x,y) => $"{x}|{y}")}]");
+                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, 
+                        "More than one Braille file type extension present in attachment list", $"File Types: [{fileTypes.Aggregate((x,y) => $"{x}|{y}")}]");
                 }
 
                 var processedIds = new List<string>();
@@ -1417,7 +1418,9 @@ namespace TabulateSmarterTestContentPackage
                         ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Attachment missing id attribute.");
                     } else if (processedIds.Contains(id))
                     {
-                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Duplicate attachment IDs in attachmentlist element", $"ID: {id}");
+                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, 
+                            "Duplicate attachment IDs in attachmentlist element", 
+                            $"ID: {id}");
                     }
                     else
                     {
@@ -1493,14 +1496,16 @@ namespace TabulateSmarterTestContentPackage
                                 !matches[0].Groups[1].Value.Equals("passage", StringComparison.OrdinalIgnoreCase))
                             {
                                 ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
-                                    $"Current validation target is a {itemOrStimText}, but attachment {filename} designates its target as {matches[0].Groups[1].Value}");
+                                    "Attachment target does not match item target (stim vs item)",
+                                    $"Target: {itemOrStimText} Filename: {filename} Actual Target: {matches[0].Groups[1].Value}");
                             }
                             // According to the documentation, all stimuli braille attachments must be prefixed with "stim", 
                             // but functionally, they may be "passage". Indicate a benign error.
                             else
                             {
                                 ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Benign,
-                                    "Stimuli attachment designated as a \"passage\". Official documentation indicates all stimuli must be prefixed as \"stim\".",
+                                    "Stimuli attachment designated as a \"passage\". Official documentation " +
+                                    "indicates all stimuli must be prefixed as \"stim\".",
                                     filename);
                             }
                         }
@@ -1508,38 +1513,46 @@ namespace TabulateSmarterTestContentPackage
                         // item id
                         {
                             ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
-                                $"Current validation target has identifier {it.ItemId}, but attachment {filename} designates its target as {matches[0].Groups[2].Value}");
+                                $"Attachment ID does not match item ID",
+                                $"Identifier: {it.ItemId} Filename: {filename} Target: {matches[0].Groups[2].Value}");
                         }
                         if (!matches[0].Groups[3].Value.Equals("enu", StringComparison.OrdinalIgnoreCase))
                         // this is hard-coded 'enu' English for now. No other values are valid
                         {
                             ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
-                                $"Current validation target has illegal language designation {matches[0].Groups[3].Value} in filename {filename}. 'enu' is the only valid language target for Braille attachments");
+                                "Attachment language is non-ENU",
+                                $"Attachment Language: {matches[0].Groups[3].Value} Filename: {filename}");
                         }
 
                         if (!validTypes.Select(x => x.ToLower()).Contains(matches[0].Groups[4].Value.ToLower()))
                         // code, uncontracted, contracted, nemeth
                         {
                             ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
-                                $"Current validation target has unknown Braille type designation {matches[0].Groups[4].Value} in attachment filename {filename}. Braille type designation must be in set: [{validTypes.Aggregate((x, y) => $"{x}|{y}")}]");
+                                "Braille attachment is of unknown type",
+                                $"Braille Type: {matches[0].Groups[4].Value} Filename: {filename} " +
+                                $"Valid Types: [{validTypes.Aggregate((x, y) => $"{x}|{y}")}]");
                         } else if (!string.IsNullOrEmpty(subtype) && !matches[0].Groups[4].Value.Equals(subtype.Split('_').First(),
                             StringComparison.OrdinalIgnoreCase))
                         {
                             ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Benign,
-                                $"Current validation target's Braille type designation {matches[0].Groups[4].Value} in attachment filename {filename} does not match element subtype designation {subtype.Split('_').First()}");
+                                "Attachment braille type does not match parent element's subtype",
+                                $"Attachment Braille Type: {matches[0].Groups[4].Value} " +
+                                $"Filename {filename} Element Braille Type: {subtype.Split('_').First()}");
                         }
                         if (!string.IsNullOrEmpty(matches[0].Groups[5].Value) &&
                             !matches[0].Groups[5].Value.Equals("_transcript", StringComparison.OrdinalIgnoreCase))
                         // this item has a braille transcript
                         {
                             ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
-                                $"Current validation target has unknown extension designation {matches[0].Groups[5].Value} in attachment filename {filename}. Extension must either be 'transcript' or blank");
+                                "Braille attachment suffix must be either 'transcript' or blank",
+                                $"Extension: {matches[0].Groups[5].Value} Filename: {filename}");
                         }
                         if (!matches[0].Groups[6].Value.Equals(attachType, StringComparison.OrdinalIgnoreCase))
                         // Must match the type listed
                         {
                             ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
-                                $"Current validation target has invalid extension {matches[0].Groups[6].Value} in attachment filename {filename}. Extension must either be 'brf' or 'prn'");
+                                "Braille attachment's extension is invalid. Extension must either be 'brf' or 'prn'",
+                                $"Extension: {matches[0].Groups[6].Value} Filename: {filename}");
                         }
                     }
                     else
@@ -1556,12 +1569,15 @@ namespace TabulateSmarterTestContentPackage
                                 .Last().Equals("transcript", StringComparison.OrdinalIgnoreCase))
                         {
                             ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                $"Current validation target attachment filename {filename} does not match file convention pattern");
+                                "Attachment filename does not match file convention pattern",
+                                $"Filename: {filename}"
+                                );
                         }
                         else
                         {
                             ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                $"Current validation target attachment filename {filename} does not match file convention pattern for Braille transcripts");
+                                "Current validation target attachment filename does not match file convention pattern for Braille transcripts",
+                                $"Filename: {filename}");
                         }
                     }
 
@@ -1569,7 +1585,8 @@ namespace TabulateSmarterTestContentPackage
                     var brailleFile = (string.IsNullOrEmpty(subtype)) ? attachType.ToUpperInvariant() : string.Concat(attachType.ToUpperInvariant(), "(", subtype.ToLowerInvariant(), ")");
                     if (!brailleTypes.Add(brailleFile))
                     {
-                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable, "Multiple attachments of same type and subtype.", "type='{0}'", brailleFile);
+                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable, 
+                            "Multiple attachments of same type and subtype.", "type='{0}'", brailleFile);
                     }
                 }
             }

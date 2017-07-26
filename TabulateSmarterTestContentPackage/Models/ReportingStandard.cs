@@ -27,7 +27,8 @@ namespace TabulateSmarterTestContentPackage.Models
             if (secondary.Any(x => !string.IsNullOrEmpty(x.Standard) && !x.Standard.Equals("NA")))
             {
                 SecondaryCommonCore =
-                    secondary.Where(x => !x.Standard.Equals("NA")).Select(x => !string.IsNullOrEmpty(x.Standard) ? $"{x.Standard}\t" : string.Empty)
+                    secondary.Where(x => !x.Standard.Equals("NA"))
+                        .Select(x => !string.IsNullOrEmpty(x.Standard) ? $"{x.Standard}\t" : string.Empty)
                         .Where(x => !string.IsNullOrEmpty(x))
                         .Aggregate((x, y) => $"{x};{y}");
             }
