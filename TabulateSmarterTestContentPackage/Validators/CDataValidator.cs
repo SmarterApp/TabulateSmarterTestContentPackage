@@ -39,9 +39,14 @@ namespace TabulateSmarterTestContentPackage.Validators
                 // Check for html attributes that modify color
                 var noColorAlterations = ElementsFreeOfColorAlterations(cDataSection.Root, itemContext, errorSeverity);
 
-                // Check for css elements inside style attributes that modify color (this searches by 'contains')
-                var noCssColorAlterations = ElementsFreeOfViolatingStyleText(cDataSection.Root, GetCssColorCodes(),
+                // Check for css elements inside style attributes that modify color (non-word specific colors)
+                var noCssColorAlterationsPatterns = ElementsFreeOfViolatingStyleText(cDataSection.Root,
                     GetCssColorPatterns(),
+                    itemContext, errorSeverity);
+
+                // Check for css elements inside style attributes that modify color (word specific colors)
+                var noCssColorAlterationsNames = ElementsFreeOfViolatingStyleText(cDataSection.Root,
+                    GetCssColorCodes().ToDictionary(x => x, Regexify),
                     itemContext, errorSeverity);
 
                 // Check for nested glossary tags in CData
@@ -59,7 +64,8 @@ namespace TabulateSmarterTestContentPackage.Validators
 
                 return imgTagsValid.All(x => x)
                        && noColorAlterations
-                       && noCssColorAlterations;
+                       && noCssColorAlterationsPatterns
+                       && noCssColorAlterationsNames;
             }
             catch (Exception ex)
             {
@@ -103,12 +109,12 @@ namespace TabulateSmarterTestContentPackage.Validators
                         $"CData element {x.Name.LocalName} matches an illegal pattern: {path}[@{attribute.ToLower()}]");
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
                         "CData element matches an illegal pattern",
-                        $"Element: {x.Name.LocalName} Pattern: {path}[@{attribute.ToLower()}]");
+                        $"Pattern: {path}[@{attribute.ToLower()}] Element: {x.Name.LocalName}");
                 });
             return false;
         }
 
-        public static bool ElementsFreeOfViolatingStyleText(XElement rootElement, IEnumerable<string> restrictedCss,
+        public static bool ElementsFreeOfViolatingStyleText(XElement rootElement,
             IDictionary<string, string> restrictedPatterns,
             ItemContext itemContext, ErrorSeverity errorSeverity)
         {
@@ -116,14 +122,13 @@ namespace TabulateSmarterTestContentPackage.Validators
             var candidates = ExtractElementsWithCssStyling(rootElement);
             candidates.ForEach(x =>
             {
-                var violations = restrictedCss.Where(x.Style.Contains).ToList();
-                violations.AddRange(restrictedPatterns.Keys.Where(y => Regex.IsMatch(x.Style, restrictedPatterns[y])));
+                var violations = restrictedPatterns.Keys.Where(y => Regex.IsMatch(x.Style, restrictedPatterns[y])).ToList();
                 if (violations.Any())
                 {
                     isValid = false;
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Item,
                         errorSeverity, "CData css style tags contain restricted keywords or patterns",
-                        $"Element: {x.Element.Name.LocalName} Value: {x.Element} Violates: [{violations.Aggregate((y, z) => $"{y},{z}")}]");
+                        $"Violation: [{violations.Aggregate((y, z) => $"{y},{z}")}] Element: {x.Element.Name.LocalName} Value: {x.Element}");
                 }
             });
 
@@ -423,7 +428,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
                         "There is a mismatch between the incidence of the glossary term within a formal glossary element " +
                         "and the incidence of the same term within the text of the CData element",
-                        $"Term: {x} Element: {terms[x]} Counts: [{wordMatches.Aggregate((y, z) => $"'{y}'|'{z}'")}]"
+                        $"Counts: [{wordMatches.Aggregate((y, z) => $"'{y}'|'{z}'")}] Term: {x} Element: {terms[x]}"
                     );
                 }
             });
@@ -449,6 +454,17 @@ namespace TabulateSmarterTestContentPackage.Validators
                 },
                 {"hexadecimal", @"#[a-fA-F0-9]{6}"}
             };
+        }
+
+        // Eliminates false positives where colors are embedded in words
+        public static string Regexify(string target)
+        {
+            var result = @"(\W";
+            target.ToList().ForEach(x =>
+                result += $"[{x.ToString().ToUpperInvariant()}{x.ToString().ToLowerInvariant()}]"
+            );
+            result += @"\W)";
+            return result;
         }
 
         public static IEnumerable<string> GetCssColorCodes()

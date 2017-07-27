@@ -255,8 +255,9 @@ namespace TabulateSmarterTestContentPackage
             // TODO: Add CsvHelper library to allow expandable headers
             mItemReport.WriteLine("Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL," +
                                   "BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice,MaxPoints," +
-                                  "CommonCore,ClaimContentTarget,SecondaryCommonCore,SecondaryClaimContentTarget, MeasurementModel," +
-                                  "ScorePoints,Dimension,Weight,Parameters");
+                                  "CommonCore,ClaimContentTarget,SecondaryCommonCore,SecondaryClaimContentTarget, CAT_MeasurementModel," +
+                                  "CAT_ScorePoints,CAT_Dimension,CAT_Weight,CAT_Parameters, PP_MeasurementModel," +
+                                  "PP_ScorePoints,PP_Dimension,PP_Weight,PP_Parameters");
 
             mStimulusReport = new StreamWriter(string.Concat(reportPrefix, cStimulusReportFn), false, Encoding.UTF8);
             mStimulusReport.WriteLine("Folder,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,Media,Size,WordCount");
@@ -352,7 +353,8 @@ namespace TabulateSmarterTestContentPackage
             }
             catch (Exception err)
             {
-                ReportingUtility.ReportError(new ItemContext(this, packageFolder, null, null), ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
+                ReportingUtility.ReportError(new ItemContext(this, packageFolder, null, null), ErrorCategory.Exception, 
+                    ErrorSeverity.Severe, err.ToString());
             }
 
             // First pass through items
@@ -367,7 +369,8 @@ namespace TabulateSmarterTestContentPackage
                     }
                     catch (Exception err)
                     {
-                        ReportingUtility.ReportError(new ItemContext(this, ffItem, null, null), ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
+                        ReportingUtility.ReportError(new ItemContext(this, ffItem, null, null), ErrorCategory.Exception, 
+                            ErrorSeverity.Severe, err.ToString());
                     }
                 }
             }
@@ -383,7 +386,8 @@ namespace TabulateSmarterTestContentPackage
                     }
                     catch (Exception err)
                     {
-                        ReportingUtility.ReportError(new ItemContext(this, ffItem, null, null), ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
+                        ReportingUtility.ReportError(new ItemContext(this, ffItem, null, null), ErrorCategory.Exception, 
+                            ErrorSeverity.Severe, err.ToString());
                     }
                 }
             }
@@ -923,6 +927,9 @@ namespace TabulateSmarterTestContentPackage
 
             Console.WriteLine($"Tabulating {it.ItemId}");
 
+            var scoringSeparation = scoringInformation.GroupBy(
+                x => !string.IsNullOrEmpty(x.Domain) && x.Domain.Equals("paper", StringComparison.OrdinalIgnoreCase)).ToList();
+
             // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,
             // MathematicalPractice, MaxPoints, CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget, measurementmodel, scorepoints,
             // dimension, weight, parameters
@@ -931,9 +938,16 @@ namespace TabulateSmarterTestContentPackage
                 CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), CsvEncode(media), size.ToString(), CsvEncode(depthOfKnowledge), CsvEncode(allowCalculator), 
                 CsvEncode(mathematicalPractice), CsvEncode(maximumNumberOfPoints), CsvEncode(standardClaimTarget.PrimaryCommonCore), CsvEncode(standardClaimTarget.PrimaryClaimsContentTargets),
                 CsvEncode(standardClaimTarget.SecondaryCommonCore), CsvEncode(standardClaimTarget.SecondaryClaimsContentTargets), 
-                CsvEncode(scoringInformation.Select(x => x.MeasurementModel).Aggregate((x,y) => $"{x};{y}")), CsvEncode(scoringInformation.Select(x => x.ScorePoints).Aggregate((x, y) => $"{x};{y}")),
-                CsvEncode(scoringInformation.Select(x => x.Dimension).Aggregate((x, y) => $"{x};{y}")), CsvEncode(scoringInformation.Select(x => x.Weight).Aggregate((x, y) => $"{x};{y}")),
-                CsvEncode(scoringInformation.Select(x => x.GetParameters()).Aggregate((x, y) => $"{x};{y}"))));
+                CsvEncode(scoringSeparation.FirstOrDefault(x => !x.Key)?.Select(x => x.MeasurementModel).Aggregate((x,y) => $"{x};{y}") ?? string.Empty), 
+                CsvEncode(scoringSeparation.FirstOrDefault(x => !x.Key)?.Select(x => x.ScorePoints).Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
+                CsvEncode(scoringSeparation.FirstOrDefault(x => !x.Key)?.Select(x => x.Dimension).Aggregate((x, y) => $"{x};{y}") ?? string.Empty), 
+                CsvEncode(scoringSeparation.FirstOrDefault(x => !x.Key)?.Select(x => x.Weight).Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
+                CsvEncode(scoringSeparation.FirstOrDefault(x => !x.Key)?.Select(x => x.GetParameters()).Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
+                CsvEncode(scoringSeparation.FirstOrDefault(x => x.Key)?.Select(x => x.MeasurementModel).Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
+                CsvEncode(scoringSeparation.FirstOrDefault(x => x.Key)?.Select(x => x.ScorePoints).Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
+                CsvEncode(scoringSeparation.FirstOrDefault(x => x.Key)?.Select(x => x.Dimension).Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
+                CsvEncode(scoringSeparation.FirstOrDefault(x => x.Key)?.Select(x => x.Weight).Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
+                CsvEncode(scoringSeparation.FirstOrDefault(x => x.Key)?.Select(x => x.GetParameters()).Aggregate((x, y) => $"{x};{y}") ?? string.Empty)));
 
             // === Tabulation is complete, check for other errors
 
@@ -1270,12 +1284,13 @@ namespace TabulateSmarterTestContentPackage
             var translation = GetTranslation(it, xml, xmlMetadata);
 
             // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,MathematicalPractice, MaxPoints, 
-            // CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget , measurementmodel, scorepoints,
-            // dimension, weight, parameters
+            // CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget, CAT_MeasurementModel,
+            // CAT_ScorePoints, CAT_Dimension, CAT_Weight,CAT_Parameters, PP_MeasurementModel
+            // PP_ScorePoints,PP_Dimension,PP_Weight,PP_Parameters
             mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(version),
                 CsvEncode(subject), CsvEncode(grade), CsvEncode(answerKey), CsvEncode(assessmentType), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation),
                 string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty,
-                string.Empty, string.Empty, string.Empty, string.Empty, string.Empty));
+                string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty));
 
         } // TabulateTutorial
 
@@ -1843,7 +1858,8 @@ namespace TabulateSmarterTestContentPackage
             }
             catch (Exception err)
             {
-                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Invalid html content.", "context='{0}' error='{1}'", GetXmlContext(content), err.Message);
+                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, 
+                    "Invalid html content.", "context='{0}' error='{1}'", GetXmlContext(content), err.Message);
             }
             return html;
         }
