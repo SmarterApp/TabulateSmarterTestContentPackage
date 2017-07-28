@@ -48,75 +48,81 @@ namespace TabulateSmarterTestContentPackage.Validators
                         }
                         var secondToCountRatio = videoSeconds / characterCount;
                         var highStandard = TabulatorSettings.AslMean +
-                                           (TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslTolerance);
+                                           TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslTolerance;
                         var lowStandard = TabulatorSettings.AslMean -
-                                          (TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslTolerance);
+                                          TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslTolerance;
                         if (secondToCountRatio > highStandard
                             || secondToCountRatio < lowStandard)
                         {
                             ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                $"ASL enabled element's video length ({videoSeconds}) to character count ({characterCount}) ratio ({secondToCountRatio}) falls more than " +
-                                $"{TabulatorSettings.AslTolerance} standard deviations ({TabulatorSettings.AslStandardDeviation}) from " +
-                                $"the mean value ({TabulatorSettings.AslMean}).");
+                                "ASL enabled element's video length to character count ratio is too far from the mean value",
+                                $"Video Length (seconds): {videoSeconds} Character Count: {characterCount} Ratio: {secondToCountRatio} " +
+                                $"Standard Deviation Tolerance: {TabulatorSettings.AslTolerance} Standard Deviation: {TabulatorSettings.AslStandardDeviation} " +
+                                $"Mean: {TabulatorSettings.AslMean}");
                         }
                     }
                     catch (Exception ex)
                     {
                         ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe,
-                                "An error occurred when attempting to process an ASL video"
-                                , $"Filename: {attachmentFile} Exception: {ex.Message}");
+                            "An error occurred when attempting to process an ASL video"
+                            , $"Filename: {attachmentFile} Exception: {ex.Message}");
                     }
                 }
                 else
                 {
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe,
-                                "Unable to locate valid video file for item", attachmentFile ?? "Attachment filename does not exist");
+                        "Unable to locate valid video file for item",
+                        attachmentFile ?? "Attachment filename does not exist");
                 }
             }
             else
             {
                 ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe,
-                                "Unable to load item directory");
+                    "Unable to load item directory");
             }
         }
 
         private static void ValidateFilename(string fileName, ItemContext itemContext)
         {
-            const string pattern = @"(([Ss][Tt][Ii][Mm])|([Pp][Aa][Ss][Ss][Aa][Gg][Ee])|([Ii][Tt][Ee][Mm]))_(\d+)_ASL_STEM\.[Mm][Pp]4";
+            const string pattern =
+                @"(([Ss][Tt][Ii][Mm])|([Pp][Aa][Ss][Ss][Aa][Gg][Ee])|([Ii][Tt][Ee][Mm]))_(\d+)_ASL_STEM\.[Mm][Pp]4";
             var matches = Regex.Matches(fileName, pattern).Cast<Match>().ToList();
             if (Regex.IsMatch(fileName, pattern))
             {
-                if (itemContext.IsPassage && matches[0].Groups[1].Value.Equals("passage", StringComparison.OrdinalIgnoreCase))
+                if (itemContext.IsPassage &&
+                    matches[0].Groups[1].Value.Equals("passage", StringComparison.OrdinalIgnoreCase))
                 {
                     // Should be stim, but is passage
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Benign,
-                                "ASL video filename for stim is titled as 'passsage' instead of 'stim'", $"Filename: {fileName}");
-                } 
+                        "ASL video filename for stim is titled as 'passsage' instead of 'stim'", $"Filename: {fileName}");
+                }
                 if (!matches[0].Groups[5].Value.Equals(itemContext.ItemId, StringComparison.OrdinalIgnoreCase))
                 {
                     // Incorrect ItemId
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe,
-                                "ASL video filename contains an incorrect ID", $"Filename: {fileName} Expected ID: {itemContext.ItemId}");
+                        "ASL video filename contains an incorrect ID",
+                        $"Filename: {fileName} Expected ID: {itemContext.ItemId}");
                 }
                 if (itemContext.IsPassage &&
                     matches[0].Groups[1].Value.Equals("item", StringComparison.OrdinalIgnoreCase))
                 {
                     // Item video in stim
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe,
-                                "ASL video filename indicates item, but base folder is a stim", $"Filename: {fileName}");
-                } else if (!itemContext.IsPassage &&
-                           (matches[0].Groups[1].Value.Equals("stim", StringComparison.OrdinalIgnoreCase)
-                            || matches[0].Groups[1].Value.Equals("passage", StringComparison.OrdinalIgnoreCase)))
+                        "ASL video filename indicates item, but base folder is a stim", $"Filename: {fileName}");
+                }
+                else if (!itemContext.IsPassage &&
+                         (matches[0].Groups[1].Value.Equals("stim", StringComparison.OrdinalIgnoreCase)
+                          || matches[0].Groups[1].Value.Equals("passage", StringComparison.OrdinalIgnoreCase)))
                 {
                     // Stim video in an item
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe,
-                                "ASL video filename indicates stim, but base folder is a item", $"Filename: {fileName}");
+                        "ASL video filename indicates stim, but base folder is a item", $"Filename: {fileName}");
                 }
             }
             else
             {
                 ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                "ASL video filename does not match expected pattern", $"Filename: {fileName} Pattern: {pattern}");
+                    "ASL video filename does not match expected pattern", $"Filename: {fileName} Pattern: {pattern}");
             }
         }
     }

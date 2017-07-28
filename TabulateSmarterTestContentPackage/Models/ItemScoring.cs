@@ -5,6 +5,7 @@ namespace TabulateSmarterTestContentPackage.Models
 {
     public class ItemScoring
     {
+        public string Domain { get; set; } = string.Empty;
         public string MeasurementModel { get; set; } = string.Empty;
         public string ScorePoints { get; set; } = string.Empty;
         public string Dimension { get; set; } = string.Empty;
@@ -31,8 +32,9 @@ namespace TabulateSmarterTestContentPackage.Models
                 b4,
                 c
             };
-            return stringList.Any(x => !string.IsNullOrEmpty(x)) ?
-                stringList.Where(x => !string.IsNullOrEmpty(x)).Aggregate((x, y) => $"{x}|{y}") : string.Empty;
+            return stringList.Any(x => !string.IsNullOrEmpty(x))
+                ? stringList.Where(x => !string.IsNullOrEmpty(x)).Aggregate((x, y) => $"{x}|{y}")
+                : string.Empty;
         }
     }
 }

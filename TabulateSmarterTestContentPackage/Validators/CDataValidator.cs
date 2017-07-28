@@ -39,21 +39,15 @@ namespace TabulateSmarterTestContentPackage.Validators
                 // Check for html attributes that modify color
                 var noColorAlterations = ElementsFreeOfColorAlterations(cDataSection.Root, itemContext, errorSeverity);
 
-                // Check for css elements inside style attributes that modify color (this searches by 'contains')
-                var noViolatingStyleTags = ElementsFreeOfViolatingStyleText(cDataSection.Root, new List<string>
-                {
-                    "color",
-                    "background",
-                    "border",
-                    "box-shadow",
-                    "column-rule",
-                    "filter",
-                    "font",
-                    "opacity",
-                    "outline",
-                    "text-decoration",
-                    "text-shadow"
-                }, itemContext, errorSeverity);
+                // Check for css elements inside style attributes that modify color (non-word specific colors)
+                var noCssColorAlterationsPatterns = ElementsFreeOfViolatingStyleText(cDataSection.Root,
+                    GetCssColorPatterns(),
+                    itemContext, errorSeverity);
+
+                // Check for css elements inside style attributes that modify color (word specific colors)
+                var noCssColorAlterationsNames = ElementsFreeOfViolatingStyleText(cDataSection.Root,
+                    GetCssColorCodes().ToDictionary(x => x, Regexify),
+                    itemContext, errorSeverity);
 
                 // Check for nested glossary tags in CData
                 var noNestedGlossaryTags = CDataGlossaryTagsAreNotIllegallyNested(cDataSection.Root, itemContext,
@@ -70,7 +64,8 @@ namespace TabulateSmarterTestContentPackage.Validators
 
                 return imgTagsValid.All(x => x)
                        && noColorAlterations
-                       && noViolatingStyleTags;
+                       && noCssColorAlterationsPatterns
+                       && noCssColorAlterationsNames;
             }
             catch (Exception ex)
             {
@@ -113,29 +108,30 @@ namespace TabulateSmarterTestContentPackage.Validators
                     Logger.Error(
                         $"CData element {x.Name.LocalName} matches an illegal pattern: {path}[@{attribute.ToLower()}]");
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
-                        $"CData element {x.Name.LocalName} matches an illegal pattern: {path}[@{attribute.ToLower()}]");
+                        "CData element matches an illegal pattern",
+                        $"Pattern: {path}[@{attribute.ToLower()}] Element: {x.Name.LocalName}");
                 });
             return false;
         }
 
-        public static bool ElementsFreeOfViolatingStyleText(XElement rootElement, IEnumerable<string> restrictedCss,
+        public static bool ElementsFreeOfViolatingStyleText(XElement rootElement,
+            IDictionary<string, string> restrictedPatterns,
             ItemContext itemContext, ErrorSeverity errorSeverity)
         {
             var isValid = true;
             var candidates = ExtractElementsWithCssStyling(rootElement);
             candidates.ForEach(x =>
             {
-                var violations = restrictedCss.Where(x.Style.Contains).ToList();
+                var violations = restrictedPatterns.Keys.Where(y => Regex.IsMatch(x.Style, restrictedPatterns[y])).ToList();
                 if (violations.Any())
                 {
                     isValid = false;
-                    var errorText =
-                        $"Element '{x.Element.Name.LocalName}' in CData contains illegal CSS marker(s) '{violations.Aggregate((y, z) => $"{y},{z}")}' in its 'style' attribute. Value: {x.Element}";
-                    Logger.Error(errorText);
-                    ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity, errorText);
+                    ReportingUtility.ReportError(itemContext, ErrorCategory.Item,
+                        errorSeverity, "CData css style tags contain restricted keywords or patterns",
+                        $"Violation: [{violations.Aggregate((y, z) => $"{y},{z}")}] Element: {x.Element.Name.LocalName} Value: {x.Element}");
                 }
             });
-            
+
             return isValid;
         }
 
@@ -173,7 +169,7 @@ namespace TabulateSmarterTestContentPackage.Validators
             {
                 Logger.Error($"Image element contains no attributes. Value: {imageElement}");
                 ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
-                    $"Image element contains no attributes. Value: {imageElement}");
+                    "Image element contains no attributes", $"Value: {imageElement}");
                 return false;
             }
             var altTag = imageElement.Attributes().Select(x =>
@@ -186,14 +182,16 @@ namespace TabulateSmarterTestContentPackage.Validators
             {
                 Logger.Error($"Img element does not contain a valid alt attribute. Value: {imageElement}");
                 ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
-                    $"Img element does not contain a valid alt attribute. Value: {imageElement}");
+                    "Img element does not contain a valid alt attribute", $"Value: {imageElement}");
                 return false;
             }
             if (string.IsNullOrEmpty(altTag.Value))
             {
                 Logger.Error($"Img tag's alt attribute is not valid. Value: {imageElement}");
                 ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
-                    $"Img tag's alt attribute is not valid. Value: {imageElement}");
+                    "Img tag's alt attribute is not valid",
+                    $"Value: {imageElement}"
+                );
                 return false;
             }
             return true;
@@ -210,7 +208,8 @@ namespace TabulateSmarterTestContentPackage.Validators
             {
                 Logger.Error($"Glossary tag {x} is nested illegally within another span tag");
                 ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
-                    $"Glossary tag {x} is nested illegally within another span tag");
+                    "Glossary tag is nested illegally within another span tag",
+                    $"Value: {x}");
                 valid = false;
             });
             return valid;
@@ -236,7 +235,8 @@ namespace TabulateSmarterTestContentPackage.Validators
                     // We have a span without an ID which is bad
                     Logger.Error($"Glossary start tag {x} does not have a required ID value");
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Wordlist, errorSeverity,
-                        $"Glossary start tag {x} does not have a required ID value");
+                        "Glossary start tag does not have a required ID value",
+                        $"Tag: {x}");
                     return;
                 }
                 var siblings = x.NodesAfterSelf().ToList();
@@ -246,7 +246,8 @@ namespace TabulateSmarterTestContentPackage.Validators
                 {
                     Logger.Error($"Glossary start tag '{x}' does not have a matching sibling end tag");
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Wordlist, errorSeverity,
-                        $"Glossary start tag '{x}' does not have a matching sibling end tag");
+                        "Glossary start tag does not have a matching sibling end tag",
+                        $"Tag: {x}");
                     return;
                 }
                 var node = siblings.FirstOrDefault();
@@ -258,7 +259,8 @@ namespace TabulateSmarterTestContentPackage.Validators
                     ReportInappropriateGlossarySpanValues(node.Cast(), itemContext, errorSeverity);
                     Logger.Error($"Glossary tag '{x}' does not have a value");
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Wordlist, errorSeverity,
-                        $"Glossary tag '{x}' does not have a value");
+                        "Glossary tag does not have a value",
+                        $"Tag: {x}");
                     return;
                 }
 
@@ -274,7 +276,8 @@ namespace TabulateSmarterTestContentPackage.Validators
 
                     var element = node.Cast();
                     // The first element we expect to find as a sibling is the closing span tag to match the opening one
-                    if (element != null && element.Name.LocalName.Equals("span", StringComparison.OrdinalIgnoreCase) && element.IsEmpty)
+                    if (element != null && element.Name.LocalName.Equals("span", StringComparison.OrdinalIgnoreCase) &&
+                        element.IsEmpty)
                     {
                         closingSpanTag = true;
                         node = siblings.Count >= index ? siblings[index++] : null;
@@ -285,7 +288,8 @@ namespace TabulateSmarterTestContentPackage.Validators
                     {
                         Logger.Error($"Glossary tag {x} has an illegally nested value '{element.Value}'");
                         ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
-                            $"Glossary tag {x} has an illegally nested value '{element.Value}'");
+                            "Glossary tag has an illegally nested value",
+                            $"Tag: {x} Value: {element.Value}");
                         node = siblings.Count >= index ? siblings[index++] : null;
                         continue;
                     }
@@ -310,14 +314,16 @@ namespace TabulateSmarterTestContentPackage.Validators
                     {
                         Logger.Error($"Glossary tag {element ?? node} overlaps with another tag {x}");
                         ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
-                            $"Glossary tag {element ?? node} overlaps with another tag {x}");
+                            "Glossary tag overlaps with another tag",
+                            $"Tag: {element ?? node} Overlaps: {x}");
                         node = siblings.Count >= index ? siblings[index++] : null;
                         return;
                     }
                     // We found something that shouldn't be here
                     Logger.Error($"Unrecognized element {element ?? node} encountered while processing siblings of {x}");
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
-                        $"Unrecognized element {element ?? node} encountered while processing siblings of {x}");
+                        "Unrecognized element encountered while processing sibling nodes in CData Glossary",
+                        $"Element: {element ?? node} Base Node: {x}");
                     // We're going to continue processing
                     node = siblings.Count >= index ? siblings[++index] : null;
                 }
@@ -351,13 +357,15 @@ namespace TabulateSmarterTestContentPackage.Validators
                        .Value.Equals("end", StringComparison.OrdinalIgnoreCase);
         }
 
-        public static void ReportInappropriateGlossarySpanValues(XElement element, ItemContext itemContext, ErrorSeverity errorSeverity)
+        public static void ReportInappropriateGlossarySpanValues(XElement element, ItemContext itemContext,
+            ErrorSeverity errorSeverity)
         {
             if (!string.IsNullOrEmpty(element.Value))
             {
                 Logger.Error($"Glossary element '{element}' contains inappropriate value '{element.Value}'");
                 ReportingUtility.ReportError(itemContext, ErrorCategory.Wordlist, errorSeverity,
-                    $"Glossary element '{element}' contains inappropriate value '{element.Value}'");
+                    "Glossary element contains inappropriate value",
+                    $"Element {element} Value: {element.Value}");
             }
         }
 
@@ -391,7 +399,10 @@ namespace TabulateSmarterTestContentPackage.Validators
             ItemContext itemContext, ErrorSeverity errorSeverity, IDictionary<string, int> terms)
         {
             var result = true;
-            var words = rootElement.DescendantNodesAndSelf().Where(x => x.NodeType == XmlNodeType.Text).Select(x => x.ToString());
+            var words =
+                rootElement.DescendantNodesAndSelf()
+                    .Where(x => x.NodeType == XmlNodeType.Text)
+                    .Select(x => x.ToString());
             terms.Keys.ToList().ForEach(x =>
             {
                 if (!IsValidTag(x))
@@ -401,8 +412,9 @@ namespace TabulateSmarterTestContentPackage.Validators
                         $"Tagged section {x} contains an illegal character. Only letters, punctuation, " +
                         "and spaces are permitted");
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Wordlist, errorSeverity,
-                        $"Tagged section {x} contains an illegal character. Only letters, punctuation, " +
-                        "and spaces are permitted");
+                        "Tagged section contains an illegal character. Only letters, punctuation, " +
+                        "and spaces are permitted",
+                        $"Section: {x}");
                 }
                 var regex = @"(?>^|\W+)(" + x + @")(?>\W+|$)";
                 var wordMatches = words.Where(y => Regex.Matches(y, regex, RegexOptions.IgnoreCase).Count > 0).ToList();
@@ -412,11 +424,11 @@ namespace TabulateSmarterTestContentPackage.Validators
                     Logger.Error(
                         $"There is a mismatch between the incidence of the glossary term '{x}' " +
                         $"within a formal glossary element '{terms[x]}' " +
-                        $"and the incidence of the same term within the text of the CData element [{wordMatches.Aggregate((y,z) => $"'{y}'|'{z}'")}]");
+                        $"and the incidence of the same term within the text of the CData element [{wordMatches.Aggregate((y, z) => $"'{y}'|'{z}'")}]");
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
-                        $"There is a mismatch between the incidence of the glossary term '{x}'"
-                        + $" within a formal glossary element '{terms[x]}'"
-                        + $" and the incidence of the same term within the text of the CData element [{wordMatches.Aggregate((y, z) => $"'{y}'|'{z}'")}]"
+                        "There is a mismatch between the incidence of the glossary term within a formal glossary element " +
+                        "and the incidence of the same term within the text of the CData element",
+                        $"Counts: [{wordMatches.Aggregate((y, z) => $"'{y}'|'{z}'")}] Term: {x} Element: {terms[x]}"
                     );
                 }
             });
@@ -427,6 +439,180 @@ namespace TabulateSmarterTestContentPackage.Validators
         {
             const string pattern = @"^([a-zA-Z,'.\-\s])+$";
             return Regex.IsMatch(tag, pattern);
+        }
+
+        public static IDictionary<string, string> GetCssColorPatterns()
+        {
+            return new Dictionary<string, string>
+            {
+                {"rgb", @"(((R|r)(G|g)(B|b))\s*\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\))"},
+                {"rgba", @"(((R|r)(G|g)(B|b)(A|a))\s*\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*(0|1)*\.\d+\s*\))"},
+                {"hsl", @"(((H|h)(S|s)(L|l))\s*\(\s*\d{1,3}\s*,\s*\d{1,3}\s*%\s*,\s*\d{1,3}\s*%\s*\))"},
+                {
+                    "hsla",
+                    @"(((H|h)(S|s)(L|l)(A|a))\s*\(\s*\d{1,3}\s*,\s*\d{1,3}\s*%\s*,\s*\d{1,3}\s*%\s*,\s*(0|1)*\.\d+\s*\))"
+                },
+                {"hexadecimal", @"#[a-fA-F0-9]{6}"}
+            };
+        }
+
+        // Eliminates false positives where colors are embedded in words
+        public static string Regexify(string target)
+        {
+            var result = @"(\W";
+            target.ToList().ForEach(x =>
+                result += $"[{x.ToString().ToUpperInvariant()}{x.ToString().ToLowerInvariant()}]"
+            );
+            result += @"\W)";
+            return result;
+        }
+
+        public static IEnumerable<string> GetCssColorCodes()
+        {
+            return new List<string>
+            {
+                "aliceblue",
+                "antiquewhite",
+                "aqua",
+                "aquamarine",
+                "azure",
+                "beige",
+                "bisque",
+                "black",
+                "blanchedalmond",
+                "blue",
+                "blueviolet",
+                "brown",
+                "burlywood",
+                "cadetblue",
+                "chartreuse",
+                "chocolate",
+                "coral",
+                "cornflowerblue",
+                "cornsilk",
+                "crimson",
+                "cyan",
+                "darkblue",
+                "darkcyan",
+                "darkgoldenrod",
+                "darkgray",
+                "darkgreen",
+                "darkkhaki",
+                "darkmagenta",
+                "darkolivegreen",
+                "darkorange",
+                "darkorchid",
+                "darkred",
+                "darksalmon",
+                "darkseagreen",
+                "darkslateblue",
+                "darkslategray",
+                "darkturquoise",
+                "darkviolet",
+                "deeppink",
+                "deepskyblue",
+                "dimgray",
+                "dodgerblue",
+                "firebrick",
+                "floralwhite",
+                "forestgreen",
+                "fuchsia",
+                "gainsboro",
+                "ghostwhite",
+                "gold",
+                "goldenrod",
+                "gray",
+                "green",
+                "greenyellow",
+                "honeydew",
+                "hotpink",
+                "indianred",
+                "indigo",
+                "ivory",
+                "khaki",
+                "lavender",
+                "lavenderblush",
+                "lawngreen",
+                "lemonchiffon",
+                "lightblue",
+                "lightcoral",
+                "lightcyan",
+                "lightgoldenrodyellow",
+                "lightgray",
+                "lightgreen",
+                "lightpink",
+                "lightsalmon",
+                "lightseagreen",
+                "lightskyblue",
+                "lightslategray",
+                "lightsteelblue",
+                "lightyellow",
+                "lime",
+                "limegreen",
+                "linen",
+                "magenta",
+                "maroon",
+                "mediumaquamarine",
+                "mediumblue",
+                "mediumorchid",
+                "mediumpurple",
+                "mediumseagreen",
+                "mediumslateblue",
+                "mediumspringgreen",
+                "mediumturquoise",
+                "mediumvioletred",
+                "midnightblue",
+                "mintcream",
+                "mistyrose",
+                "moccasin",
+                "navajowhite",
+                "navy",
+                "oldlace",
+                "olive",
+                "olivedrab",
+                "orange",
+                "orangered",
+                "orchid",
+                "palegoldenrod",
+                "palegreen",
+                "paleturquoise",
+                "palevioletred",
+                "papayawhip",
+                "peachpuff",
+                "peru",
+                "pink",
+                "plum",
+                "powderblue",
+                "purple",
+                "rebeccapurple",
+                "red",
+                "rosybrown",
+                "royalblue",
+                "saddlebrown",
+                "salmon",
+                "sandybrown",
+                "seagreen",
+                "seashell",
+                "sienna",
+                "silver",
+                "skyblue",
+                "slateblue",
+                "slategray",
+                "snow",
+                "springgreen",
+                "steelblue",
+                "tan",
+                "teal",
+                "thistle",
+                "tomato",
+                "turquoise",
+                "violet",
+                "wheat",
+                "white",
+                "whitesmoke",
+                "yellow",
+                "yellowgreen"
+            };
         }
     }
 }

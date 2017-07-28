@@ -255,8 +255,9 @@ namespace TabulateSmarterTestContentPackage
             // TODO: Add CsvHelper library to allow expandable headers
             mItemReport.WriteLine("Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL," +
                                   "BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice,MaxPoints," +
-                                  "CommonCore,ClaimContentTarget,SecondaryCommonCore,SecondaryClaimContentTarget, MeasurementModel," +
-                                  "ScorePoints,Dimension,Weight,Parameters");
+                                  "CommonCore,ClaimContentTarget,SecondaryCommonCore,SecondaryClaimContentTarget, CAT_MeasurementModel," +
+                                  "CAT_ScorePoints,CAT_Dimension,CAT_Weight,CAT_Parameters, PP_MeasurementModel," +
+                                  "PP_ScorePoints,PP_Dimension,PP_Weight,PP_Parameters");
 
             mStimulusReport = new StreamWriter(string.Concat(reportPrefix, cStimulusReportFn), false, Encoding.UTF8);
             mStimulusReport.WriteLine("Folder,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,Media,Size,WordCount");
@@ -352,7 +353,8 @@ namespace TabulateSmarterTestContentPackage
             }
             catch (Exception err)
             {
-                ReportingUtility.ReportError(new ItemContext(this, packageFolder, null, null), ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
+                ReportingUtility.ReportError(new ItemContext(this, packageFolder, null, null), ErrorCategory.Exception, 
+                    ErrorSeverity.Severe, err.ToString());
             }
 
             // First pass through items
@@ -367,7 +369,8 @@ namespace TabulateSmarterTestContentPackage
                     }
                     catch (Exception err)
                     {
-                        ReportingUtility.ReportError(new ItemContext(this, ffItem, null, null), ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
+                        ReportingUtility.ReportError(new ItemContext(this, ffItem, null, null), ErrorCategory.Exception, 
+                            ErrorSeverity.Severe, err.ToString());
                     }
                 }
             }
@@ -383,7 +386,8 @@ namespace TabulateSmarterTestContentPackage
                     }
                     catch (Exception err)
                     {
-                        ReportingUtility.ReportError(new ItemContext(this, ffItem, null, null), ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
+                        ReportingUtility.ReportError(new ItemContext(this, ffItem, null, null), ErrorCategory.Exception, 
+                            ErrorSeverity.Severe, err.ToString());
                     }
                 }
             }
@@ -813,7 +817,9 @@ namespace TabulateSmarterTestContentPackage
                     if (string.Equals(fi.Extension, ".qrx", StringComparison.OrdinalIgnoreCase)
                         && (machineScoringFilename == null || !string.Equals(fi.Name, machineScoringFilename, StringComparison.OrdinalIgnoreCase)))
                     {
-                        ReportingUtility.ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Severe, "Machine scoring file found but not referenced in <MachineRubric> element.", "Filename='{0}'", fi.Name);
+                        ReportingUtility.ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Severe, 
+                            "Machine scoring file found but not referenced in <MachineRubric> element.", 
+                            "Filename='{0}'", fi.Name);
                     }
                 }
 
@@ -825,7 +831,9 @@ namespace TabulateSmarterTestContentPackage
                         {
                             if (!(x.SelectSingleNode("./rubriclist/rubric/val") is XmlElement))
                             {
-                                ReportingUtility.ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Tolerable, $"Hand-scored or QRX-scored item lacks a human-readable rubric for language {x.SelectSingleNode("./@language")?.Value ?? string.Empty}", $"AnswerKey='{answerKey}'");
+                                ReportingUtility.ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Tolerable, 
+                                    "Hand-scored or QRX-scored item lacks a human-readable rubric", 
+                                    $"Language: {x.SelectSingleNode("./@language")?.Value ?? string.Empty} AnswerKey: '{answerKey}'");
                             }
                         });
                 }
@@ -919,6 +927,9 @@ namespace TabulateSmarterTestContentPackage
 
             Console.WriteLine($"Tabulating {it.ItemId}");
 
+            var scoringSeparation = scoringInformation.GroupBy(
+                x => !string.IsNullOrEmpty(x.Domain) && x.Domain.Equals("paper", StringComparison.OrdinalIgnoreCase)).ToList();
+
             // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,
             // MathematicalPractice, MaxPoints, CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget, measurementmodel, scorepoints,
             // dimension, weight, parameters
@@ -927,9 +938,16 @@ namespace TabulateSmarterTestContentPackage
                 CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), CsvEncode(media), size.ToString(), CsvEncode(depthOfKnowledge), CsvEncode(allowCalculator), 
                 CsvEncode(mathematicalPractice), CsvEncode(maximumNumberOfPoints), CsvEncode(standardClaimTarget.PrimaryCommonCore), CsvEncode(standardClaimTarget.PrimaryClaimsContentTargets),
                 CsvEncode(standardClaimTarget.SecondaryCommonCore), CsvEncode(standardClaimTarget.SecondaryClaimsContentTargets), 
-                CsvEncode(scoringInformation.Select(x => x.MeasurementModel).Aggregate((x,y) => $"{x};{y}")), CsvEncode(scoringInformation.Select(x => x.ScorePoints).Aggregate((x, y) => $"{x};{y}")),
-                CsvEncode(scoringInformation.Select(x => x.Dimension).Aggregate((x, y) => $"{x};{y}")), CsvEncode(scoringInformation.Select(x => x.Weight).Aggregate((x, y) => $"{x};{y}")),
-                CsvEncode(scoringInformation.Select(x => x.GetParameters()).Aggregate((x, y) => $"{x};{y}"))));
+                CsvEncode(scoringSeparation.FirstOrDefault(x => !x.Key)?.Select(x => x.MeasurementModel).Aggregate((x,y) => $"{x};{y}") ?? string.Empty), 
+                CsvEncode(scoringSeparation.FirstOrDefault(x => !x.Key)?.Select(x => x.ScorePoints).Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
+                CsvEncode(scoringSeparation.FirstOrDefault(x => !x.Key)?.Select(x => x.Dimension).Aggregate((x, y) => $"{x};{y}") ?? string.Empty), 
+                CsvEncode(scoringSeparation.FirstOrDefault(x => !x.Key)?.Select(x => x.Weight).Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
+                CsvEncode(scoringSeparation.FirstOrDefault(x => !x.Key)?.Select(x => x.GetParameters()).Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
+                CsvEncode(scoringSeparation.FirstOrDefault(x => x.Key)?.Select(x => x.MeasurementModel).Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
+                CsvEncode(scoringSeparation.FirstOrDefault(x => x.Key)?.Select(x => x.ScorePoints).Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
+                CsvEncode(scoringSeparation.FirstOrDefault(x => x.Key)?.Select(x => x.Dimension).Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
+                CsvEncode(scoringSeparation.FirstOrDefault(x => x.Key)?.Select(x => x.Weight).Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
+                CsvEncode(scoringSeparation.FirstOrDefault(x => x.Key)?.Select(x => x.GetParameters()).Aggregate((x, y) => $"{x};{y}") ?? string.Empty)));
 
             // === Tabulation is complete, check for other errors
 
@@ -1266,12 +1284,13 @@ namespace TabulateSmarterTestContentPackage
             var translation = GetTranslation(it, xml, xmlMetadata);
 
             // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,MathematicalPractice, MaxPoints, 
-            // CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget , measurementmodel, scorepoints,
-            // dimension, weight, parameters
+            // CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget, CAT_MeasurementModel,
+            // CAT_ScorePoints, CAT_Dimension, CAT_Weight,CAT_Parameters, PP_MeasurementModel
+            // PP_ScorePoints,PP_Dimension,PP_Weight,PP_Parameters
             mItemReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId), CsvEncode(it.ItemType), CsvEncode(version),
                 CsvEncode(subject), CsvEncode(grade), CsvEncode(answerKey), CsvEncode(assessmentType), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation),
                 string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty,
-                string.Empty, string.Empty, string.Empty, string.Empty, string.Empty));
+                string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty));
 
         } // TabulateTutorial
 
@@ -1403,7 +1422,8 @@ namespace TabulateSmarterTestContentPackage
                 var fileTypes = extensions.Select(x => x.Key.ToLower()).ToList();
                 if (fileTypes.Contains("brf") && fileTypes.Contains("prn")) // We have more than one Braille file extension present
                 {
-                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, $"More than one Braille file type extension present in attachment list [{fileTypes.Aggregate((x,y) => $"{x}|{y}")}]");
+                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, 
+                        "More than one Braille file type extension present in attachment list", $"File Types: [{fileTypes.Aggregate((x,y) => $"{x}|{y}")}]");
                 }
 
                 var processedIds = new List<string>();
@@ -1417,7 +1437,9 @@ namespace TabulateSmarterTestContentPackage
                         ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Attachment missing id attribute.");
                     } else if (processedIds.Contains(id))
                     {
-                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Duplicate attachment IDs in attachmentlist element", $"ID: {id}");
+                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, 
+                            "Duplicate attachment IDs in attachmentlist element", 
+                            $"ID: {id}");
                     }
                     else
                     {
@@ -1493,14 +1515,16 @@ namespace TabulateSmarterTestContentPackage
                                 !matches[0].Groups[1].Value.Equals("passage", StringComparison.OrdinalIgnoreCase))
                             {
                                 ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
-                                    $"Current validation target is a {itemOrStimText}, but attachment {filename} designates its target as {matches[0].Groups[1].Value}");
+                                    "Attachment target does not match item target (stim vs item)",
+                                    $"Target: {itemOrStimText} Filename: {filename} Actual Target: {matches[0].Groups[1].Value}");
                             }
                             // According to the documentation, all stimuli braille attachments must be prefixed with "stim", 
                             // but functionally, they may be "passage". Indicate a benign error.
                             else
                             {
                                 ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Benign,
-                                    "Stimuli attachment designated as a \"passage\". Official documentation indicates all stimuli must be prefixed as \"stim\".",
+                                    "Stimuli attachment designated as a \"passage\". Official documentation " +
+                                    "indicates all stimuli must be prefixed as \"stim\".",
                                     filename);
                             }
                         }
@@ -1508,38 +1532,46 @@ namespace TabulateSmarterTestContentPackage
                         // item id
                         {
                             ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
-                                $"Current validation target has identifier {it.ItemId}, but attachment {filename} designates its target as {matches[0].Groups[2].Value}");
+                                $"Attachment ID does not match item ID",
+                                $"Identifier: {it.ItemId} Filename: {filename} Target: {matches[0].Groups[2].Value}");
                         }
                         if (!matches[0].Groups[3].Value.Equals("enu", StringComparison.OrdinalIgnoreCase))
                         // this is hard-coded 'enu' English for now. No other values are valid
                         {
                             ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
-                                $"Current validation target has illegal language designation {matches[0].Groups[3].Value} in filename {filename}. 'enu' is the only valid language target for Braille attachments");
+                                "Attachment language is non-ENU",
+                                $"Attachment Language: {matches[0].Groups[3].Value} Filename: {filename}");
                         }
 
                         if (!validTypes.Select(x => x.ToLower()).Contains(matches[0].Groups[4].Value.ToLower()))
                         // code, uncontracted, contracted, nemeth
                         {
                             ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
-                                $"Current validation target has unknown Braille type designation {matches[0].Groups[4].Value} in attachment filename {filename}. Braille type designation must be in set: [{validTypes.Aggregate((x, y) => $"{x}|{y}")}]");
+                                "Braille attachment is of unknown type",
+                                $"Braille Type: {matches[0].Groups[4].Value} Filename: {filename} " +
+                                $"Valid Types: [{validTypes.Aggregate((x, y) => $"{x}|{y}")}]");
                         } else if (!string.IsNullOrEmpty(subtype) && !matches[0].Groups[4].Value.Equals(subtype.Split('_').First(),
                             StringComparison.OrdinalIgnoreCase))
                         {
                             ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Benign,
-                                $"Current validation target's Braille type designation {matches[0].Groups[4].Value} in attachment filename {filename} does not match element subtype designation {subtype.Split('_').First()}");
+                                "Attachment braille type does not match parent element's subtype",
+                                $"Attachment Braille Type: {matches[0].Groups[4].Value} " +
+                                $"Filename {filename} Element Braille Type: {subtype.Split('_').First()}");
                         }
                         if (!string.IsNullOrEmpty(matches[0].Groups[5].Value) &&
                             !matches[0].Groups[5].Value.Equals("_transcript", StringComparison.OrdinalIgnoreCase))
                         // this item has a braille transcript
                         {
                             ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
-                                $"Current validation target has unknown extension designation {matches[0].Groups[5].Value} in attachment filename {filename}. Extension must either be 'transcript' or blank");
+                                "Braille attachment suffix must be either 'transcript' or blank",
+                                $"Extension: {matches[0].Groups[5].Value} Filename: {filename}");
                         }
                         if (!matches[0].Groups[6].Value.Equals(attachType, StringComparison.OrdinalIgnoreCase))
                         // Must match the type listed
                         {
                             ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
-                                $"Current validation target has invalid extension {matches[0].Groups[6].Value} in attachment filename {filename}. Extension must either be 'brf' or 'prn'");
+                                "Braille attachment's extension is invalid. Extension must either be 'brf' or 'prn'",
+                                $"Extension: {matches[0].Groups[6].Value} Filename: {filename}");
                         }
                     }
                     else
@@ -1556,12 +1588,15 @@ namespace TabulateSmarterTestContentPackage
                                 .Last().Equals("transcript", StringComparison.OrdinalIgnoreCase))
                         {
                             ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                $"Current validation target attachment filename {filename} does not match file convention pattern");
+                                "Attachment filename does not match file convention pattern",
+                                $"Filename: {filename}"
+                                );
                         }
                         else
                         {
                             ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                $"Current validation target attachment filename {filename} does not match file convention pattern for Braille transcripts");
+                                "Current validation target attachment filename does not match file convention pattern for Braille transcripts",
+                                $"Filename: {filename}");
                         }
                     }
 
@@ -1569,7 +1604,8 @@ namespace TabulateSmarterTestContentPackage
                     var brailleFile = (string.IsNullOrEmpty(subtype)) ? attachType.ToUpperInvariant() : string.Concat(attachType.ToUpperInvariant(), "(", subtype.ToLowerInvariant(), ")");
                     if (!brailleTypes.Add(brailleFile))
                     {
-                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable, "Multiple attachments of same type and subtype.", "type='{0}'", brailleFile);
+                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable, 
+                            "Multiple attachments of same type and subtype.", "type='{0}'", brailleFile);
                     }
                 }
             }
@@ -1822,7 +1858,8 @@ namespace TabulateSmarterTestContentPackage
             }
             catch (Exception err)
             {
-                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Invalid html content.", "context='{0}' error='{1}'", GetXmlContext(content), err.Message);
+                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, 
+                    "Invalid html content.", "context='{0}' error='{1}'", GetXmlContext(content), err.Message);
             }
             return html;
         }

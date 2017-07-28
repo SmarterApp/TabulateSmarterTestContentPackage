@@ -17,10 +17,11 @@ namespace TabulateSmarterTestContentPackage.Extractors
                 "metadata/sa:smarterAppMetadata/sa:IrtDimension", namespaceManager);
             return irt.Select(x => new ItemScoring
             {
-                MeasurementModel = x.XPathSelectElement("./sa:IrtModelType", namespaceManager)?.Value,
-                Dimension = x.XPathSelectElement("./sa:IrtDimensionPurpose", namespaceManager)?.Value,
-                ScorePoints = x.XPathSelectElement("./sa:IrtScore", namespaceManager)?.Value,
-                Weight = x.XPathSelectElement("./sa:IrtWeight", namespaceManager)?.Value,
+                Domain = x.XPathSelectElement("./ sa:IrtStatDomain", namespaceManager)?.Value ?? string.Empty,
+                MeasurementModel = x.XPathSelectElement("./sa:IrtModelType", namespaceManager)?.Value ?? string.Empty,
+                Dimension = x.XPathSelectElement("./sa:IrtDimensionPurpose", namespaceManager)?.Value ?? string.Empty,
+                ScorePoints = x.XPathSelectElement("./sa:IrtScore", namespaceManager)?.Value ?? string.Empty,
+                Weight = x.XPathSelectElement("./sa:IrtWeight", namespaceManager)?.Value ?? string.Empty,
                 a =
                     x.XPathSelectElement("./sa:IrtParameter[sa:Name/text() = \"a\"]/sa:Value", namespaceManager)?.Value ??
                     string.Empty,
