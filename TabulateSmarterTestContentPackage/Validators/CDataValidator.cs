@@ -34,6 +34,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                 var imgTags = cDataSection.XPathSelectElements("//img");
 
                 // Check to make sure all images have valid alt tags
+
                 var imgTagsValid = imgTags.Select(x => ImgElementHasValidAltTag(x, itemContext, errorSeverity)).ToList();
 
                 // Check for html attributes that modify color

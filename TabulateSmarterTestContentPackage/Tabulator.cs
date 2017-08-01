@@ -920,7 +920,7 @@ namespace TabulateSmarterTestContentPackage
                 }
             }
 
-            if (!it.IsPassage && Program.gValidationOptions.IsEnabled("asl"))
+            if (!it.IsPassage && Program.gValidationOptions.IsEnabled("asl") && CheckForAttachment(it, xml, "ASL", "MP4"))
             {
                 AslVideoValidator.Validate(mPackageFolder, it, xml);
             }
@@ -1327,7 +1327,6 @@ namespace TabulateSmarterTestContentPackage
             var fileName = FileUtility.GetAttachmentFilename(it, xml, attachType);
             if (string.IsNullOrEmpty(fileName))
             {
-                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Attachment missing file attribute.", "attachType='{0}'", attachType);
                 return false;
             }
             if (!it.FfItem.FileExists(fileName))
