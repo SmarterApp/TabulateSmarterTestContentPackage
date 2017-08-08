@@ -3,9 +3,9 @@ using System.Linq;
 using System.Xml;
 using System.Xml.Linq;
 using System.Xml.XPath;
-using TabulateSmarterTestContentPackage.Models;
+using ContentPackageTabulator.Models;
 
-namespace TabulateSmarterTestContentPackage.Extractors
+namespace ContentPackageTabulator.Extractors
 {
     public static class IrtExtractor
     {

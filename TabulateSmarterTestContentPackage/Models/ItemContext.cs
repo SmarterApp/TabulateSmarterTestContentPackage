@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace TabulateSmarterTestContentPackage.Models
+namespace ContentPackageTabulator.Models
 {
     public class ItemContext
     {
@@ -9,7 +9,7 @@ namespace TabulateSmarterTestContentPackage.Models
             FfItem = ffItem;
             ItemId = itemId ?? string.Empty;
             ItemType = itemType ?? string.Empty;
-            Folder = (tabulator?.mPackageName ?? string.Empty) + ffItem?.RootedName;
+            Folder = (Tabulator.mPackageName ?? string.Empty) + ffItem?.RootedName;
         }
 
         public FileFolder FfItem { get; }

@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace TabulateSmarterTestContentPackage.Utilities
+namespace ContentPackageTabulator.Utilities
 {
     public static class MathUtility
     {

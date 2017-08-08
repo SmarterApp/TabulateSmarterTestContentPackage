@@ -3,9 +3,9 @@ using System.Linq;
 using System.Xml;
 using System.Xml.Linq;
 using System.Xml.XPath;
-using TabulateSmarterTestContentPackage.Models;
+using ContentPackageTabulator.Models;
 
-namespace TabulateSmarterTestContentPackage.Extractors
+namespace ContentPackageTabulator.Extractors
 {
     public static class ItemStandardExtractor
     {
@@ -13,12 +13,12 @@ namespace TabulateSmarterTestContentPackage.Extractors
         {
             var sXmlNs = new XmlNamespaceManager(new NameTable());
             sXmlNs.AddNamespace("sa", "http://www.smarterapp.org/ns/1/assessment_item_metadata");
-            var xmlNodes = metadata.XPathSelectElements($".//sa:{standard}", sXmlNs).ToList();
-            if (!xmlNodes.Any())
+            var XNodes = metadata.XPathSelectElements($".//sa:{standard}", sXmlNs).ToList();
+            if (!XNodes.Any())
             {
                 return new List<ItemStandard>();
             }
-            var result = xmlNodes.Select(x => new
+            var result = XNodes.Select(x => new
                 {
                     Publication = x.Value.Split(':').FirstOrDefault(),
                     Metadata = x.Value.Split(':').LastOrDefault()?.Split('|')
@@ -98,10 +98,10 @@ namespace TabulateSmarterTestContentPackage.Extractors
             }
         }
 
-        // claim|content domain|target <-- Super fancy Alla format (semicolon separated)
-        // Secondary standards/claims/targets are semicolon delimited in a seperate field
-        // If there is only a primary v6, take that (no standard in this case)
-
         // If there are both a primary v4 and a v6, take the v4 because it has a common core standard
+        // If there is only a primary v6, take that (no standard in this case)
+        // Secondary standards/claims/targets are semicolon delimited in a seperate field
+
+        // claim|content domain|target <-- Super fancy Alla format (semicolon separated)
     }
 }

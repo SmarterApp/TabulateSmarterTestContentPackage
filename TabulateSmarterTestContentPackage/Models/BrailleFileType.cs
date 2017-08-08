@@ -1,4 +1,4 @@
-﻿namespace TabulateSmarterTestContentPackage.Models
+﻿namespace ContentPackageTabulator.Models
 {
     public enum BrailleFileType
     {

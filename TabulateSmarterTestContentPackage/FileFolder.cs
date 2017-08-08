@@ -1,40 +1,35 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
-using System.Diagnostics;
 
-namespace TabulateSmarterTestContentPackage
+namespace ContentPackageTabulator
 {
-
     /// <summary>
-    /// An abstract class that manages a subtree of files
-    /// Implementations are on the convetional file system and on a .zip file.
-    /// Nested .zip files are NOT supported.
+    ///     An abstract class that manages a subtree of files
+    ///     Implementations are on the convetional file system and on a .zip file.
+    ///     Nested .zip files are NOT supported.
     /// </summary>
     public abstract class FileFolder
     {
-        string mRootedName;
-        string mName;
-
         public FileFolder(string rootedName, string name)
         {
-            mRootedName = rootedName;
-            mName = name;
+            RootedName = rootedName;
+            Name = name;
         }
 
         // --- Properties ---
 
         /// <summary>
-        /// The name of the file
+        ///     The name of the file
         /// </summary>
-        public string Name { get { return mName; } }
+        public string Name { get; }
 
         /// <summary>
-        /// The path to the file from the root of the collection. Starts with a backslash but no drive letter.
+        ///     The path to the file from the root of the collection. Starts with a backslash but no drive letter.
         /// </summary>
-        public string RootedName { get { return mRootedName; } }
+        public string RootedName { get; }
 
         public abstract ICollection<FileFolder> Folders { get; }
         public abstract ICollection<FileFile> Files { get; }
@@ -53,7 +48,9 @@ namespace TabulateSmarterTestContentPackage
         {
             FileFolder ff;
             if (!TryGetFolder(path, out ff))
+            {
                 throw new ArgumentException("Folder not found.");
+            }
             return ff;
         }
 
@@ -61,35 +58,35 @@ namespace TabulateSmarterTestContentPackage
         {
             FileFile file;
             if (!TryGetFile(path, out file))
+            {
                 throw new ArgumentException("File not found.");
+            }
             return file;
         }
     }
 
     public abstract class FileFile
     {
-        string mRootedName;
-        string mName;
+        private string mExtension;
 
         public FileFile(string rootedName, string name)
         {
-            mRootedName = rootedName;
-            mName = name;
+            RootedName = rootedName;
+            Name = name;
         }
 
         /// <summary>
-        /// The name of the file
+        ///     The name of the file
         /// </summary>
-        public string Name { get { return mName; } }
+        public string Name { get; }
 
         /// <summary>
-        /// The path to the file from the root of the collection. Starts with a backslash but no drive letter.
+        ///     The path to the file from the root of the collection. Starts with a backslash but no drive letter.
         /// </summary>
-        public string RootedName { get { return mRootedName; } }
+        public string RootedName { get; }
 
-        string mExtension = null;
         /// <summary>
-        /// The filename extension (e.g. ".xml")
+        ///     The filename extension (e.g. ".xml")
         /// </summary>
         public string Extension
         {
@@ -97,29 +94,32 @@ namespace TabulateSmarterTestContentPackage
             {
                 if (mExtension == null)
                 {
-                    int n = mName.LastIndexOf('.');
-                    mExtension = (n >= 0) ? mName.Substring(n) : string.Empty;
+                    var n = Name.LastIndexOf('.');
+                    mExtension = n >= 0 ? Name.Substring(n) : string.Empty;
                 }
                 return mExtension;
             }
         }
 
         /// <summary>
-        /// Size of the file
+        ///     Size of the file
         /// </summary>
         public abstract long Length { get; }
 
         /// <summary>
-        /// Opens a read-only stream on the file
+        ///     Opens a read-only stream on the file
         /// </summary>
         /// <returns>A read only stream</returns>
         public abstract Stream Open();
-
     }
 
     public class FsFolder : FileFolder
     {
-        public string mPhysicalPath { get; set; }
+        private static readonly char[] sSlashes = {'/', '\\'};
+
+        private List<FileFile> mFiles;
+
+        private List<FileFolder> mFolders;
 
         public FsFolder(string physicalRoot)
             : base("/", string.Empty)
@@ -133,7 +133,8 @@ namespace TabulateSmarterTestContentPackage
             mPhysicalPath = physicalPath;
         }
 
-        List<FileFolder> mFolders;
+        public string mPhysicalPath { get; set; }
+
         public override ICollection<FileFolder> Folders
         {
             get
@@ -141,7 +142,7 @@ namespace TabulateSmarterTestContentPackage
                 if (mFolders == null)
                 {
                     mFolders = new List<FileFolder>();
-                    var rootedNamePrefix = (RootedName.Length <= 1) ? RootedName : string.Concat(RootedName, "/");
+                    var rootedNamePrefix = RootedName.Length <= 1 ? RootedName : string.Concat(RootedName, "/");
                     var diThis = new DirectoryInfo(mPhysicalPath);
                     foreach (var di in diThis.EnumerateDirectories())
                     {
@@ -152,7 +153,6 @@ namespace TabulateSmarterTestContentPackage
             }
         }
 
-        List<FileFile> mFiles;
         public override ICollection<FileFile> Files
         {
             get
@@ -160,9 +160,9 @@ namespace TabulateSmarterTestContentPackage
                 if (mFiles == null)
                 {
                     mFiles = new List<FileFile>();
-                    string rootedNamePrefix = (RootedName.Length <= 1) ? RootedName : string.Concat(RootedName, "/");
-                    DirectoryInfo diThis = new DirectoryInfo(mPhysicalPath);
-                    foreach (FileInfo fi in diThis.EnumerateFiles())
+                    var rootedNamePrefix = RootedName.Length <= 1 ? RootedName : string.Concat(RootedName, "/");
+                    var diThis = new DirectoryInfo(mPhysicalPath);
+                    foreach (var fi in diThis.EnumerateFiles())
                     {
                         mFiles.Add(new FsFile(fi.FullName, string.Concat(rootedNamePrefix, fi.Name), fi.Name));
                     }
@@ -174,10 +174,13 @@ namespace TabulateSmarterTestContentPackage
         public override bool TryGetFolder(string path, out FileFolder value)
         {
             value = null;
-            string physicalPath = ToPhysicalPath(path);
-            if (!Directory.Exists(physicalPath)) return false;
-            string rootedName = ToRootedName(path);
-            string name = ToName(path);
+            var physicalPath = ToPhysicalPath(path);
+            if (!Directory.Exists(physicalPath))
+            {
+                return false;
+            }
+            var rootedName = ToRootedName(path);
+            var name = ToName(path);
             value = new FsFolder(physicalPath, rootedName, name);
             return true;
         }
@@ -185,10 +188,13 @@ namespace TabulateSmarterTestContentPackage
         public override bool TryGetFile(string path, out FileFile value)
         {
             value = null;
-            string physicalPath = ToPhysicalPath(path);
-            if (!File.Exists(physicalPath)) return false;
-            string rootedName = ToRootedName(path);
-            string name = ToName(path);
+            var physicalPath = ToPhysicalPath(path);
+            if (!File.Exists(physicalPath))
+            {
+                return false;
+            }
+            var rootedName = ToRootedName(path);
+            var name = ToName(path);
             value = new FsFile(physicalPath, rootedName, name);
             return true;
         }
@@ -201,21 +207,27 @@ namespace TabulateSmarterTestContentPackage
         private string ToRootedName(string path)
         {
             path = path.Replace('\\', '/');
-            if (path[0] == '/') throw new ArgumentException("Absolute paths not supported!");
-            if (RootedName.Length == 1) return string.Concat("/", path);
+            if (path[0] == '/')
+            {
+                throw new ArgumentException("Absolute paths not supported!");
+            }
+            if (RootedName.Length == 1)
+            {
+                return string.Concat("/", path);
+            }
             return string.Concat(RootedName, "/", path);
         }
 
-        static readonly char[] sSlashes = new char[] { '/', '\\' };
         private string ToName(string path)
         {
-            int n = path.LastIndexOfAny(sSlashes);
-            return (n >= 0) ? path.Substring(n + 1) : path;
+            var n = path.LastIndexOfAny(sSlashes);
+            return n >= 0 ? path.Substring(n + 1) : path;
         }
 
         private class FsFile : FileFile
         {
-            string mPhysicalPath;
+            private long mLength = -1;
+            private readonly string mPhysicalPath;
 
             public FsFile(string physicalPath, string rootedName, string name)
                 : base(rootedName, name)
@@ -223,14 +235,13 @@ namespace TabulateSmarterTestContentPackage
                 mPhysicalPath = physicalPath;
             }
 
-            long mLength = -1;
             public override long Length
             {
                 get
                 {
                     if (mLength < 0)
                     {
-                        FileInfo fi = new FileInfo(mPhysicalPath);
+                        var fi = new FileInfo(mPhysicalPath);
                         mLength = fi.Length;
                     }
                     return mLength;
@@ -244,12 +255,12 @@ namespace TabulateSmarterTestContentPackage
         }
     }
 
-    class ZipFileTree : FileFolder, IDisposable
+    internal class ZipFileTree : FileFolder, IDisposable
     {
-        static readonly char[] sSlashes = new char[] { '/', '\\' };
+        private static readonly char[] sSlashes = {'/', '\\'};
+        private readonly ZipFileFolder mRoot;
 
-        ZipArchive mZip;
-        ZipFileFolder mRoot;
+        private ZipArchive mZip;
 
         public ZipFileTree(string zipFileName)
             : base("/", string.Empty)
@@ -261,16 +272,19 @@ namespace TabulateSmarterTestContentPackage
                 mZip = ZipFile.OpenRead(zipFileName);
 
                 // Enumerate all entries in the archive and fill in the tree
-                foreach (ZipArchiveEntry entry in mZip.Entries)
+                foreach (var entry in mZip.Entries)
                 {
-                    string[] parts = entry.FullName.Split(sSlashes);
-                    if (parts[parts.Length - 1].Length == 0) continue; // Some archives contain folder names which have trailing slashes
-                    ZipFileFolder folder = mRoot;
-                    for (int i = 0; i < parts.Length - 1; ++i)
+                    var parts = entry.FullName.Split(sSlashes);
+                    if (parts[parts.Length - 1].Length == 0)
+                    {
+                        continue; // Some archives contain folder names which have trailing slashes
+                    }
+                    var folder = mRoot;
+                    for (var i = 0; i < parts.Length - 1; ++i)
                     {
                         folder = folder.GetOrCreateSubFolder(parts[i]);
                     }
-                    folder.AddFile(parts[parts.Length-1], entry);
+                    folder.AddFile(parts[parts.Length - 1], entry);
                 }
             }
             catch (Exception err)
@@ -280,7 +294,22 @@ namespace TabulateSmarterTestContentPackage
             }
         }
 
-        void Dispose(bool disposing)
+        public override ICollection<FileFolder> Folders
+        {
+            get { return mRoot.Folders; }
+        }
+
+        public override ICollection<FileFile> Files
+        {
+            get { return mRoot.Files; }
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+        }
+
+        private void Dispose(bool disposing)
         {
 #if DEBUG
             if (mZip != null && !disposing)
@@ -295,24 +324,9 @@ namespace TabulateSmarterTestContentPackage
             }
         }
 
-        public void Dispose()
-        {
-            Dispose(true);
-        }
-
         ~ZipFileTree()
         {
             Dispose(false);
-        }
-
-        public override ICollection<FileFolder> Folders
-        {
-            get { return mRoot.Folders; }
-        }
-
-        public override ICollection<FileFile> Files
-        {
-            get { return mRoot.Files; }
         }
 
         public override bool TryGetFolder(string path, out FileFolder value)
@@ -328,60 +342,14 @@ namespace TabulateSmarterTestContentPackage
 
         private class ZipFileFolder : FileFolder
         {
-            ZipFileTree mTree;
-            Dictionary<string, FileFolder> mFolders = new Dictionary<string, FileFolder>();
-            Dictionary<string, FileFile> mFiles = new Dictionary<string, FileFile>();
+            private readonly Dictionary<string, FileFile> mFiles = new Dictionary<string, FileFile>();
+            private readonly Dictionary<string, FileFolder> mFolders = new Dictionary<string, FileFolder>();
+            private readonly ZipFileTree mTree;
 
             public ZipFileFolder(ZipFileTree tree, string rootedName, string name)
                 : base(rootedName, name)
             {
                 mTree = tree;
-            }
-
-            public ZipFileFolder GetOrCreateSubFolder(string name)
-            {
-                string lcName = name.ToLowerInvariant();
-                FileFolder folder;
-                if (!mFolders.TryGetValue(lcName, out folder))
-                {
-                    string subRootedName = (RootedName.Length <= 1) ? string.Concat("/", name) : string.Concat(RootedName, "/", name);
-                    folder = new ZipFileFolder(mTree, subRootedName, name);
-                    mFolders[lcName] = folder;
-                }
-                return (ZipFileFolder)folder;
-            }
-
-            public ZipFileFile AddFile(string name, ZipArchiveEntry entry)
-            {
-                ZipFileFile file;
-                string subRootedName = (RootedName.Length <= 1) ? string.Concat("/", name) : string.Concat(RootedName, "/", name);
-                file = new ZipFileFile(subRootedName, name, entry);
-                mFiles[name.ToLowerInvariant()] = file;
-                return file;
-            }
-
-            private bool FollowPath(string path, out ZipFileFolder folder, out string name)
-            {
-                string[] parts = path.ToLowerInvariant().Split(sSlashes);
-                if (parts.Length < 1) throw new FileNotFoundException("Empty path: " + path);
-                if (parts[0].Length == 0) throw new FileNotFoundException("Absolute paths not supported: " + path);
-
-                ZipFileFolder f = this;
-                for (int i=0; i<parts.Length-1; ++i)
-                {
-                    FileFolder next;
-                    if (!f.mFolders.TryGetValue(parts[i], out next))
-                    {
-                        folder = null;
-                        name = null;
-                        return false;
-                    }
-                    f = (ZipFileFolder)next;
-                }
-
-                folder = f;
-                name = parts[parts.Length - 1];
-                return true;
             }
 
             public override ICollection<FileFolder> Folders
@@ -392,6 +360,62 @@ namespace TabulateSmarterTestContentPackage
             public override ICollection<FileFile> Files
             {
                 get { return mFiles.Values; }
+            }
+
+            public ZipFileFolder GetOrCreateSubFolder(string name)
+            {
+                var lcName = name.ToLowerInvariant();
+                FileFolder folder;
+                if (!mFolders.TryGetValue(lcName, out folder))
+                {
+                    var subRootedName = RootedName.Length <= 1
+                        ? string.Concat("/", name)
+                        : string.Concat(RootedName, "/", name);
+                    folder = new ZipFileFolder(mTree, subRootedName, name);
+                    mFolders[lcName] = folder;
+                }
+                return (ZipFileFolder) folder;
+            }
+
+            public ZipFileFile AddFile(string name, ZipArchiveEntry entry)
+            {
+                ZipFileFile file;
+                var subRootedName = RootedName.Length <= 1
+                    ? string.Concat("/", name)
+                    : string.Concat(RootedName, "/", name);
+                file = new ZipFileFile(subRootedName, name, entry);
+                mFiles[name.ToLowerInvariant()] = file;
+                return file;
+            }
+
+            private bool FollowPath(string path, out ZipFileFolder folder, out string name)
+            {
+                var parts = path.ToLowerInvariant().Split(sSlashes);
+                if (parts.Length < 1)
+                {
+                    throw new FileNotFoundException("Empty path: " + path);
+                }
+                if (parts[0].Length == 0)
+                {
+                    throw new FileNotFoundException("Absolute paths not supported: " + path);
+                }
+
+                var f = this;
+                for (var i = 0; i < parts.Length - 1; ++i)
+                {
+                    FileFolder next;
+                    if (!f.mFolders.TryGetValue(parts[i], out next))
+                    {
+                        folder = null;
+                        name = null;
+                        return false;
+                    }
+                    f = (ZipFileFolder) next;
+                }
+
+                folder = f;
+                name = parts[parts.Length - 1];
+                return true;
             }
 
             public override bool TryGetFolder(string path, out FileFolder value)
@@ -425,7 +449,7 @@ namespace TabulateSmarterTestContentPackage
 
         private class ZipFileFile : FileFile
         {
-            ZipArchiveEntry mEntry;
+            private readonly ZipArchiveEntry mEntry;
 
             public ZipFileFile(string rootedName, string name, ZipArchiveEntry entry)
                 : base(rootedName, name)
@@ -442,8 +466,6 @@ namespace TabulateSmarterTestContentPackage
             {
                 return mEntry.Open();
             }
-
         } // ZipFileFile
-        
     } // ZipFileTree
 }

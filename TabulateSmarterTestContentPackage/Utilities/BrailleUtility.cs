@@ -1,8 +1,8 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using TabulateSmarterTestContentPackage.Models;
+using ContentPackageTabulator.Models;
 
-namespace TabulateSmarterTestContentPackage.Utilities
+namespace ContentPackageTabulator.Utilities
 {
     public static class BrailleUtility
     {

@@ -1,11 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using NLog;
-using TabulateSmarterTestContentPackage.Utilities;
-using Win32Interop;
 
-namespace TabulateSmarterTestContentPackage
+namespace ContentPackageTabulator
 {
     internal class Program
     {
@@ -92,7 +89,6 @@ Error severity definitions:
         // 78 character margin                                                       |
 
         public static ValidationOptions gValidationOptions = new ValidationOptions();
-        public static Logger Logger = LogManager.GetCurrentClassLogger();
 
         private static void Main(string[] args)
         {
@@ -168,18 +164,11 @@ Error severity definitions:
                     operation = 'h';
                 }
 
-                if (gValidationOptions.IsEnabled("asl"))
-                {
-                    SettingsUtility.RetrieveAslValues();
-                }
-
                 Console.WriteLine("Tabulator Flags");
-                Console.WriteLine(Enumerable.Repeat("-",20).Aggregate((x,y) => $"{x}{y}"));
+                Console.WriteLine(Enumerable.Repeat("-", 20).Aggregate((x, y) => $"{x}{y}"));
 
-                gValidationOptions.Keys.ToList().ForEach(x =>
-                {
-                    Console.WriteLine($"[{x}: {gValidationOptions[x].ToString()}]");
-                });
+                gValidationOptions.Keys.ToList()
+                    .ForEach(x => { Console.WriteLine($"[{x}: {gValidationOptions[x].ToString()}]"); });
 
                 Console.WriteLine(Enumerable.Repeat("-", 20).Aggregate((x, y) => $"{x}{y}"));
                 Console.WriteLine();
@@ -206,11 +195,11 @@ Error severity definitions:
             }
             catch (Exception ex)
             {
-                Logger.Error(ex.Message);
+                Console.WriteLine($"Error: {ex.Message}");
             }
 
             var elapsedTicks = Environment.TickCount - startTicks;
-            Logger.Info("Elapsed time: {0}.{1:d3} seconds", elapsedTicks / 1000, elapsedTicks % 1000);
+            Console.WriteLine("Info: Elapsed time: {0}.{1:d3} seconds", elapsedTicks / 1000, elapsedTicks % 1000);
 
             if (ConsoleHelper.IsSoleConsoleOwner)
             {

@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "ContentPackageTabulator": {
+      "commandName": "Project",
+      "commandLineArgs": "\"C:\\Projects\\SmarterBalanced\\Resources\\DELETE\\2017-2018\\Content_Core\" -v+all"
+    }
+  }
+}

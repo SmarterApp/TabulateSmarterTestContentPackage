@@ -2,14 +2,14 @@
 using System.Linq;
 using System.Xml;
 using System.Xml.Linq;
+using ContentPackageTabulator.Extensions;
+using ContentPackageTabulator.Extractors;
+using ContentPackageTabulator.Models;
+using ContentPackageTabulator.Utilities;
+using ContentPackageTabulator.Validators;
 using NUnit.Framework;
-using TabulateSmarterTestContentPackage.Extensions;
-using TabulateSmarterTestContentPackage.Extractors;
-using TabulateSmarterTestContentPackage.Models;
-using TabulateSmarterTestContentPackage.Utilities;
-using TabulateSmarterTestContentPackage.Validators;
 
-namespace TabulateSmarterTestContentPackage.Tests.Validators
+namespace ContentPackageTabulator.Tests.Validators
 {
     [TestFixture]
     public class CDataValidatorTests
@@ -374,21 +374,6 @@ namespace TabulateSmarterTestContentPackage.Tests.Validators
         }
 
         [Test]
-        public void ValidStartTagShouldReturnTrue()
-        {
-            // Arrange
-            const string nodeText =
-                "<span id=\"item_1832_TAG_3\" class=\"its-tag\" data-tag=\"word\" data-tag-boundary=\"start\" data-word-index=\"1\"></span>";
-            var node = XDocument.Parse(nodeText).Root;
-
-            // Act
-            var result = CDataValidator.IsStartingTag(node);
-
-            // Assert
-            Assert.IsTrue(result);
-        }
-
-        [Test]
         public void ValidStartEndTagsShouldReturnValidDictionary()
         {
             // Arrange
@@ -414,13 +399,29 @@ namespace TabulateSmarterTestContentPackage.Tests.Validators
             var node = XDocument.Parse(nodeText).Root;
 
             // Act
-            var result = CDataValidator.CDataGlossaryTagStartAndEndTagsLineUpAppropriately(node, new ItemContext(null, null, null, null), ErrorSeverity.Benign);
+            var result = CDataValidator.CDataGlossaryTagStartAndEndTagsLineUpAppropriately(node,
+                new ItemContext(null, null, null, null), ErrorSeverity.Benign);
 
             // Assert
             Assert.NotNull(result);
             Assert.AreEqual(result.Keys.Count, 2);
             Assert.IsTrue(result.Keys.Contains("over again"));
             Assert.IsTrue(result.Values.All(x => x == 1));
+        }
+
+        [Test]
+        public void ValidStartTagShouldReturnTrue()
+        {
+            // Arrange
+            const string nodeText =
+                "<span id=\"item_1832_TAG_3\" class=\"its-tag\" data-tag=\"word\" data-tag-boundary=\"start\" data-word-index=\"1\"></span>";
+            var node = XDocument.Parse(nodeText).Root;
+
+            // Act
+            var result = CDataValidator.IsStartingTag(node);
+
+            // Assert
+            Assert.IsTrue(result);
         }
     }
 }

@@ -5,19 +5,18 @@ using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
 using System.Xml.XPath;
-using TabulateSmarterTestContentPackage.Extensions;
-using TabulateSmarterTestContentPackage.Extractors;
-using TabulateSmarterTestContentPackage.Mappers;
-using TabulateSmarterTestContentPackage.Models;
-using TabulateSmarterTestContentPackage.Utilities;
+using ContentPackageTabulator.Extensions;
+using ContentPackageTabulator.Extractors;
+using ContentPackageTabulator.Models;
+using ContentPackageTabulator.Utilities;
 
-namespace TabulateSmarterTestContentPackage.Validators
+namespace ContentPackageTabulator.Validators
 {
     public static class AslVideoValidator
     {
-        public static void Validate(FileFolder baseFolder, ItemContext itemContext, XmlDocument xmlDocument)
+        public static void Validate(FileFolder baseFolder, ItemContext itemContext, XDocument xDocument)
         {
-            var attachmentFile = FileUtility.GetAttachmentFilename(itemContext, xmlDocument, "ASL");
+            var attachmentFile = FileUtility.GetAttachmentFilename(itemContext, xDocument, "ASL");
             FileFolder ffItems;
             if (baseFolder.TryGetFolder("Items", out ffItems))
             {
@@ -30,7 +29,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                                                   Path.Combine(((FsFolder) ffItems).mPhysicalPath,
                                                       itemContext.FfItem.Name,
                                                       attachmentFile)) / 1000;
-                        var cData = CDataExtractor.ExtractCData(xmlDocument.MapToXDocument()
+                        var cData = CDataExtractor.ExtractCData(xDocument
                             .XPathSelectElement("itemrelease/item/content[@language='ENU']/stem"))?.FirstOrDefault();
                         int? characterCount = 0;
                         if (cData != null)
@@ -47,18 +46,18 @@ namespace TabulateSmarterTestContentPackage.Validators
                             return;
                         }
                         var secondToCountRatio = videoSeconds / characterCount;
-                        var highStandard = TabulatorSettings.AslMean +
-                                           TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslTolerance;
-                        var lowStandard = TabulatorSettings.AslMean -
-                                          TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslTolerance;
+                        var highStandard = ConfigurationOptions.AslMean +
+                                           ConfigurationOptions.AslStandardDeviation * ConfigurationOptions.AslTolerance;
+                        var lowStandard = ConfigurationOptions.AslMean -
+                                          ConfigurationOptions.AslStandardDeviation * ConfigurationOptions.AslTolerance;
                         if (secondToCountRatio > highStandard
                             || secondToCountRatio < lowStandard)
                         {
                             ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Degraded,
                                 "ASL enabled element's video length to character count ratio is too far from the mean value",
                                 $"Video Length (seconds): {videoSeconds} Character Count: {characterCount} Ratio: {secondToCountRatio} " +
-                                $"Standard Deviation Tolerance: {TabulatorSettings.AslTolerance} Standard Deviation: {TabulatorSettings.AslStandardDeviation} " +
-                                $"Mean: {TabulatorSettings.AslMean}");
+                                $"Standard Deviation Tolerance: {ConfigurationOptions.AslTolerance} Standard Deviation: {ConfigurationOptions.AslStandardDeviation} " +
+                                $"Mean: {ConfigurationOptions.AslMean}");
                         }
                     }
                     catch (Exception ex)

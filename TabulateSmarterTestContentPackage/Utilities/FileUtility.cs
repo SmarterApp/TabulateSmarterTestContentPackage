@@ -1,17 +1,17 @@
-﻿using System.Xml;
-using TabulateSmarterTestContentPackage.Models;
+﻿using System.Xml.Linq;
+using ContentPackageTabulator.Extensions;
+using ContentPackageTabulator.Models;
 
-namespace TabulateSmarterTestContentPackage.Utilities
+namespace ContentPackageTabulator.Utilities
 {
     public static class FileUtility
     {
-        public static string GetAttachmentFilename(ItemContext it, XmlDocument xml, string attachType)
+        public static string GetAttachmentFilename(ItemContext it, XDocument xml, string attachType)
         {
-            var xp = !it.IsPassage
-                ? string.Concat("itemrelease/item/content/attachmentlist/attachment[@type='", attachType, "']")
-                : string.Concat("itemrelease/passage/content/attachmentlist/attachment[@type='", attachType, "']");
+            var xp =
+                $"itemrelease/{(it.IsPassage ? "passage" : "item")}/content/attachmentlist/attachment[@type='{attachType}']";
 
-            var xmlEle = xml.SelectSingleNode(xp) as XmlElement;
+            var xmlEle = xml.SelectSingleNode(xp) as XElement;
             return xmlEle?.GetAttribute("file") ?? string.Empty;
         }
     }

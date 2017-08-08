@@ -1,7 +1,7 @@
 ﻿using System.IO;
 using System.Xml.Linq;
 
-namespace TabulateSmarterTestContentPackage.Extensions
+namespace ContentPackageTabulator.Extensions
 {
     public static class XDocumentExtensions
     {

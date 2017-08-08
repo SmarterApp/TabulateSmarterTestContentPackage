@@ -6,7 +6,7 @@ using System.Text;
 MP4 File Format Reference: http://standards.iso.org/ittf/PubliclyAvailableStandards/c068960_ISO_IEC_14496-12_2015.zip
 */
 
-namespace TabulateSmarterTestContentPackage.Utilities
+namespace ContentPackageTabulator.Utilities
 {
     public class Mp4VideoUtility : IDisposable
     {

@@ -1,11 +1,12 @@
 ﻿using System.IO;
 using System.Text;
-using TabulateSmarterTestContentPackage.Models;
+using ContentPackageTabulator.Models;
 
-namespace TabulateSmarterTestContentPackage.Utilities
+namespace ContentPackageTabulator.Utilities
 {
     public static class ReportingUtility
     {
+        private static readonly char[] cCsvEscapeChars = {',', '"', '\'', '\r', '\n'};
         public static int ErrorCount { get; set; }
         public static string ErrorReportPath { get; set; }
         public static TextWriter ErrorReport { get; set; }
@@ -15,17 +16,17 @@ namespace TabulateSmarterTestContentPackage.Utilities
         {
             if (ErrorReport == null)
             {
-                ErrorReport = new StreamWriter(ErrorReportPath, false, Encoding.UTF8);
+                ErrorReport = new StreamWriter(File.Open(ErrorReportPath, FileMode.OpenOrCreate), Encoding.UTF8);
                 ErrorReport.WriteLine("Folder,ItemId,ItemType,Category,Severity,ErrorMessage,Detail");
             }
 
-            msg = string.IsNullOrEmpty(msg) ? string.Empty : Tabulator.CsvEncode(msg);
+            msg = string.IsNullOrEmpty(msg) ? string.Empty : CsvEncode(msg);
 
-            detail = string.IsNullOrEmpty(detail) ? string.Empty : Tabulator.CsvEncode(string.Format(detail, args));
+            detail = string.IsNullOrEmpty(detail) ? string.Empty : CsvEncode(string.Format(detail, args));
 
             // "Folder,ItemId,ItemType,Category,ErrorMessage"
-            ErrorReport.WriteLine(string.Join(",", Tabulator.CsvEncode(it.Folder), Tabulator.CsvEncode(it.ItemId),
-                Tabulator.CsvEncode(it.ItemType), category.ToString(), severity.ToString(), msg, detail));
+            ErrorReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId),
+                CsvEncode(it.ItemType), category.ToString(), severity.ToString(), msg, detail));
 
             ++ErrorCount;
         }
@@ -49,6 +50,24 @@ namespace TabulateSmarterTestContentPackage.Utilities
         {
             detail = string.Concat($"wordlistId='{witIt.ItemId}' ", detail);
             ReportError(it, ErrorCategory.Wordlist, severity, msg, detail, args);
+        }
+
+        public static string CsvEncode(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return string.Empty;
+            }
+            if (text.IndexOfAny(cCsvEscapeChars) < 0)
+            {
+                return text;
+            }
+            return string.Concat("\"", text.Replace("\"", "\"\""), "\"");
+        }
+
+        public static string CsvEncodeExcel(string text)
+        {
+            return string.Concat("\"", text.Replace("\"", "\"\""), "\t\"");
         }
     }
 }

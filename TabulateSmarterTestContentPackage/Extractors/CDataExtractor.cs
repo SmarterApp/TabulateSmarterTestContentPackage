@@ -3,13 +3,13 @@ using System.Linq;
 using System.Xml;
 using System.Xml.Linq;
 
-namespace TabulateSmarterTestContentPackage.Extractors
+namespace ContentPackageTabulator.Extractors
 {
     public static class CDataExtractor
     {
-        public static IEnumerable<XCData> ExtractCData(XElement document)
+        public static IEnumerable<XCData> ExtractCData(XElement element)
         {
-            return document?.DescendantNodes()
+            return element?.DescendantNodes()
                 .Where(x => x.NodeType == XmlNodeType.CDATA)
                 .Cast<XCData>();
         }

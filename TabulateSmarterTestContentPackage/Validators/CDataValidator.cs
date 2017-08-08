@@ -1,27 +1,33 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
 using System.Xml.XPath;
-using NLog;
-using TabulateSmarterTestContentPackage.Extensions;
-using TabulateSmarterTestContentPackage.Models;
-using TabulateSmarterTestContentPackage.Utilities;
+using ContentPackageTabulator.Extensions;
+using ContentPackageTabulator.Extractors;
+using ContentPackageTabulator.Models;
+using ContentPackageTabulator.Utilities;
 
-namespace TabulateSmarterTestContentPackage.Validators
+namespace ContentPackageTabulator.Validators
 {
     public static class CDataValidator
     {
-        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+        private static readonly char[] s_WhiteAndPunct =
+        {
+            '\t', '\n', '\r', ' ', '!', '"', '#', '$', '%', '&', '\'', '(',
+            ')', '*', '+', ',', '-', '.', '/', ':', ';', '<', '=', '>', '?', '@', '[', '\\', ']', '^', '_', '`', '{',
+            '|', '~'
+        };
 
         public static bool IsValid(XCData cData, ItemContext itemContext,
             ErrorSeverity errorSeverity = ErrorSeverity.Degraded)
         {
             if (cData == null)
             {
-                Logger.Error("invalid input");
+                Console.WriteLine("Error: invalid input");
                 return false;
             }
             try
@@ -70,7 +76,7 @@ namespace TabulateSmarterTestContentPackage.Validators
             }
             catch (Exception ex)
             {
-                Logger.Error(ex.Message);
+                Console.WriteLine($"Error: {ex.Message}");
                 ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Degraded, ex.Message);
             }
             return false;
@@ -81,7 +87,7 @@ namespace TabulateSmarterTestContentPackage.Validators
         {
             if (rootElement == null)
             {
-                Logger.Error("CData section provided to color validation does not have valid content.");
+                Console.WriteLine("Error: CData section provided to color validation does not have valid content.");
                 ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Degraded,
                     "CData section provided to color validation does not have valid content.");
                 return false;
@@ -106,7 +112,7 @@ namespace TabulateSmarterTestContentPackage.Validators
             result.ForEach(
                 x =>
                 {
-                    Logger.Error(
+                    Console.WriteLine(
                         $"CData element {x.Name.LocalName} matches an illegal pattern: {path}[@{attribute.ToLower()}]");
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
                         "CData element matches an illegal pattern",
@@ -123,7 +129,8 @@ namespace TabulateSmarterTestContentPackage.Validators
             var candidates = ExtractElementsWithCssStyling(rootElement);
             candidates.ForEach(x =>
             {
-                var violations = restrictedPatterns.Keys.Where(y => Regex.IsMatch(x.Style, restrictedPatterns[y])).ToList();
+                var violations =
+                    restrictedPatterns.Keys.Where(y => Regex.IsMatch(x.Style, restrictedPatterns[y])).ToList();
                 if (violations.Any())
                 {
                     isValid = false;
@@ -161,14 +168,14 @@ namespace TabulateSmarterTestContentPackage.Validators
         {
             if (imageElement == null)
             {
-                Logger.Error("Encountered unparsable image element");
+                Console.WriteLine("Error: Encountered unparsable image element");
                 ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
                     "Encountered unparsable image element");
                 return false;
             }
             if (!imageElement.HasAttributes)
             {
-                Logger.Error($"Image element contains no attributes. Value: {imageElement}");
+                Console.WriteLine($"Error: Image element contains no attributes. Value: {imageElement}");
                 ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
                     "Image element contains no attributes", $"Value: {imageElement}");
                 return false;
@@ -181,14 +188,14 @@ namespace TabulateSmarterTestContentPackage.Validators
                 }).FirstOrDefault(x => x.Name.Equals("alt"));
             if (altTag == null)
             {
-                Logger.Error($"Img element does not contain a valid alt attribute. Value: {imageElement}");
+                Console.WriteLine($"Error: Img element does not contain a valid alt attribute. Value: {imageElement}");
                 ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
                     "Img element does not contain a valid alt attribute", $"Value: {imageElement}");
                 return false;
             }
             if (string.IsNullOrEmpty(altTag.Value))
             {
-                Logger.Error($"Img tag's alt attribute is not valid. Value: {imageElement}");
+                Console.WriteLine($"Error: Img tag's alt attribute is not valid. Value: {imageElement}");
                 ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
                     "Img tag's alt attribute is not valid",
                     $"Value: {imageElement}"
@@ -207,7 +214,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                     ".//span[@data-tag='word' and @data-tag-boundary='start']//span[@data-tag='word' and @data-tag-boundary='start']");
             glossaryTags.ToList().ForEach(x =>
             {
-                Logger.Error($"Glossary tag {x} is nested illegally within another span tag");
+                Console.WriteLine($"Error: Glossary tag {x} is nested illegally within another span tag");
                 ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
                     "Glossary tag is nested illegally within another span tag",
                     $"Value: {x}");
@@ -234,7 +241,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                 if (string.IsNullOrEmpty(id))
                 {
                     // We have a span without an ID which is bad
-                    Logger.Error($"Glossary start tag {x} does not have a required ID value");
+                    Console.WriteLine($"Error: Glossary start tag {x} does not have a required ID value");
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Wordlist, errorSeverity,
                         "Glossary start tag does not have a required ID value",
                         $"Tag: {x}");
@@ -245,7 +252,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                 // Ensure that the start tag has a matching sibling end tag before continuing
                 if (siblings.All(y => !IsMatchingEndTag(y, id)))
                 {
-                    Logger.Error($"Glossary start tag '{x}' does not have a matching sibling end tag");
+                    Console.WriteLine($"Error: Glossary start tag '{x}' does not have a matching sibling end tag");
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Wordlist, errorSeverity,
                         "Glossary start tag does not have a matching sibling end tag",
                         $"Tag: {x}");
@@ -258,7 +265,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                 if (IsMatchingEndTag(node, id))
                 {
                     ReportInappropriateGlossarySpanValues(node.Cast(), itemContext, errorSeverity);
-                    Logger.Error($"Glossary tag '{x}' does not have a value");
+                    Console.WriteLine($"Error: Glossary tag '{x}' does not have a value");
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Wordlist, errorSeverity,
                         "Glossary tag does not have a value",
                         $"Tag: {x}");
@@ -287,7 +294,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                     // We found a value nested in this span, which is illegal
                     if (!string.IsNullOrEmpty(element?.Value) && !closingSpanTag)
                     {
-                        Logger.Error($"Glossary tag {x} has an illegally nested value '{element.Value}'");
+                        Console.WriteLine($"Error: Glossary tag {x} has an illegally nested value '{element.Value}'");
                         ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
                             "Glossary tag has an illegally nested value",
                             $"Tag: {x} Value: {element.Value}");
@@ -313,7 +320,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                     // Check for another opening tag (which means they are overlapping inappropriately)
                     if (IsStartingTag(node))
                     {
-                        Logger.Error($"Glossary tag {element ?? node} overlaps with another tag {x}");
+                        Console.WriteLine($"Error: Glossary tag {element ?? node} overlaps with another tag {x}");
                         ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
                             "Glossary tag overlaps with another tag",
                             $"Tag: {element ?? node} Overlaps: {x}");
@@ -321,7 +328,8 @@ namespace TabulateSmarterTestContentPackage.Validators
                         return;
                     }
                     // We found something that shouldn't be here
-                    Logger.Error($"Unrecognized element {element ?? node} encountered while processing siblings of {x}");
+                    Console.WriteLine(
+                        $"Error: Unrecognized element {element ?? node} encountered while processing siblings of {x}");
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
                         "Unrecognized element encountered while processing sibling nodes in CData Glossary",
                         $"Element: {element ?? node} Base Node: {x}");
@@ -363,7 +371,7 @@ namespace TabulateSmarterTestContentPackage.Validators
         {
             if (!string.IsNullOrEmpty(element.Value))
             {
-                Logger.Error($"Glossary element '{element}' contains inappropriate value '{element.Value}'");
+                Console.WriteLine($"Error: Glossary element '{element}' contains inappropriate value '{element.Value}'");
                 ReportingUtility.ReportError(itemContext, ErrorCategory.Wordlist, errorSeverity,
                     "Glossary element contains inappropriate value",
                     $"Element {element} Value: {element.Value}");
@@ -409,7 +417,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                 if (!IsValidTag(x))
                 {
                     result = false;
-                    Logger.Error(
+                    Console.WriteLine(
                         $"Tagged section {x} contains an illegal character. Only letters, punctuation, " +
                         "and spaces are permitted");
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Wordlist, errorSeverity,
@@ -422,7 +430,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                 if (wordMatches.Count() != terms[x])
                 {
                     result = false;
-                    Logger.Error(
+                    Console.WriteLine(
                         $"There is a mismatch between the incidence of the glossary term '{x}' " +
                         $"within a formal glossary element '{terms[x]}' " +
                         $"and the incidence of the same term within the text of the CData element [{wordMatches.Aggregate((y, z) => $"'{y}'|'{z}'")}]");
@@ -440,6 +448,533 @@ namespace TabulateSmarterTestContentPackage.Validators
         {
             const string pattern = @"^([a-zA-Z,'.\-\s])+$";
             return Regex.IsMatch(tag, pattern);
+        }
+
+        // Returns the Wordlist ID
+        public static string ValidateContentAndWordlist(ItemContext it, XNode xml)
+        {
+            // Get the wordlist ID
+            var xp = $"/itemrelease/{(it.IsPassage ? "passage" : "item")}/resourceslist/resource[@type='wordList']/@id";
+            var wordlistId = xml.XpEval(xp);
+
+            // Process all CDATA (embedded HTML) sections in the content
+            {
+                var contentNode =
+                    xml.SelectSingleNode($"/itemrelease/{(it.IsPassage ? "passage" : "item")}/content[@language='ENU']");
+                if (contentNode == null)
+                {
+                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
+                        "Item has no content element.");
+                }
+                else
+                {
+                    var glossaryTerms = CDataExtractor.ExtractCData((XElement) contentNode)
+                        .ToList()
+                        .Select(x => ValidateContentCData(it,
+                            new XDocument().LoadXml($"<root>{x.Value}</root>"))).ToList();
+                    var dictionary = new Dictionary<int, string>();
+                    glossaryTerms.ForEach(x => x.Keys.ToList().ForEach(y =>
+                    {
+                        if (dictionary.ContainsKey(y))
+                        {
+                            dictionary[y] = x[y];
+                        }
+                        else
+                        {
+                            dictionary.Add(y, x[y]);
+                        }
+                    }));
+                    if (string.IsNullOrEmpty(wordlistId))
+                    {
+                        if (dictionary.Keys.Any())
+                        {
+                            ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Benign,
+                                "Item has terms marked for glossary but does not reference a wordlist.");
+                        }
+                        return string.Empty;
+                    }
+
+                    ValidateWordlistVocabulary(wordlistId, it,
+                        dictionary.Keys.ToList(),
+                        dictionary.Values.ToList());
+                }
+            }
+
+            return wordlistId;
+        }
+
+        public static IDictionary<int, string> ValidateContentCData(ItemContext it, XDocument html)
+        {
+            /* Word list references look like this:
+            <span id="item_998_TAG_2" class="its-tag" data-tag="word" data-tag-boundary="start" data-word-index="1"></span>
+            What
+            <span class="its-tag" data-tag-ref="item_998_TAG_2" data-tag-boundary="end"></span>
+            */
+            var result = new Dictionary<int, string>();
+            // Extract all wordlist references
+            foreach (var o in html.SelectNodes("//span[@data-tag='word' and @data-tag-boundary='start']"))
+            {
+                var node = (XElement) o;
+
+                // For a word reference, get attributes and look for the end tag
+                var id = node.GetAttribute("id");
+                if (string.IsNullOrEmpty(id))
+                {
+                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
+                        "WordList reference lacks an ID");
+                    continue;
+                }
+                var scratch = node.GetAttribute("data-word-index");
+                int termIndex;
+                if (!int.TryParse(scratch, out termIndex))
+                {
+                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
+                        "WordList reference term index is not integer", "id='{0} index='{1}'", id, scratch);
+                    continue;
+                }
+
+                var term = string.Empty;
+                var snode = node.NextNode();
+                for (;;)
+                {
+                    // If no more siblings but didn't find end tag, report.
+                    if (snode == null)
+                    {
+                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable,
+                            "WordList reference missing end tag.", "id='{0}' index='{1}' term='{2}'", id, termIndex,
+                            term);
+                        break;
+                    }
+
+                    // Look for end tag
+                    var enode = snode as XElement;
+                    if (enode != null
+                        && enode.GetAttribute("data-tag-boundary").Equals("end", StringComparison.Ordinal)
+                        && enode.GetAttribute("data-tag-ref").Equals(id, StringComparison.Ordinal))
+                    {
+                        break;
+                    }
+
+                    // Collect term plain text
+                    if (snode.NodeType == XmlNodeType.Text || snode.NodeType == XmlNodeType.SignificantWhitespace)
+                    {
+                        term += snode.InnerText();
+                    }
+                    snode = snode.Cast()?.FirstNode ?? (snode.NextNode ?? snode.Parent?.NextNode);
+                }
+                term = term.Trim(s_WhiteAndPunct);
+                try
+                {
+                    if (result.ContainsKey(termIndex))
+                    {
+                        result[termIndex] = term;
+                    }
+                    else
+                    {
+                        result.Add(termIndex, term);
+                    }
+                }
+                catch (Exception)
+                {
+                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable,
+                        "WordList reference ID matches another reference's ID", "id='{0} 'term='{2}'", termIndex, term,
+                        term);
+                }
+            }
+
+            return result;
+        }
+
+        public static void ValidateWordlistVocabulary(string wordlistId, ItemContext itemIt, List<int> termIndices,
+            List<string> terms)
+        {
+            // Read the wordlist XML
+            ItemContext it;
+            if (!Tabulator.mIdToItemContext.TryGetValue(wordlistId, out it))
+            {
+                ReportingUtility.ReportError(itemIt, ErrorCategory.Item, ErrorSeverity.Degraded,
+                    "Item references non-existent wordlist (WIT)", "wordlistId='{0}'", wordlistId);
+                return;
+            }
+            var xml = new XDocument();
+            if (!Tabulator.TryLoadXml(it.FfItem, it.FfItem.Name + ".xml", out xml))
+            {
+                ReportingUtility.ReportWitError(itemIt, it, ErrorSeverity.Severe, "Invalid wordlist file.",
+                    Tabulator.LoadXmlErrorDetail);
+                return;
+            }
+
+            // Sanity check
+            if (!string.Equals(xml.XpEval("itemrelease/item/@id"), it.ItemId))
+            {
+                throw new InvalidDataException("Item id mismatch on pass 2");
+            }
+
+            // Create a dictionary of attachment files
+            var attachmentFiles = new Dictionary<string, long>();
+            foreach (var fi in it.FfItem.Files)
+            {
+                // If Audio or image file
+                var extension = fi.Extension.ToLowerInvariant();
+                if (!string.Equals(extension, ".xml", StringComparison.Ordinal))
+                {
+                    attachmentFiles.Add(fi.Name, fi.Length);
+                }
+            }
+
+            // Create a hashset of all wordlist terms that are referenced by the item
+            var referencedIndices = new HashSet<int>(termIndices);
+
+            // Load up the list of wordlist terms
+            var wordlistTerms = new List<string>();
+            foreach (XNode kwNode in xml.SelectNodes("itemrelease/item/keywordList/keyword"))
+            {
+                // Get the term and its index
+                var term = kwNode.XpEval("@text");
+                var index = int.Parse(kwNode.XpEval("@index"));
+
+                // Make sure the index is unique and add to the term list
+                while (wordlistTerms.Count < index + 1)
+                {
+                    wordlistTerms.Add(string.Empty);
+                }
+                if (!string.IsNullOrEmpty(wordlistTerms[index]))
+                {
+                    ReportingUtility.ReportWitError(itemIt, it, ErrorSeverity.Severe,
+                        "Wordlist has multiple terms with the same index.", "index='{0}'", index);
+                }
+                else
+                {
+                    wordlistTerms[index] = term;
+                }
+            }
+
+            // Keep track of term information for error checks   
+            var attachmentToReference = new Dictionary<string, TermAttachmentReference>();
+
+            // Enumerate all the terms in the wordlist (second pass)
+            var ordinal = 0;
+            foreach (XNode kwNode in xml.SelectNodes("/itemrelease/item/keywordList/keyword"))
+            {
+                ++ordinal;
+
+                // Get the term and its index
+                var term = kwNode.XpEval("@text");
+                var index = int.Parse(kwNode.XpEval("@index"));
+
+                // See if this term is referenced by the item.
+                var termReferenced = referencedIndices.Contains(index);
+                if (!termReferenced && Program.gValidationOptions.IsEnabled("uwt"))
+                {
+                    ReportingUtility.ReportWitError(itemIt, it, ErrorSeverity.Benign,
+                        "Wordlist term is not referenced by item.", "term='{0}' termIndex='{1}'", term, index);
+                }
+
+                // Find the attachment references and enumberate the translations
+                var translationBitflags = 0;
+                foreach (XNode htmlNode in kwNode.SelectNodes("html"))
+                {
+                    var listType = htmlNode.XpEval("@listType");
+                    Tabulator.mTranslationCounts.Increment(listType);
+
+                    var nTranslation = -1;
+                    if (Tabulator.sExpectedTranslationsIndex.TryGetValue(listType, out nTranslation))
+                    {
+                        translationBitflags |= 1 << nTranslation;
+                    }
+
+                    // Get the embedded HTML
+                    var html = htmlNode.InnerText();
+
+                    var audioType = string.Empty;
+                    long audioSize = 0;
+                    var imageType = string.Empty;
+                    long imageSize = 0;
+
+                    // Look for an audio glossary entry
+                    var match = Tabulator.sRxAudioAttachment.Match(html);
+                    if (match.Success)
+                    {
+                        // Use RegEx to find the audio glossary entry in the contents.
+                        var filename = match.Groups[1].Value;
+                        ProcessGlossaryAttachment(filename, itemIt, it, index, listType, termReferenced, wordlistTerms,
+                            attachmentFiles, attachmentToReference, ref audioType, ref audioSize);
+
+                        // Check for dual types
+                        if (string.Equals(Path.GetExtension(filename), ".ogg", StringComparison.OrdinalIgnoreCase))
+                        {
+                            filename = Path.GetFileNameWithoutExtension(filename) + ".m4a";
+                            ProcessGlossaryAttachment(filename, itemIt, it, index, listType, termReferenced,
+                                wordlistTerms, attachmentFiles, attachmentToReference, ref audioType, ref audioSize);
+                        }
+                        else if (string.Equals(Path.GetExtension(filename), ".m4a", StringComparison.OrdinalIgnoreCase))
+                        {
+                            filename = Path.GetFileNameWithoutExtension(filename) + ".ogg";
+                            ProcessGlossaryAttachment(filename, itemIt, it, index, listType, termReferenced,
+                                wordlistTerms, attachmentFiles, attachmentToReference, ref audioType, ref audioSize);
+                        }
+
+                        // If filename matches the naming convention, ensure that values are correct
+                        var match2 = Tabulator.sRxAttachmentNamingConvention.Match(filename);
+                        if (match2.Success)
+                        {
+                            // Sample attachment filename that follows the convention:
+                            // item_116605_v1_116605_01btagalog_glossary_ogg_m4a.m4a
+
+                            // Check both instances of the wordlist ID
+                            if (!wordlistId.Equals(match2.Groups[1].Value, StringComparison.Ordinal)
+                                && !wordlistId.Equals(match2.Groups[2].Value, StringComparison.Ordinal))
+                            {
+                                ReportingUtility.ReportWitError(itemIt, it, ErrorSeverity.Degraded,
+                                    "Wordlist attachment filename indicates wordlist ID mismatch.",
+                                    "filename='{0}' filenameItemId='{1}' expectedItemId='{2}'", filename,
+                                    match2.Groups[1].Value, wordlistId);
+                            }
+
+                            // Check that the wordlist term index matches
+                            /* While most filename indices match. It's quite common for them not to match and still be the correct audio
+                               Disabling this check because it's mostly false alarms.
+
+                            int filenameIndex;
+                            if (!int.TryParse(match2.Groups[3].Value, out filenameIndex)) filenameIndex = -1;
+                            if (filenameIndex != index && filenameIndex != ordinal
+                                && (filenameIndex >= wordlistTerms.Count || !string.Equals(wordlistTerms[filenameIndex], term, StringComparison.OrdinalIgnoreCase)))
+                            {
+                                ReportingUtility.ReportWitError(ItemIt, it, ErrorSeverity.Degraded, "Wordlist attachment filename indicates term index mismatch.", "filename='{0}' filenameIndex='{1}' expectedIndex='{2}'", filename, filenameIndex, index);
+                            }
+                            */
+
+                            // Translate from language in the naming convention to listType value
+                            var filenameListType = match2.Groups[4].Value.ToLower();
+                            switch (filenameListType)
+                            {
+                                // Special cases
+                                case "spanish":
+                                    filenameListType = "esnGlossary";
+                                    break;
+
+                                case "tagalog":
+                                case "atagalog":
+                                case "btagalog":
+                                case "ilocano":
+                                case "atagal":
+                                    filenameListType = "tagalGlossary";
+                                    break;
+
+                                case "apunjabi":
+                                case "bpunjabi":
+                                case "punjabiwest":
+                                case "punjabieast":
+                                    filenameListType = "punjabiGlossary";
+                                    break;
+
+                                // Conventional case
+                                default:
+                                    filenameListType = string.Concat(filenameListType.ToLower(), "Glossary");
+                                    break;
+                            }
+                            if (!filenameListType.Equals(listType))
+                            {
+                                ReportingUtility.ReportWitError(itemIt, it, ErrorSeverity.Degraded,
+                                    "Wordlist attachment filename indicates attachment type mismatch.",
+                                    "filename='{0}' filenameListType='{1}' expectedListType='{2}'", filename,
+                                    filenameListType, listType);
+                            }
+                        }
+                    }
+
+                    // Look for an image glossary entry
+                    match = Tabulator.sRxImageAttachment.Match(html);
+                    if (match.Success)
+                    {
+                        // Use RegEx to find the audio glossary entry in the contents.
+                        var filename = match.Groups[1].Value;
+                        ProcessGlossaryAttachment(filename, itemIt, it, index, listType, termReferenced, wordlistTerms,
+                            attachmentFiles, attachmentToReference, ref imageType, ref imageSize);
+                    }
+
+                    // Folder,WIT_ID,ItemId,Index,Term,Language,Length,Audio,AudioSize,Image,ImageSize
+                    if (Program.gValidationOptions.IsEnabled("gtr"))
+                    {
+                        Tabulator.mGlossaryReport.WriteLine(string.Join(",", it.Folder,
+                            ReportingUtility.CsvEncode(it.ItemId), itemIt.ItemId,
+                            index.ToString(), ReportingUtility.CsvEncodeExcel(term),
+                            ReportingUtility.CsvEncode(listType), html.Length.ToString(),
+                            audioType, audioSize.ToString(), imageType, imageSize.ToString(),
+                            ReportingUtility.CsvEncode(html)));
+                    }
+                    else
+                    {
+                        Tabulator.mGlossaryReport.WriteLine(string.Join(",", it.Folder,
+                            ReportingUtility.CsvEncode(it.ItemId), itemIt.ItemId,
+                            index.ToString(), ReportingUtility.CsvEncodeExcel(term),
+                            ReportingUtility.CsvEncode(listType), html.Length.ToString(),
+                            audioType, audioSize.ToString(), imageType, imageSize.ToString()));
+                    }
+                }
+
+                // Report any expected translations that weren't found
+                if (termReferenced && translationBitflags != 0 &&
+                    translationBitflags != Tabulator.sExpectedTranslationsBitflags)
+                {
+                    // Make a list of translations that weren't found
+                    var missedTranslations = new List<string>();
+                    for (var i = 0; i < Tabulator.sExpectedTranslations.Length; ++i)
+                    {
+                        if ((translationBitflags & (1 << i)) == 0)
+                        {
+                            missedTranslations.Add(Tabulator.sExpectedTranslations[i]);
+                        }
+                    }
+                    ReportingUtility.ReportWitError(itemIt, it, ErrorSeverity.Tolerable,
+                        "Wordlist does not include all expected translations.", "term='{0}' missing='{1}'", term,
+                        string.Join(", ", missedTranslations));
+                }
+            }
+
+            var stemmer = new Stemmer();
+
+            // Make sure terms match references
+            for (var i = 0; i < termIndices.Count; ++i)
+            {
+                var index = termIndices[i];
+                if (index >= wordlistTerms.Count || string.IsNullOrEmpty(wordlistTerms[index]))
+                {
+                    ReportingUtility.ReportWitError(itemIt, it, ErrorSeverity.Tolerable,
+                        "Item references non-existent wordlist term.", "text='{0}' termIndex='{1}'", terms[i], index);
+                }
+                else
+                {
+                    if (!stemmer.TermsMatch(terms[i], wordlistTerms[index]))
+                    {
+                        ReportingUtility.ReportWitError(itemIt, it, ErrorSeverity.Degraded,
+                            "Item text does not match wordlist term.", "text='{0}' term='{1}' termIndex='{2}'", terms[i],
+                            wordlistTerms[index], index);
+                    }
+                }
+            }
+
+            // Report unreferenced attachments
+            if (Program.gValidationOptions.IsEnabled("umf"))
+            {
+                foreach (var pair in attachmentFiles)
+                {
+                    if (!attachmentToReference.ContainsKey(pair.Key))
+                    {
+                        ReportingUtility.ReportWitError(itemIt, it, ErrorSeverity.Benign,
+                            "Unreferenced wordlist attachment file.", "filename='{0}'", pair.Key);
+                    }
+                }
+            }
+        }
+
+        public static void ProcessGlossaryAttachment(string filename,
+            ItemContext itemIt, ItemContext it, int termIndex, string listType, bool termReferenced,
+            List<string> wordlistTerms, Dictionary<string, long> attachmentFiles,
+            Dictionary<string, TermAttachmentReference> attachmentToTerm,
+            ref string type, ref long size)
+        {
+            long fileSize = 0;
+            if (!attachmentFiles.TryGetValue(filename, out fileSize))
+            {
+                // Look for case-insensitive match (file will not be found on Linux systems)
+                // (This is a linear search but it occurs rarely so not a significant issue)
+                string caseMismatchFilename = null;
+                foreach (var pair in attachmentFiles)
+                {
+                    if (string.Equals(filename, pair.Key, StringComparison.OrdinalIgnoreCase))
+                    {
+                        caseMismatchFilename = pair.Key;
+                        break;
+                    }
+                }
+
+                if (termReferenced)
+                {
+                    if (caseMismatchFilename == null)
+                    {
+                        ReportingUtility.ReportWitError(itemIt, it, ErrorSeverity.Severe,
+                            "Wordlist attachment not found.",
+                            "filename='{0}' term='{1}' termIndex='{2}'", filename, wordlistTerms[termIndex], termIndex);
+                    }
+                    else
+                    {
+                        ReportingUtility.ReportWitError(itemIt, it, ErrorSeverity.Severe,
+                            "Wordlist attachment filename differs in capitalization (will fail on certain platforms).",
+                            "referenceFilename='{0}' actualFilename='{1}' termIndex='{2}'", filename,
+                            caseMismatchFilename, termIndex);
+                    }
+                }
+
+                else if (Program.gValidationOptions.IsEnabled("mwa")) // Term not referenced
+                {
+                    if (caseMismatchFilename == null)
+                    {
+                        ReportingUtility.ReportWitError(itemIt, it, ErrorSeverity.Benign,
+                            "Wordlist attachment not found. Benign because corresponding term is not referenced.",
+                            "filename='{0}' term='{1}' termIndex='{2}'", filename, wordlistTerms[termIndex], termIndex);
+                    }
+                    else
+                    {
+                        ReportingUtility.ReportWitError(itemIt, it, ErrorSeverity.Benign,
+                            "Wordlist attachment filename differs in capitalization. Benign because corresponding term is not referenced.",
+                            "referenceFilename='{0}' actualFilename='{1}' termIndex='{2}'", filename,
+                            caseMismatchFilename, termIndex);
+                    }
+                }
+            }
+
+            // See if this attachment has previously been referenced
+            TermAttachmentReference previousTerm = null;
+            if (attachmentToTerm.TryGetValue(filename, out previousTerm))
+            {
+                // Error if different terms (case insensitive)
+                if (
+                    !string.Equals(wordlistTerms[termIndex], wordlistTerms[previousTerm.TermIndex],
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    ReportingUtility.ReportWitError(itemIt, it, ErrorSeverity.Severe,
+                        "Two different wordlist terms reference the same attachment.",
+                        "filename='{0}' termA='{1}' termB='{2}' termIndexA='{3}' termIndexB='{4}",
+                        filename, wordlistTerms[previousTerm.TermIndex], wordlistTerms[termIndex],
+                        previousTerm.TermIndex, termIndex);
+                }
+
+                // Error if different listTypes (language or image)
+                if (!string.Equals(listType, previousTerm.ListType, StringComparison.Ordinal))
+                {
+                    ReportingUtility.ReportWitError(itemIt, it, ErrorSeverity.Severe,
+                        "Same wordlist attachment used for different languages or types.",
+                        "filename='{0}' term='{1}' typeA='{2}' typeB='{3}' termIndexA='{4}' termIndexB='{5}",
+                        filename, wordlistTerms[termIndex], previousTerm.ListType, listType, previousTerm.TermIndex,
+                        termIndex);
+                }
+            }
+            else
+            {
+                attachmentToTerm.Add(filename, new TermAttachmentReference(termIndex, listType, filename));
+            }
+
+            size += fileSize;
+            var extension = Path.GetExtension(filename);
+            if (extension.Length > 1)
+            {
+                extension = extension.Substring(1); // Remove dot from extension
+            }
+            if (string.IsNullOrEmpty(type))
+            {
+                type = extension.ToLower();
+            }
+            else
+            {
+                type = string.Concat(type, ";", extension.ToLower());
+            }
+        }
+
+        private static XDocument LoadHtml(XElement content)
+        {
+            // Parse the HTML into an XML DOM
+            return new XDocument().LoadXml($"<root>{content.Value}</root>");
         }
 
         public static IDictionary<string, string> GetCssColorPatterns()
