@@ -146,7 +146,6 @@ namespace ContentPackageTabulator.Validators
         public static List<CssElement> ExtractElementsWithCssStyling(XElement rootElement)
         {
             var elements = rootElement.ElementsByPathAndAttributeCaseInsensitive("//*", "style").ToList();
-            var isValid = true;
             if (elements.Any())
             {
                 return elements.Select(x => new CssElement
