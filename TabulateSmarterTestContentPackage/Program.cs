@@ -106,6 +106,9 @@ Error severity definitions:
             gValidationOptions.Disable("uwt"); // Disable Unreferenced Wordlist Terms
             gValidationOptions.Disable("mwa"); // Disable checking for attachments on unreferenced wordlist terms
             gValidationOptions.Disable("iat"); // Disable checking for images without alternate text
+            gValidationOptions.Disable("css"); // Disable reporting css color-contrast interference (temporary fix)
+
+            LogManager.DisableLogging();
 
             try
             {
@@ -206,10 +209,12 @@ Error severity definitions:
             }
             catch (Exception ex)
             {
+                Console.WriteLine(ex.Message);
                 Logger.Error(ex.Message);
             }
 
             var elapsedTicks = Environment.TickCount - startTicks;
+            Console.WriteLine("Elapsed time: {0}.{1:d3} seconds", elapsedTicks / 1000, elapsedTicks % 1000);
             Logger.Info("Elapsed time: {0}.{1:d3} seconds", elapsedTicks / 1000, elapsedTicks % 1000);
 
             if (ConsoleHelper.IsSoleConsoleOwner)

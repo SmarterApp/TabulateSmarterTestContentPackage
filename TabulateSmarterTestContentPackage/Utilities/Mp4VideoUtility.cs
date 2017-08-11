@@ -12,6 +12,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
     {
         private readonly Box m_root;
         private BinaryReader m_reader;
+        private string m_tempFileName;
 
         /// <summary>
         ///     Create the MP4 object from a filename.
@@ -31,12 +32,75 @@ namespace TabulateSmarterTestContentPackage.Utilities
         }
 
         /// <summary>
+        /// Create the MP4 object from a stream.
+        /// </summary>
+        /// <param name="stream">The stream containing an MP4 file.</param>
+        public Mp4VideoUtility(Stream stream)
+        {
+            Stream tempStream = null;
+            try
+            {
+                // If cannot seek in the stream (probably from a .zip file) then copy to a temporary stream.
+                if (!stream.CanSeek)
+                {
+                    m_tempFileName = Path.GetTempFileName();
+                    tempStream = File.Open(m_tempFileName, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+                    stream.CopyTo(tempStream);
+                    tempStream.Position = 0;
+                    m_reader = new BinaryReader(tempStream, Encoding.UTF8, false);
+                    tempStream = null; // BinaryReader now owns the stream
+                }
+                else
+                {
+                    m_reader = new BinaryReader(stream, Encoding.UTF8, true);
+                }
+                m_root = new Box(m_reader);
+
+                var b = m_root.FirstChild;
+                if (!b.BoxType.Equals("ftyp", StringComparison.Ordinal))
+                {
+                    throw new InvalidOperationException("File is not MP4 format.");
+                }
+            }
+            finally
+            {
+                if (tempStream != null)
+                {
+                    tempStream.Dispose();
+                    tempStream = null;
+                    if (m_tempFileName != null)
+                    {
+                        try
+                        {
+                            File.Delete(m_tempFileName);
+                        }
+                        catch
+                        {
+                            // Suppress any further exception.
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
         ///     Dispose the MP4 file.
         /// </summary>
         public void Dispose()
         {
             m_reader?.Dispose();
             m_reader = null;
+            if (m_tempFileName != null)
+            {
+                try
+                {
+                    File.Delete(m_tempFileName);
+                }
+                catch
+                {
+                    // Suppress any exception.
+                }
+            }
         }
 
         /// <summary>
@@ -50,6 +114,22 @@ namespace TabulateSmarterTestContentPackage.Utilities
         public static long GetDuration(string filename)
         {
             using (var mp4 = new Mp4VideoUtility(filename))
+            {
+                return mp4.GetDuration();
+            }
+        }
+
+        /// <summary>
+        ///     Get duration of an MP4 in milliseconds
+        /// </summary>
+        /// <param name="stream">Stream containing the MP4 file.</param>
+        /// <returns>Duration in milliseconds or -1 if duration is unknown.</returns>
+        /// <remarks>
+        ///     Throws an exception if the file is not .mp4 format.
+        /// </remarks>
+        public static long GetDuration(Stream stream)
+        {
+            using (var mp4 = new Mp4VideoUtility(stream))
             {
                 return mp4.GetDuration();
             }

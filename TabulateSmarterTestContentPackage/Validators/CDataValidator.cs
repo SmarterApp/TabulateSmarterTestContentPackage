@@ -34,8 +34,8 @@ namespace TabulateSmarterTestContentPackage.Validators
                 var imgTags = cDataSection.XPathSelectElements("//img");
 
                 // Check to make sure all images have valid alt tags
-
-                var imgTagsValid = imgTags.Select(x => ImgElementHasValidAltTag(x, itemContext, errorSeverity)).ToList();
+                
+                var imgTagsValid = imgTags.Select(x => ImgElementHasValidAltReference(x, itemContext, errorSeverity)).ToList();
 
                 // Check for html attributes that modify color
                 var noColorAlterations = ElementsFreeOfColorAlterations(cDataSection.Root, itemContext, errorSeverity);
@@ -81,9 +81,9 @@ namespace TabulateSmarterTestContentPackage.Validators
         {
             if (rootElement == null)
             {
-                Logger.Error("CData section provided to color validation does not have valid content.");
+                Logger.Error("Unable to parse HTML content in item Cdata.");
                 ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Degraded,
-                    "CData section provided to color validation does not have valid content.");
+                    "Unable to parse HTML content in item Cdata.");
                 return false;
             }
             var restrictedValues = new List<string>
@@ -107,9 +107,9 @@ namespace TabulateSmarterTestContentPackage.Validators
                 x =>
                 {
                     Logger.Error(
-                        $"CData element {x.Name.LocalName} matches an illegal pattern: {path}[@{attribute.ToLower()}]");
+                        $"Item content has element that may interfere with color contrast. Element: {x.Name.LocalName} Pattern: {path}[@{attribute.ToLower()}]");
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
-                        "CData element matches an illegal pattern",
+                        "Item content has element that may interfere with color contrast.",
                         $"Pattern: {path}[@{attribute.ToLower()}] Element: {x.Name.LocalName}");
                 });
             return false;
@@ -127,8 +127,8 @@ namespace TabulateSmarterTestContentPackage.Validators
                 if (violations.Any())
                 {
                     isValid = false;
-                    ReportingUtility.ReportError(itemContext, ErrorCategory.Item,
-                        errorSeverity, "CData css style tags contain restricted keywords or patterns",
+                    ReportingUtility.ReportError("css", itemContext, ErrorCategory.Item,
+                        errorSeverity, "Item content has CSS style tags that may interfere with color contrast.",
                         $"Violation: [{violations.Aggregate((y, z) => $"{y},{z}")}] Element: {x.Element.Name.LocalName} Value: {x.Element}");
                 }
             });
@@ -139,7 +139,6 @@ namespace TabulateSmarterTestContentPackage.Validators
         public static List<CssElement> ExtractElementsWithCssStyling(XElement rootElement)
         {
             var elements = rootElement.ElementsByPathAndAttributeCaseInsensitive("//*", "style").ToList();
-            var isValid = true;
             if (elements.Any())
             {
                 return elements.Select(x => new CssElement
@@ -156,7 +155,7 @@ namespace TabulateSmarterTestContentPackage.Validators
         //<summary>This method takes a <img> element tag and determines whether
         //the provided <img> element contains a valid "alt" attribute </summary>
         //<param name="image"> The <img> tag to be validated </param>
-        public static bool ImgElementHasValidAltTag(XElement imageElement, ItemContext itemContext,
+        public static bool ImgElementHasValidAltReference(XElement imageElement, ItemContext itemContext,
             ErrorSeverity errorSeverity)
         {
             if (imageElement == null)
@@ -173,28 +172,37 @@ namespace TabulateSmarterTestContentPackage.Validators
                     "Image element contains no attributes", $"Value: {imageElement}");
                 return false;
             }
-            var altTag = imageElement.Attributes().Select(x =>
+            var idAttribute = imageElement.Attributes().Select(x =>
                 new
                 {
                     Name = x.Name.LocalName,
                     x.Value
-                }).FirstOrDefault(x => x.Name.Equals("alt"));
-            if (altTag == null)
+                }).FirstOrDefault(x => x.Name.Equals("id"));
+            if (idAttribute == null)
             {
-                Logger.Error($"Img element does not contain a valid alt attribute. Value: {imageElement}");
+                Logger.Error($"Img element does not contain a valid id attribute. Value: {imageElement}");
                 ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
-                    "Img element does not contain a valid alt attribute", $"Value: {imageElement}");
+                    "Img element does not contain a valid id attribute", $"Value: {imageElement}");
                 return false;
             }
-            if (string.IsNullOrEmpty(altTag.Value))
+            if (string.IsNullOrEmpty(idAttribute.Value))
             {
-                Logger.Error($"Img tag's alt attribute is not valid. Value: {imageElement}");
+                Logger.Error($"Img tag id attribute is not valid. Value: {imageElement}");
                 ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
                     "Img tag's alt attribute is not valid",
                     $"Value: {imageElement}"
                 );
                 return false;
             }
+
+            /* TODO: This is incomplete. It ensures that images have an ID but it still
+               must make sure that the corresponding accessibility information is in the
+               item XML that will supply alt text at runtime.
+            
+               Look up the corresponding apipAccessibility/acessibilityinfo/accessElement
+               element in the item XML and ensure it has a readAloud/audioText element.
+             */
+
             return true;
         }
 
@@ -423,13 +431,11 @@ namespace TabulateSmarterTestContentPackage.Validators
                 {
                     result = false;
                     Logger.Error(
-                        $"There is a mismatch between the incidence of the glossary term '{x}' " +
-                        $"within a formal glossary element '{terms[x]}' " +
-                        $"and the incidence of the same term within the text of the CData element [{wordMatches.Aggregate((y, z) => $"'{y}'|'{z}'")}]");
-                    ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
-                        "There is a mismatch between the incidence of the glossary term within a formal glossary element " +
-                        "and the incidence of the same term within the text of the CData element",
-                        $"Counts: [{wordMatches.Aggregate((y, z) => $"'{y}'|'{z}'")}] Term: {x} Element: {terms[x]}"
+                        $"Term that is tagged for glossary is not tagged when it occurs elswhere in the item." +
+                        $"Term: '{x}' Element: '{terms[x]}'");
+                    ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Tolerable,
+                        "Term that is tagged for glossary is not tagged when it occurs elswhere in the item.",
+                        $"Term: '{x}' Element: '{terms[x]}'"
                     );
                 }
             });
