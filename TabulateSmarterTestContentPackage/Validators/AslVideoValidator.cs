@@ -15,88 +15,80 @@ namespace TabulateSmarterTestContentPackage.Validators
 {
     public static class AslVideoValidator
     {
-        public static void Validate(FileFolder baseFolder, ItemContext itemContext, XmlDocument xmlDocument)
+        public static void Validate(ItemContext itemContext, XmlDocument xmlDocument)
         {
             var attachmentFile = FileUtility.GetAttachmentFilename(itemContext, xmlDocument, "ASL");
-            FileFolder ffItems;
-            if (baseFolder.TryGetFolder("Items", out ffItems))
+
+            if (!string.IsNullOrEmpty(attachmentFile))
             {
-                if (!string.IsNullOrEmpty(attachmentFile))
+                ValidateFilename(attachmentFile, itemContext);
+                try
                 {
-                    ValidateFilename(attachmentFile, itemContext);
-                    try
+                    double videoSeconds = -1.0;
+                    using (var stream = itemContext.FfItem.GetFile(attachmentFile).Open())
                     {
-                        double videoSeconds = Mp4VideoUtility.GetDuration(
-                                                  Path.Combine(((FsFolder) ffItems).mPhysicalPath,
-                                                      itemContext.FfItem.Name,
-                                                      attachmentFile)) / 1000;
-                        var cData = CDataExtractor.ExtractCData(xmlDocument.MapToXDocument()
-                            .XPathSelectElement("itemrelease/item/content[@language='ENU']/stem"))?.FirstOrDefault();
-                        int? characterCount = 0;
-                        if (cData != null)
-                        {
-                            var cDataSection = new XDocument().LoadXml($"<root>{cData.Value}</root>");
-                            characterCount = cDataSection.DescendantNodes()
-                                .Where(x => x.NodeType == XmlNodeType.Text)
-                                .Sum(x => x.ToString().Length);
-                        }
-                        if (characterCount == null || characterCount == 0)
-                        {
-                            ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                "ASL enabled element does not contain an english language stem");
-                            return;
-                        }
-                        var secondToCountRatio = videoSeconds / characterCount;
-                        var highStandard = TabulatorSettings.AslMean +
-                                           TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslTolerance;
-                        var lowStandard = TabulatorSettings.AslMean -
-                                          TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslTolerance;
-                        if (secondToCountRatio > highStandard
-                            || secondToCountRatio < lowStandard)
-                        {
-                            ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                "ASL enabled element's video length to character count ratio is too far from the mean value",
-                                $"Video Length (seconds): {videoSeconds} Character Count: {characterCount} Ratio: {secondToCountRatio} " +
-                                $"Standard Deviation Tolerance: {TabulatorSettings.AslTolerance} Standard Deviation: {TabulatorSettings.AslStandardDeviation} " +
-                                $"Mean: {TabulatorSettings.AslMean}");
-                        }
+                        videoSeconds = Mp4VideoUtility.GetDuration(stream) / 1000.0;
                     }
-                    catch (Exception ex)
+                    var cData = CDataExtractor.ExtractCData(xmlDocument.MapToXDocument()
+                        .XPathSelectElement("itemrelease/item/content[@language='ENU']/stem"))?.FirstOrDefault();
+                    int? characterCount = 0;
+                    if (cData != null)
                     {
-                        ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe,
-                            "An error occurred when attempting to process an ASL video"
-                            , $"Filename: {attachmentFile} Exception: {ex.Message}");
+                        var cDataSection = new XDocument().LoadXml($"<root>{cData.Value}</root>");
+                        characterCount = cDataSection.DescendantNodes()
+                            .Where(x => x.NodeType == XmlNodeType.Text)
+                            .Sum(x => x.ToString().Length);
+                    }
+                    if (characterCount == null || characterCount == 0)
+                    {
+                        ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Degraded,
+                            "ASL enabled element does not contain an english language stem");
+                        return;
+                    }
+                    var secondToCountRatio = videoSeconds / characterCount;
+                    var highStandard = TabulatorSettings.AslMean +
+                                       TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslTolerance;
+                    var lowStandard = TabulatorSettings.AslMean -
+                                      TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslTolerance;
+                    if (secondToCountRatio > highStandard
+                        || secondToCountRatio < lowStandard)
+                    {
+                        ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Degraded,
+                            "ASL enabled item's video length doesn't correlate with text length - likely mismatch.",
+                            $"Video Length (seconds): {videoSeconds} Character Count: {characterCount} Ratio: {secondToCountRatio} " +
+                            $"Standard Deviation Tolerance: {TabulatorSettings.AslTolerance} Standard Deviation: {TabulatorSettings.AslStandardDeviation} " +
+                            $"Mean: {TabulatorSettings.AslMean}");
                     }
                 }
-                else
+                catch (Exception ex)
                 {
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe,
-                        "Unable to locate valid video file for item",
-                        attachmentFile ?? "Attachment filename does not exist");
+                        "An error occurred when attempting to process an ASL video"
+                        , $"Filename: {attachmentFile} Exception: {ex.Message}");
                 }
             }
             else
             {
                 ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe,
-                    "Unable to load item directory");
+                    "Unable to locate valid video file for item",
+                    attachmentFile ?? "Attachment filename does not exist");
             }
         }
 
         private static void ValidateFilename(string fileName, ItemContext itemContext)
         {
-            const string pattern =
-                @"(([Ss][Tt][Ii][Mm])|([Pp][Aa][Ss][Ss][Aa][Gg][Ee])|([Ii][Tt][Ee][Mm]))_(\d+)_ASL_STEM\.[Mm][Pp]4";
-            var matches = Regex.Matches(fileName, pattern).Cast<Match>().ToList();
-            if (Regex.IsMatch(fileName, pattern))
+            const string pattern = @"((stim)|(passage)|(item))_(\d+)_ASL.*\.mp4";
+            var match = Regex.Match(fileName, pattern, RegexOptions.IgnoreCase);
+            if (match.Success)
             {
                 if (itemContext.IsPassage &&
-                    matches[0].Groups[1].Value.Equals("passage", StringComparison.OrdinalIgnoreCase))
+                    match.Groups[1].Value.Equals("passage", StringComparison.OrdinalIgnoreCase))
                 {
                     // Should be stim, but is passage
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Benign,
                         "ASL video filename for stim is titled as 'passsage' instead of 'stim'", $"Filename: {fileName}");
                 }
-                if (!matches[0].Groups[5].Value.Equals(itemContext.ItemId, StringComparison.OrdinalIgnoreCase))
+                if (!match.Groups[5].Value.Equals(itemContext.ItemId, StringComparison.OrdinalIgnoreCase))
                 {
                     // Incorrect ItemId
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe,
@@ -104,15 +96,15 @@ namespace TabulateSmarterTestContentPackage.Validators
                         $"Filename: {fileName} Expected ID: {itemContext.ItemId}");
                 }
                 if (itemContext.IsPassage &&
-                    matches[0].Groups[1].Value.Equals("item", StringComparison.OrdinalIgnoreCase))
+                    match.Groups[1].Value.Equals("item", StringComparison.OrdinalIgnoreCase))
                 {
                     // Item video in stim
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe,
                         "ASL video filename indicates item, but base folder is a stim", $"Filename: {fileName}");
                 }
                 else if (!itemContext.IsPassage &&
-                         (matches[0].Groups[1].Value.Equals("stim", StringComparison.OrdinalIgnoreCase)
-                          || matches[0].Groups[1].Value.Equals("passage", StringComparison.OrdinalIgnoreCase)))
+                         (match.Groups[1].Value.Equals("stim", StringComparison.OrdinalIgnoreCase)
+                          || match.Groups[1].Value.Equals("passage", StringComparison.OrdinalIgnoreCase)))
                 {
                     // Stim video in an item
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe,
