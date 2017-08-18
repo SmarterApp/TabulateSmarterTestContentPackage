@@ -865,7 +865,7 @@ namespace TabulateSmarterTestContentPackage
             // Validate claim
             if (primaryStandards.Any(x => !sValidClaims.Contains(x.Claim)))
             {
-                ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Degraded, "Unexpected claim value.", "Claim='{0}'", primaryStandards.First(x => !sValidClaims.Contains(x.Claim)).Claim);
+                ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Degraded, "Unexpected claim value (Should be 1, 2, 3, or 4 with possible suffix).", "Claim='{0}'", primaryStandards.First(x => !sValidClaims.Contains(x.Claim)).Claim);
             }
 
             // Validate target grade suffix (Generating lots of errors. Need to follow up.)
@@ -2341,7 +2341,7 @@ namespace TabulateSmarterTestContentPackage
                             }
                             if (!filenameListType.Equals(listType))
                             {
-                                ReportingUtility.ReportWitError(itemIt, it, ErrorSeverity.Degraded, "Wordlist attachment filename indicates attachment type mismatch.", "filename='{0}' filenameListType='{1}' expectedListType='{2}'", filename, filenameListType, listType);
+                                ReportingUtility.ReportWitError(itemIt, it, ErrorSeverity.Degraded, "Wordlist audio filename indicates attachment language mismatch.", "filename='{0}' filenameListType='{1}' expectedListType='{2}'", filename, filenameListType, listType);
                             }
                         }
 
@@ -2384,7 +2384,7 @@ namespace TabulateSmarterTestContentPackage
                 int index = termIndices[i];
                 if (index >= wordlistTerms.Count || string.IsNullOrEmpty(wordlistTerms[index]))
                 {
-                    ReportingUtility.ReportWitError(itemIt, it, ErrorSeverity.Tolerable, "Item references non-existent wordlist term.", "text='{0}' termIndex='{1}'", terms[i], index);
+                    ReportingUtility.ReportWitError(itemIt, it, ErrorSeverity.Benign, "Item references non-existent wordlist term.", "text='{0}' termIndex='{1}'", terms[i], index);
                 }
                 else
                 {
@@ -2438,7 +2438,7 @@ namespace TabulateSmarterTestContentPackage
                     }
                     else
                     {
-                        ReportingUtility.ReportWitError(itemIt, it, ErrorSeverity.Severe, "Wordlist attachment filename differs in capitalization (will fail on certain platforms).",
+                        ReportingUtility.ReportWitError(itemIt, it, ErrorSeverity.Degraded, "Wordlist audio filename differs in capitalization (will fail on certain platforms).",
                             "referenceFilename='{0}' actualFilename='{1}' termIndex='{2}'", filename, caseMismatchFilename, termIndex);
                     }
                 }
