@@ -775,7 +775,7 @@ namespace ContentPackageTabulator.Validators
                             if (!filenameListType.Equals(listType))
                             {
                                 ReportingUtility.ReportWitError(itemIt, it, ErrorSeverity.Degraded,
-                                    "Wordlist attachment filename indicates attachment type mismatch.",
+                                    "Wordlist audio filename indicates attachment language mismatch.",
                                     "filename='{0}' filenameListType='{1}' expectedListType='{2}'", filename,
                                     filenameListType, listType);
                             }
@@ -839,7 +839,7 @@ namespace ContentPackageTabulator.Validators
                 var index = termIndices[i];
                 if (index >= wordlistTerms.Count || string.IsNullOrEmpty(wordlistTerms[index]))
                 {
-                    ReportingUtility.ReportWitError(itemIt, it, ErrorSeverity.Tolerable,
+                    ReportingUtility.ReportWitError(itemIt, it, ErrorSeverity.Benign,
                         "Item references non-existent wordlist term.", "text='{0}' termIndex='{1}'", terms[i], index);
                 }
                 else
@@ -898,8 +898,8 @@ namespace ContentPackageTabulator.Validators
                     }
                     else
                     {
-                        ReportingUtility.ReportWitError(itemIt, it, ErrorSeverity.Severe,
-                            "Wordlist attachment filename differs in capitalization (will fail on certain platforms).",
+                        ReportingUtility.ReportWitError(itemIt, it, ErrorSeverity.Degraded,
+                            "Wordlist audio filename differs in capitalization (will fail on certain platforms).",
                             "referenceFilename='{0}' actualFilename='{1}' termIndex='{2}'", filename,
                             caseMismatchFilename, termIndex);
                     }

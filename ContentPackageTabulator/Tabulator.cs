@@ -1011,14 +1011,14 @@ namespace ContentPackageTabulator
             if (primaryStandards.Any(x => string.IsNullOrEmpty(x.Standard)))
             {
                 ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Degraded,
-                    "No PrimaryStandard specified in metadata.");
+                    "Common Core Standard not included in PrimaryStandard metadata.");
             }
 
             // Validate claim
             if (primaryStandards.Any(x => !sValidClaims.Contains(x.Claim)))
             {
                 ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Degraded,
-                    "Unexpected claim value.", "Claim='{0}'",
+                    "Unexpected claim value (Should be 1, 2, 3, or 4 with possible suffix).", "Claim='{0}'",
                     primaryStandards.First(x => !sValidClaims.Contains(x.Claim)).Claim);
             }
 
@@ -1077,7 +1077,7 @@ namespace ContentPackageTabulator
             if (!it.IsPassage && Program.gValidationOptions.IsEnabled("asl") &&
                 CheckForAttachment(it, xml, "ASL", "MP4"))
             {
-                AslVideoValidator.Validate(mPackageFolder, it, xml);
+                AslVideoValidator.Validate(it, xml);
             }
 
             Console.WriteLine($"Tabulating {it.ItemId}");
@@ -1758,7 +1758,7 @@ namespace ContentPackageTabulator
                     // We have more than one Braille file extension present
                 {
                     ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                        "More than one Braille file type extension present in attachment list",
+                        "More than one braille embossing file type extension present in attachment list",
                         $"File Types: [{fileTypes.Aggregate((x, y) => $"{x}|{y}")}]");
                 }
 
@@ -1798,7 +1798,9 @@ namespace ContentPackageTabulator
                         continue; // Not braille attachment
                     }
 
-                    if (!attachType.Equals(brailleTypeMeta))
+					// === From here forward we are only dealing with Braille attachments and the error messages reflect that ===
+
+					if (!attachType.Equals(brailleTypeMeta))
                     {
                         ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Severe,
                             "Braille metadata does not match attachment type.", "metadata='{0}', fileType='{1}'",
@@ -1818,7 +1820,7 @@ namespace ContentPackageTabulator
                     if (!it.FfItem.FileExists(filename))
                     {
                         ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable,
-                            "Dangling reference to attached file that does not exist.",
+                            "Braille embossing file is missing.",
                             "attachType='{0}' Filename='{1}'", attachType, filename);
                     }
 
@@ -1831,7 +1833,7 @@ namespace ContentPackageTabulator
                     if (!string.Equals(extension, attachType, StringComparison.OrdinalIgnoreCase))
                     {
                         ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                            "Unexpected extension for attached file.", "extension='{0}' expected='{1}' filename='{2}'",
+                            "Braille embossing filename has unexpected extension.", "extension='{0}' expected='{1}' filename='{2}'",
                             extension, attachType, filename);
                     }
 
@@ -1850,106 +1852,92 @@ namespace ContentPackageTabulator
                     else
                     {
                         ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                            "Unknown subtype designation for attachment.", subtype ?? "Subtype not present");
+                            "Braille embossing attachment has unknown subtype.", subtype ?? "Subtype not present");
                     }
 
-                    var matches = Regex.Matches(filename, validFilePattern);
+                    var match = Regex.Match(filename, validFilePattern);
                     if (Regex.IsMatch(filename, validFilePattern))
                         // We are not checking for these values if it's not a match.
                     {
                         var itemOrStimText = it.IsPassage ? "stim" : "item";
-                        if (!matches[0].Groups[1].Value.Equals(itemOrStimText, StringComparison.OrdinalIgnoreCase))
+                        if (!match.Groups[1].Value.Equals(itemOrStimText, StringComparison.OrdinalIgnoreCase))
                             // item or stim
                         {
                             if (it.IsPassage &&
-                                !matches[0].Groups[1].Value.Equals("passage", StringComparison.OrdinalIgnoreCase))
+                                !match.Groups[1].Value.Equals("passage", StringComparison.OrdinalIgnoreCase))
                             {
                                 ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
-                                    "Attachment target does not match item target (stim vs item)",
-                                    $"Target: {itemOrStimText} Filename: {filename} Actual Target: {matches[0].Groups[1].Value}");
+                                    "Braille embossing filename indicates item/stim mismatch.",
+                                    $"Target: {itemOrStimText} Filename: {filename} Actual Target: {match.Groups[1].Value}");
                             }
                             // According to the documentation, all stimuli braille attachments must be prefixed with "stim", 
                             // but functionally, they may be "passage". Indicate a benign error.
                             else
                             {
                                 ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Benign,
-                                    "Stimuli attachment designated as a \"passage\". Official documentation " +
-                                    "indicates all stimuli must be prefixed as \"stim\".",
+                                    "Braille embossing filename designated as a \"passage\", should be \"stim\".",
                                     filename);
                             }
                         }
-                        if (!matches[0].Groups[2].Value.Equals(it.ItemId, StringComparison.OrdinalIgnoreCase))
+                        if (!match.Groups[2].Value.Equals(it.ItemId, StringComparison.OrdinalIgnoreCase))
                             // item id
                         {
                             ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
-                                $"Attachment ID does not match item ID",
-                                $"Identifier: {it.ItemId} Filename: {filename} Target: {matches[0].Groups[2].Value}");
+                                $"Braille embossing filename indicates item ID mismatch.",
+                                $"ItemId: {it.ItemId} FilenameId: {match.Groups[2].Value} Filename: {filename}");
                         }
-                        if (!matches[0].Groups[3].Value.Equals("enu", StringComparison.OrdinalIgnoreCase))
+                        if (!match.Groups[3].Value.Equals("enu", StringComparison.OrdinalIgnoreCase))
                             // this is hard-coded 'enu' English for now. No other values are valid
                         {
                             ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
-                                "Attachment language is non-ENU",
-                                $"Attachment Language: {matches[0].Groups[3].Value} Filename: {filename}");
+                                "Braille embossing filename indicates language other than \"ENU\".",
+                                $"Attachment Language: {match.Groups[3].Value} Filename: {filename}");
                         }
 
-                        if (!validTypes.Select(x => x.ToLower()).Contains(matches[0].Groups[4].Value.ToLower()))
+                        if (!validTypes.Select(x => x.ToLower()).Contains(match.Groups[4].Value.ToLower()))
                             // code, uncontracted, contracted, nemeth
                         {
                             ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
-                                "Braille attachment is of unknown type",
-                                $"Braille Type: {matches[0].Groups[4].Value} Filename: {filename} " +
-                                $"Valid Types: [{validTypes.Aggregate((x, y) => $"{x}|{y}")}]");
+                                "Braille embossing filename indicates unknown braille type.",
+                                $"Braille Code: {match.Groups[4].Value} Filename: {filename}");
                         }
                         else if (!string.IsNullOrEmpty(subtype) &&
-                                 !matches[0].Groups[4].Value.Equals(subtype.Split('_').First(),
+                                 !match.Groups[4].Value.Equals(subtype.Split('_').First(),
                                      StringComparison.OrdinalIgnoreCase))
                         {
-                            ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Benign,
-                                "Attachment braille type does not match parent element's subtype",
-                                $"Attachment Braille Type: {matches[0].Groups[4].Value} " +
-                                $"Filename {filename} Element Braille Type: {subtype.Split('_').First()}");
+                            ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
+                                "Braille embossing filename doesn't match expected braille type.",
+                                $"Embossing Braille Type: {match.Groups[4].Value} Expected Braille Type: " +
+                                                         $"{subtype.Split('_').First()} Filename: {filename}");
                         }
-                        if (!string.IsNullOrEmpty(matches[0].Groups[5].Value) &&
-                            !matches[0].Groups[5].Value.Equals("_transcript", StringComparison.OrdinalIgnoreCase))
+                        if (!string.IsNullOrEmpty(match.Groups[5].Value) &&
+                            !match.Groups[5].Value.Equals("_transcript", StringComparison.OrdinalIgnoreCase))
                             // this item has a braille transcript
                         {
                             ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
-                                "Braille attachment suffix must be either 'transcript' or blank",
-                                $"Extension: {matches[0].Groups[5].Value} Filename: {filename}");
+                                "Braille embossing filename suffix must be either 'transcript' or blank",
+                                $"Suffix: {match.Groups[5].Value} Filename: {filename}");
                         }
-                        if (!matches[0].Groups[6].Value.Equals(attachType, StringComparison.OrdinalIgnoreCase))
+                        if (!match.Groups[6].Value.Equals(attachType, StringComparison.OrdinalIgnoreCase))
                             // Must match the type listed
                         {
                             ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
-                                "Braille attachment's extension is invalid. Extension must either be 'brf' or 'prn'",
-                                $"Extension: {matches[0].Groups[6].Value} Filename: {filename}");
+                                "Braille embossing filename extension is invalid; must either be 'brf' or 'prn'",
+                                $"Extension: {match.Groups[6].Value} Filename: {filename}");
                         }
                     }
                     else
                     {
-                        /*
+						/*
                          *       Report a ‘degraded’ error if the set of braille attachments doesn’t match one of these patterns.
                          *       Report a ‘degraded’ error if the set of braille transcript attachments doesn’t match one of these patterns.
                          *       Report a ‘warning’ error if the braille file extensions don’t match (e.g. some are BRF and others are PRN).
                          *       Concatenate the pattern code from the table above to the “Braille” column in ItemReport and StimulusReport. For example, “BRF UEB2” or “PRN UEB4”  
                          *       If the item has braille transcripts then concatenate both pattern codes. For example, “BRF Both4 Both6”. 
                          */
-                        if (string.IsNullOrEmpty(subtype) ||
-                            !subtype.Split('_')
-                                .Last().Equals("transcript", StringComparison.OrdinalIgnoreCase))
-                        {
-                            ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                "Attachment filename does not match file convention pattern",
-                                $"Filename: {filename}"
-                            );
-                        }
-                        else
-                        {
-                            ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                "Current validation target attachment filename does not match file convention pattern for Braille transcripts",
-                                $"Filename: {filename}");
-                        }
+						ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
+                            "Braille embossing filename does not match naming convention.",
+                            $"Filename: {filename}");
                     }
 
                     // Report the result
@@ -1959,7 +1947,7 @@ namespace ContentPackageTabulator
                     if (!brailleTypes.Add(brailleFile))
                     {
                         ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable,
-                            "Multiple attachments of same type and subtype.", "type='{0}'", brailleFile);
+                            "Multiple braille embossing files of same type and subtype.", "type='{0}'", brailleFile);
                     }
                 }
             }
