@@ -1,17 +1,12 @@
-﻿<Properties StartupConfiguration="{292DEBE4-788A-48AF-864C-4C983AECCE26}|Default">
+﻿<Properties StartupConfiguration="{378C8487-4BA2-4508-8948-293F8A007608}|Default">
   <MonoDevelop.Ide.ItemProperties.ContentPackageTabulator.Tests PreferredExecutionTarget="MonoDevelop.Default" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="ContentPackageTabulator/Models/ConfigurationOptions.cs">
+  <MonoDevelop.Ide.ItemProperties.ContentPackageTabulator PreferredExecutionTarget="MonoDevelop.Default" />
+  <MonoDevelop.Ide.Workbench ActiveDocument="ContentPackageTabulator/Program.cs">
     <Files>
-      <File FileName="ContentPackageTabulator/Validators/CDataValidator.cs" Line="148" Column="17" />
-      <File FileName="../../../../../Library/Frameworks/Mono.framework/Versions/5.0.1/lib/mono/msbuild/15.0/bin/Microsoft.Common.CurrentVersion.targets" Line="1983" Column="77" />
-      <File FileName="ContentPackageTabulator/appsettings.json" Line="1" Column="1" />
-      <File FileName="ContentPackageTabulator/Properties/launchSettings.json" Line="1" Column="1" />
-      <File FileName="ContentPackageTabulator/ConsoleHelper.cs" Line="21" Column="1" />
-      <File FileName="ContentPackageTabulator/NLog.xsd" Line="1582" Column="73" />
-      <File FileName="ContentPackageTabulator/Models/ConfigurationOptions.cs" Line="19" Column="43" />
+      <File FileName="ContentPackageTabulator/Program.cs" Line="202" Column="115" />
     </Files>
   </MonoDevelop.Ide.Workbench>
-  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug" />
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Release" />
   <MonoDevelop.Ide.DebuggingService.Breakpoints>
     <BreakpointStore />
   </MonoDevelop.Ide.DebuggingService.Breakpoints>

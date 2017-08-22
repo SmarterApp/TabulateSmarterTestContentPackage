@@ -200,13 +200,6 @@ Error severity definitions:
 
             var elapsedTicks = Environment.TickCount - startTicks;
             Console.WriteLine("Info: Elapsed time: {0}.{1:d3} seconds", elapsedTicks / 1000, elapsedTicks % 1000);
-
-            if (ConsoleHelper.IsSoleConsoleOwner)
-            {
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.Write("Press any key to exit.");
-                Console.ReadKey(true);
-            }
         }
     }
 
