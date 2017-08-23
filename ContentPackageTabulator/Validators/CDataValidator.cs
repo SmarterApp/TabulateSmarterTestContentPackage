@@ -40,8 +40,9 @@ namespace ContentPackageTabulator.Validators
                 var imgTags = cDataSection.XPathSelectElements("//img");
 
                 // Check to make sure all images have valid alt tags
+                var imageTags = imgTags.Select(x => ImgElementHasValidAltReference(x, itemContext, errorSeverity)).ToList();
+                ReportMissingImgAltTags(itemContext, cData.Document, imageTags);
 
-                var imgTagsValid = imgTags.Select(x => ImgElementHasValidAltReference(x, itemContext, errorSeverity)).ToList();
 
                 // Check for html attributes that modify color
                 var noColorAlterations = ElementsFreeOfColorAlterations(cDataSection.Root, itemContext, errorSeverity);
@@ -69,8 +70,7 @@ namespace ContentPackageTabulator.Validators
                     errorSeverity, noGlossaryTagErrors);
 
 
-                return imgTagsValid.All(x => x)
-                       && noColorAlterations
+                return noColorAlterations
                        && noCssColorAlterationsPatterns
                        && noCssColorAlterationsNames;
             }
@@ -162,7 +162,7 @@ namespace ContentPackageTabulator.Validators
         //<summary>This method takes a <img> element tag and determines whether
         //the provided <img> element contains a valid "alt" attribute </summary>
         //<param name="image"> The <img> tag to be validated </param>
-        public static bool ImgElementHasValidAltReference(XElement imageElement, ItemContext itemContext,
+        public static HtmlImageTag ImgElementHasValidAltReference(XElement imageElement, ItemContext itemContext,
             ErrorSeverity errorSeverity)
         {
             if (imageElement == null)
@@ -170,27 +170,28 @@ namespace ContentPackageTabulator.Validators
                 Console.WriteLine("Error: Encountered unparsable image element");
                 ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
                     "Encountered unparsable image element");
-                return false;
+                return null;
             }
             if (!imageElement.HasAttributes)
             {
                 Console.WriteLine($"Error: Image element contains no attributes. Value: {imageElement}");
                 ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
                     "Image element contains no attributes", $"Value: {imageElement}");
-                return false;
+                return null;
             }
-            var idAttribute = imageElement.Attributes().Select(x =>
+            var attributes = imageElement.Attributes().Select(x =>
                 new
                 {
                     Name = x.Name.LocalName,
                     x.Value
-                }).FirstOrDefault(x => x.Name.Equals("id"));
+                });
+                var idAttribute = attributes.FirstOrDefault(x => x.Name.Equals("id"));
             if (idAttribute == null)
             {
                 Console.WriteLine($"Error: Img element does not contain a valid id attribute. Value: {imageElement}");
                 ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
                     "Img element does not contain a valid id attribute", $"Value: {imageElement}");
-                return false;
+                return null;
             }
             if (string.IsNullOrEmpty(idAttribute.Value))
             {
@@ -199,19 +200,79 @@ namespace ContentPackageTabulator.Validators
                     "Img tag's id attribute is not valid",
                     $"Value: {imageElement}"
                 );
-                return false;
+                return null;
             }
 
-			/* TODO: This is incomplete. It ensures that images have an ID but it still
-               must make sure that the corresponding accessibility information is in the
-               item XML that will supply alt text at runtime.
-            
-               Look up the corresponding apipAccessibility/acessibilityinfo/accessElement
-               element in the item XML and ensure it has a readAloud/audioText element.
-             */
-
-			return true;
+            return new HtmlImageTag
+            {
+                Source = attributes.FirstOrDefault(x => x.Name.Equals("src"))?.Value ?? string.Empty,
+                Id = idAttribute.Value,
+                EnclosingSpanId = imageElement.Parent.Name.LocalName.Equals("span", StringComparison.OrdinalIgnoreCase) ?
+                                              imageElement.Parent.GetAttribute("id") :
+                                              string.Empty
+            };
         }
+
+        public static void ReportMissingImgAltTags(ItemContext it, XDocument xml, List<HtmlImageTag> imgList)
+        { 
+            if (imgList == null) return;
+            foreach (var img in imgList)
+            {
+                if (string.IsNullOrEmpty(img?.Source))
+                {
+                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, "Img tag is missing src attribute");
+                }
+                if (string.IsNullOrEmpty(img?.Id))
+                {
+                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
+                        "Img tag is missing id attribute to associate with alternative text.");
+                }
+                else
+                {
+                    var xpAccessibility = $"itemrelease/{(it.IsPassage ? "passage" : "item")}/content/apipAccessibility/accessibilityInfo/accessElement/contentLinkInfo";
+                    // Search for matching ID in the accessibility nodes. If none exist, record an error.
+                    var accessibilityNodes = xml.SelectNodes(xpAccessibility)
+                        .Cast<XElement>()
+                                                .Where(accessibilityNode => accessibilityNode.GetAttribute("itsLinkIdentifierRef").Equals(img.Id)
+                            || (!string.IsNullOrEmpty(img.EnclosingSpanId)
+                            && accessibilityNode.GetAttribute("itsLinkIdentifierRef").Equals(img.EnclosingSpanId)))
+                        .ToList();
+                    if (!accessibilityNodes.Any())
+                    {
+                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
+                            "Img tag does not have associated alternative text.", "id ='{0}' src='{1}'", img.Id, img.Source);
+                    }
+                    else
+                    {
+                        foreach (var node in accessibilityNodes)
+                        {
+                            CheckForNonEmptyReadAloudSubElement(it, node.Parent, img.Id, img.Source, img.EnclosingSpanId);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Acceptable sub-elements: textToSpeechPronunciation, textToSpeechPronunciationAlternate, audioText, audioSortDesc, audioLongDesc
+        public static void CheckForNonEmptyReadAloudSubElement(ItemContext it, XNode xml, string id, string src, string enclosingSpanId)
+        {
+            if (!new List<string> { "textToSpeechPronunciation", "textToSpeechPronunciationAlternate", "audioText", "audioShortDesc", "audioLongDesc" }
+                .Select(t => $"relatedElementInfo/readAloud/{t}") // Select sub-elements from list above
+                .Any(element => ElementExistsAndIsNonEmpty(xml, element))) // Check if the sub-element exists and has a value
+            {
+                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
+                    "Img tag is missing alternative text in the <readAloud> accessibility element.",
+                    "id ='{0}' src='{1}' spanId='{2}'", id, src, enclosingSpanId ?? string.Empty);
+            }
+
+        }
+
+        private static bool ElementExistsAndIsNonEmpty(XNode xml, string path)
+        {
+            var node = xml.XPathSelectElement(path);
+            return !string.IsNullOrEmpty(node?.Value);
+        }
+
 
         public static bool CDataGlossaryTagsAreNotIllegallyNested(XElement rootElement, ItemContext itemContext,
             ErrorSeverity errorSeverity)
@@ -322,7 +383,7 @@ namespace ContentPackageTabulator.Validators
                             // add a new glossary entry
                             result.Add(node.ToString(), 1);
                         }
-                        node = siblings.Count >= index ? siblings[++index] : null;
+                        node = siblings.Count > index+1 ? siblings[++index] : null;
                         continue;
                     }
                     // Check for another opening tag (which means they are overlapping inappropriately)
@@ -433,14 +494,14 @@ namespace ContentPackageTabulator.Validators
                         "and spaces are permitted",
                         $"Section: {x}");
                 }
-                var regex = @"(?>^|\W+)(" + x + @")(?>\W+|$)";
+                var regex = @"(?>^|\W+)(" + EscapeRegexControlCharacters(x) + @")(?>\W+|$)";
                 var wordMatches = words.Where(y => Regex.Matches(y, regex, RegexOptions.IgnoreCase).Count > 0).ToList();
                 if (wordMatches.Count() != terms[x])
                 {
                     result = false;
                     Console.WriteLine(
-						"Term that is tagged for glossary is not tagged when it occurs elswhere in the item." +
-						$" Term: {x} Element: {terms[x]}");
+                        "Term that is tagged for glossary is not tagged when it occurs elswhere in the item." +
+                        $" Term: {x} Element: {terms[x]}");
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Item, errorSeverity,
                         "Term that is tagged for glossary is not tagged when it occurs elswhere in the item.",
                         $"Term: {x} Element: {terms[x]}"
@@ -450,9 +511,13 @@ namespace ContentPackageTabulator.Validators
             return result;
         }
 
+        private static string EscapeRegexControlCharacters(string input) {
+            return input.Replace("?", @"\?");
+        }
+
         public static bool IsValidTag(string tag)
         {
-            const string pattern = @"^([a-zA-Z,'.\-\s])+$";
+            const string pattern = "^([a-zA-Z0-9,'’.\"”\\-\\s])+$";
             return Regex.IsMatch(tag, pattern);
         }
 
