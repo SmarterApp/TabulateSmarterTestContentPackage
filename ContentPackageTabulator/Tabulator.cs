@@ -964,20 +964,15 @@ namespace ContentPackageTabulator
                     }
                 }
 
-                // If non-embedded answer key (either hand-scored or QRX scoring but not EBSR type check for a rubric (human scoring guidance)
-                if (scoringType != ScoringType.Basic && !it.ItemType.Equals("EBSR", StringComparison.OrdinalIgnoreCase))
-                {
-                    xml.SelectNodes("itemrelease/item/content")?.Cast<XElement>().ToList().ForEach(
-                        x =>
-                        {
-                            if (!(x.SelectSingleNode("./rubriclist/rubric/val") is XElement))
-                            {
-                                ReportingUtility.ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Tolerable,
-                                    "Hand-scored or QRX-scored item lacks a human-readable rubric",
-                                    $"Language: {((XAttribute) x.SelectSingleNode("./@language"))?.Value ?? string.Empty} AnswerKey: '{answerKey}'");
-                            }
-                        });
-                }
+				// If non-embedded answer key (either hand-scored or QRX scoring but not EBSR type check for a rubric (human scoring guidance)
+				// We only care about english rubrics (at least for the present)
+				if (scoringType != ScoringType.Basic && !it.ItemType.Equals("EBSR", StringComparison.OrdinalIgnoreCase) && 
+                    !(xml.SelectSingleNode("itemrelease/item/content[@language='ENU']/rubriclist/rubric/val") is XElement))
+				{
+					ReportingUtility.ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Tolerable,
+						"Hand-scored or QRX-scored item lacks a human-readable rubric",
+						$"AnswerKey: '{answerKey}'");
+				}
             }
 
             // AssessmentType (PT or CAT)

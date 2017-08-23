@@ -102,8 +102,9 @@ Error severity definitions:
             gValidationOptions.Disable("uwt"); // Disable Unreferenced Wordlist Terms
             gValidationOptions.Disable("mwa"); // Disable checking for attachments on unreferenced wordlist terms
             gValidationOptions.Disable("iat"); // Disable checking for images without alternate text
+            gValidationOptions.Disable("css"); // Disable reporting css color-contrast interference (temporary fix)
 
-            try
+			try
             {
                 string rootPath = null;
                 var operation = 'o'; // o=one, s=packages in Subdirectories, a=aggregate packages in subdirectories
