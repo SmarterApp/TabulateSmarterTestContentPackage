@@ -28,14 +28,21 @@ namespace ContentPackageTabulator.Validators
 						videoSeconds = Mp4VideoUtility.GetDuration(stream) / 1000.0;
 					}
 					var cData = CDataExtractor.ExtractCData(xDocument
-						.XPathSelectElement("itemrelease/item/content[@language='ENU']/stem"))?.FirstOrDefault();
-					int? characterCount = 0;
-					if (cData != null)
+                        .XPathSelectElement("itemrelease/item/content[@language='ENU']/stem"), false)?.ToList();
+                    var cDataOptions = xDocument
+                        .XPathSelectElements("itemrelease/item/content[@language='ENU']/optionlist/option/val")?.SelectMany(x => CDataExtractor.ExtractCData(x, false));
+                        int? characterCount = 0;
+					if (cData != null && cData.Any())
 					{
-						var cDataSection = new XDocument().LoadXml($"<root>{cData.Value}</root>");
-						characterCount = cDataSection.DescendantNodes()
-							.Where(x => x.NodeType == XmlNodeType.Text)
-							.Sum(x => x.ToString().Length);
+                        if (cDataOptions != null && cDataOptions.Any())
+                        {
+                            cData.AddRange(cDataOptions);
+                        }
+
+                        characterCount = cData.Select(x => new XDocument().LoadXml($"<root>{x.Value}</root>"))
+                             .SelectMany(x => x.DescendantNodes())
+                             .Where(x => x.NodeType == XmlNodeType.Text)
+                             .Sum(x => x.ToString().Length);
 					}
 					if (characterCount == null || characterCount == 0)
 					{
@@ -44,18 +51,18 @@ namespace ContentPackageTabulator.Validators
 						return;
 					}
 					var secondToCountRatio = videoSeconds / characterCount;
-					var highStandard = TabulatorSettings.AslMean +
-									   TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslTolerance;
-					var lowStandard = TabulatorSettings.AslMean -
-									  TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslTolerance;
+					var highStandard = ConfigurationOptions.AslMean +
+									   ConfigurationOptions.AslStandardDeviation * ConfigurationOptions.AslTolerance;
+					var lowStandard = ConfigurationOptions.AslMean -
+									  ConfigurationOptions.AslStandardDeviation * ConfigurationOptions.AslTolerance;
 					if (secondToCountRatio > highStandard
 						|| secondToCountRatio < lowStandard)
 					{
 						ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Degraded,
 							"ASL enabled item's video length doesn't correlate with text length - likely mismatch.",
 							$"Video Length (seconds): {videoSeconds} Character Count: {characterCount} Ratio: {secondToCountRatio} " +
-							$"Standard Deviation Tolerance: {TabulatorSettings.AslTolerance} Standard Deviation: {TabulatorSettings.AslStandardDeviation} " +
-							$"Mean: {TabulatorSettings.AslMean}");
+							$"Standard Deviation Tolerance: {ConfigurationOptions.AslTolerance} Standard Deviation: {ConfigurationOptions.AslStandardDeviation} " +
+							$"Mean: {ConfigurationOptions.AslMean}");
 					}
 				}
 				catch (Exception ex)

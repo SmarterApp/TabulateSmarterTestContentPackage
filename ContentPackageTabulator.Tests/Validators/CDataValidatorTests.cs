@@ -305,7 +305,7 @@ namespace ContentPackageTabulator.Tests.Validators
         {
             // Arrange
             // Act
-            var result = CDataExtractor.ExtractCData(ItemXml).ToList();
+            var result = CDataExtractor.ExtractCData(ItemXml, false).ToList();
 
             // Assert
             Assert.AreEqual(result.Count(), 2);
@@ -431,7 +431,7 @@ namespace ContentPackageTabulator.Tests.Validators
                                "</rubriclist>\r\n" +
                                "</content>";
             var xmlDoc = new XDocument().LoadXml(xml).Root;
-            var cData = CDataExtractor.ExtractCData(xmlDoc).ToList();
+            var cData = CDataExtractor.ExtractCData(xmlDoc, false).ToList();
             var itemContext = new ItemContext(null, null, null, null); // This is useful for reporting and not here. Use the null implementation
             var errorSeverity = ErrorSeverity.Severe;
 

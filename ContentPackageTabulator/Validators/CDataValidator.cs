@@ -539,7 +539,7 @@ namespace ContentPackageTabulator.Validators
                 }
                 else
                 {
-                    var glossaryTerms = CDataExtractor.ExtractCData((XElement) contentNode)
+                    var glossaryTerms = CDataExtractor.ExtractCData((XElement)contentNode, false)
                         .ToList()
                         .Select(x => ValidateContentCData(it,
                             new XDocument().LoadXml($"<root>{x.Value}</root>"))).ToList();
