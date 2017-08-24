@@ -11,6 +11,14 @@ namespace ContentPackageTabulator.Utilities
         public static string ErrorReportPath { get; set; }
         public static TextWriter ErrorReport { get; set; }
 
+        public static void ReportError(TabulationError tabulationError) {
+            ReportError(tabulationError.Context, 
+                        tabulationError.Category, 
+                        tabulationError.Severity, 
+                        tabulationError.Message, 
+                        tabulationError.Detail);
+        }
+
         public static void ReportError(ItemContext it, ErrorCategory category, ErrorSeverity severity, string msg,
             string detail, params object[] args)
         {

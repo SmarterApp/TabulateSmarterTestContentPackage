@@ -82,7 +82,12 @@ namespace ContentPackageTabulator.Validators
             return false;
         }
 
-        public static bool ElementsFreeOfColorAlterations(XElement rootElement, ItemContext itemContext,
+		// <summary>This method checks all elements in provided xml for "color" and "bgcolor" attributes which
+		// could potentially override accommodations applied by ART or Proctor at runtime</summary>
+		// <param name="rootElement"> Root where check should start </param>
+		// <param name="itemContext"> Context to use when writing any error messages </param>
+		// <param name="errorSeverity"> Severity of any reported error messages </param>
+		public static bool ElementsFreeOfColorAlterations(XElement rootElement, ItemContext itemContext,
             ErrorSeverity errorSeverity)
         {
             if (rootElement == null)
@@ -101,7 +106,7 @@ namespace ContentPackageTabulator.Validators
                 restrictedValues.All(x => ReportElementsInViolation(rootElement, "//*", x, itemContext, errorSeverity));
         }
 
-        public static bool ReportElementsInViolation(XElement rootElement, string path, string attribute,
+        private static bool ReportElementsInViolation(XElement rootElement, string path, string attribute,
             ItemContext itemContext, ErrorSeverity errorSeverity)
         {
             var result = rootElement.ElementsByPathAndAttributeCaseInsensitive(path, attribute).ToList();
@@ -121,7 +126,13 @@ namespace ContentPackageTabulator.Validators
             return false;
         }
 
-        public static bool ElementsFreeOfViolatingStyleText(XElement rootElement,
+		// <summary>This method checks all elements in provided xml with "style" attributes for patterns indicating colors which
+		// could potentially override accommodations applied by ART or Proctor at runtime</summary>
+		// <param name="rootElement"> Root where check should start </param>
+        // <param name="restrictedPatterns"> Regex values for restricted patterns (rgb, rgba, hsl, hsla, color constants, hex) </params>
+		// <param name="itemContext"> Context to use when writing any error messages </param>
+		// <param name="errorSeverity"> Severity of any reported error messages </param>
+		public static bool ElementsFreeOfViolatingStyleText(XElement rootElement,
             IDictionary<string, string> restrictedPatterns,
             ItemContext itemContext, ErrorSeverity errorSeverity)
         {
@@ -143,7 +154,7 @@ namespace ContentPackageTabulator.Validators
             return isValid;
         }
 
-        public static List<CssElement> ExtractElementsWithCssStyling(XElement rootElement)
+        private static List<CssElement> ExtractElementsWithCssStyling(XElement rootElement)
         {
             var elements = rootElement.ElementsByPathAndAttributeCaseInsensitive("//*", "style").ToList();
             if (elements.Any())
