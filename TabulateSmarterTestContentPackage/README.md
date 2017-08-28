@@ -12,3 +12,9 @@ An executable file is included in each "release" package. There is no installer,
 For detailed syntax, including command-line options run the program with the -h (help) option as follows:
 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;TabulateSmarterTestContentPackage -h
+
+### For versions 2.x.x:
+
+Run with the following command:
+
+dotnet ContentPackageTabulator.dll "<path/to/content/root>" -v+all
