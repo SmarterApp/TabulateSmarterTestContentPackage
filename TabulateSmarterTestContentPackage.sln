@@ -1,11 +1,11 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Express 2013 for Windows Desktop
-VisualStudioVersion = 12.0.30110.0
+Microsoft Visual Studio Solution File, Format Version 15.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.26228.4
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TabulateSmarterTestContentPackage", "TabulateSmarterTestContentPackage\TabulateSmarterTestContentPackage.csproj", "{9B4A55D6-DB06-48F7-8B61-0F4017E37D0B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ContentPackageTabulator", "ContentPackageTabulator\ContentPackageTabulator.csproj", "{378C8487-4BA2-4508-8948-293F8A007608}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TabulateSmarterTestContentPackage.Tests", "TabulateSmarterTestContentPackage.Tests\TabulateSmarterTestContentPackage.Tests.csproj", "{EB026227-BBA6-4ADC-B687-BBE0AC39D58E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ContentPackageTabulator.Tests", "ContentPackageTabulator.Tests\ContentPackageTabulator.Tests.csproj", "{292DEBE4-788A-48AF-864C-4C983AECCE26}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -13,16 +13,19 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{9B4A55D6-DB06-48F7-8B61-0F4017E37D0B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{9B4A55D6-DB06-48F7-8B61-0F4017E37D0B}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{9B4A55D6-DB06-48F7-8B61-0F4017E37D0B}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{9B4A55D6-DB06-48F7-8B61-0F4017E37D0B}.Release|Any CPU.Build.0 = Release|Any CPU
-		{EB026227-BBA6-4ADC-B687-BBE0AC39D58E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{EB026227-BBA6-4ADC-B687-BBE0AC39D58E}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{EB026227-BBA6-4ADC-B687-BBE0AC39D58E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{EB026227-BBA6-4ADC-B687-BBE0AC39D58E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{378C8487-4BA2-4508-8948-293F8A007608}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{378C8487-4BA2-4508-8948-293F8A007608}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{378C8487-4BA2-4508-8948-293F8A007608}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{378C8487-4BA2-4508-8948-293F8A007608}.Release|Any CPU.Build.0 = Release|Any CPU
+		{292DEBE4-788A-48AF-864C-4C983AECCE26}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{292DEBE4-788A-48AF-864C-4C983AECCE26}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{292DEBE4-788A-48AF-864C-4C983AECCE26}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{292DEBE4-788A-48AF-864C-4C983AECCE26}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(MonoDevelopProperties) = preSolution
+		version = 2.0.1
 	EndGlobalSection
 EndGlobal

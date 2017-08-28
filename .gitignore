@@ -5,6 +5,7 @@
 *.suo
 *.user
 *.sln.docstates
+*.userprefs
 
 # Build results
 
@@ -137,6 +138,10 @@ GeneratedArtifacts/
 _Pvt_Extensions/
 ModelManifest.xml
 
+#Build
+*.dll
+[Oo]ut/
+
 # =========================
 # Windows detritus
 # =========================
@@ -153,3 +158,4 @@ $RECYCLE.BIN/
 
 # Mac desktop service store files
 .DS_Store
+ContentPackageTabulator/Properties/launchSettings.json
