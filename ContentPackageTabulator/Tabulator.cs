@@ -139,8 +139,9 @@ namespace ContentPackageTabulator
         public static string LoadXmlErrorDetail { get; set; }
 
         // Tabulate a package in the specified directory
-        public void TabulateOne(string path)
+        public IEnumerable<TabulationError> TabulateOne(string path)
         {
+            var result = new List<TabulationError>();
             try
             {
                 if (path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
@@ -177,6 +178,7 @@ namespace ContentPackageTabulator
             {
                 Conclude();
             }
+            return result;
         }
 
         // Individually tabulate each package in subdirectories

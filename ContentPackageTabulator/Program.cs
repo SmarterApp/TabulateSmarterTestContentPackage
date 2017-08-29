@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using ContentPackageTabulator.Models;
 
 namespace ContentPackageTabulator
 {
@@ -174,11 +175,13 @@ Error severity definitions:
                 Console.WriteLine(Enumerable.Repeat("-", 20).Aggregate((x, y) => $"{x}{y}"));
                 Console.WriteLine();
 
+                IEnumerable<TabulationError> tabulationErrors = new List<TabulationError>();
+
                 var tab = new Tabulator();
                 switch (operation)
                 {
                     default:
-                        tab.TabulateOne(rootPath);
+                        tabulationErrors = tab.TabulateOne(rootPath);
                         break;
 
                     case 's':
