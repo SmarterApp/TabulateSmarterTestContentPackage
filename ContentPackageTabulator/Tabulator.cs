@@ -272,13 +272,43 @@ namespace ContentPackageTabulator
         {
             var result = new List<TabulationError>();
             Program.gValidationOptions.EnableAll();
+            Program.gValidationOptions.Enable("dsk");
+            if (Directory.Exists(path))
+            {
+                var folder = new FsFolder(path)
+                {
+                    Name = Path.GetFileNameWithoutExtension(path)
+                };
+                try
+                {
+                    TabulateItem_Pass1(folder);
+                }
+                catch (Exception err)
+                {
+                    ReportingUtility.ReportError(new ItemContext(this, folder, null, null), ErrorCategory.Exception,
+                        ErrorSeverity.Severe, err.ToString());
+                }
+                foreach (var entry in mIdToItemContext)
+                {
+                    try
+                    {
+                        TabulateItem_Pass2(entry.Value, false);
+                    }
+                    catch (Exception err)
+                    {
+                        ReportingUtility.ReportError(entry.Value, ErrorCategory.Exception, ErrorSeverity.Severe,
+                            err.ToString());
+                    }
+                }
+            }
+            result.AddRange(ReportingUtility.Errors);
             return result;
         }
 
         // Initialize all files and collections for a tabulation run
-        private void Initialize(string reportPrefix)
+        private void Initialize(string reportPrefix, bool write = true)
         {
-            if (Program.gValidationOptions.IsEnabled("dsk"))
+            if (Program.gValidationOptions.IsEnabled("dsk") && write)
             {
                 reportPrefix = string.Concat(reportPrefix, "_");
                 ReportingUtility.ErrorReportPath = string.Concat(reportPrefix, cErrorReportFn);
@@ -579,7 +609,7 @@ namespace ContentPackageTabulator
             CountWordlistReferences(it, xml);
         }
 
-        private void TabulateItem_Pass2(ItemContext it)
+        private void TabulateItem_Pass2(ItemContext it, bool write = true)
         {
             switch (it.ItemType)
             {
@@ -594,26 +624,26 @@ namespace ContentPackageTabulator
                 case "sa": // Short Answer
                 case "ti": // Table Interaction
                 case "wer": // Writing Extended Response
-                    TabulateInteraction(it);
+                    TabulateInteraction(it, write);
                     break;
 
                 case "nl": // Natural Language
                 case "SIM": // Simulation
                     ReportingUtility.ReportError(it, ErrorCategory.Unsupported, ErrorSeverity.Severe,
                         "Item type is not fully supported by the open source TDS.", "itemType='{0}'", it.ItemType);
-                    TabulateInteraction(it);
+                    TabulateInteraction(it, write);
                     break;
 
                 case "wordList": // Word List (Glossary)
-                    TabulateWordList(it);
+                    TabulateWordList(it, write);
                     break;
 
                 case "pass": // Passage
-                    TabulatePassage(it);
+                    TabulatePassage(it, write);
                     break;
 
                 case "tut": // Tutorial
-                    TabulateTutorial(it);
+                    TabulateTutorial(it, write);
                     break;
 
                 default:
@@ -623,7 +653,7 @@ namespace ContentPackageTabulator
             }
         }
 
-        private void TabulateInteraction(ItemContext it)
+        private void TabulateInteraction(ItemContext it, bool write = true)
         {
             // Read the item XML
             var xml = new XDocument();
@@ -1094,7 +1124,7 @@ namespace ContentPackageTabulator
                     x => !string.IsNullOrEmpty(x.Domain) && x.Domain.Equals("paper", StringComparison.OrdinalIgnoreCase))
                 .ToList();
 
-            if (Program.gValidationOptions.IsEnabled("dsk"))
+            if (Program.gValidationOptions.IsEnabled("dsk") && write)
             {
                 // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,
                 // MathematicalPractice, MaxPoints, CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget, measurementmodel, scorepoints,
@@ -1390,7 +1420,7 @@ namespace ContentPackageTabulator
 
                     // Look for the tutorial
                     var tutorialFilename = string.Format(@"Items\item-{1}-{0}\item-{1}-{0}.xml", tutorialId, bankKey);
-                    if (!mPackageFolder.FileExists(tutorialFilename))
+                    if (!mPackageFolder?.FileExists(tutorialFilename) ?? false)
                     {
                         ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Tutorial not found.",
                             "TutorialId='{0}'", tutorialId);
@@ -1402,7 +1432,7 @@ namespace ContentPackageTabulator
             }
         } // TablulateInteraction
 
-        private void TabulatePassage(ItemContext it)
+        private void TabulatePassage(ItemContext it, bool write = true)
         {
             // Read the item XML
             var xml = new XDocument();
@@ -1513,7 +1543,7 @@ namespace ContentPackageTabulator
             // WordCount
             var wordCount = GetWordCount(it, xml);
 
-            if (Program.gValidationOptions.IsEnabled("dsk"))
+            if (Program.gValidationOptions.IsEnabled("dsk") && write)
             {
                 // Folder,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,Media,Size,WordCount
                 mStimulusReport.WriteLine(string.Join(",", ReportingUtility.CsvEncode(it.Folder),
@@ -1526,7 +1556,7 @@ namespace ContentPackageTabulator
         } // TabulatePassage
 
 
-        private void TabulateTutorial(ItemContext it)
+        private void TabulateTutorial(ItemContext it, bool write = true)
         {
             // Read the item XML
             var xml = new XDocument();
@@ -1600,7 +1630,7 @@ namespace ContentPackageTabulator
             // Translation
             var translation = GetTranslation(it, xml, xmlMetadata);
 
-            if (Program.gValidationOptions.IsEnabled("dsk"))
+            if (Program.gValidationOptions.IsEnabled("dsk") && write)
             {
                 // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,MathematicalPractice, MaxPoints, 
                 // CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget, CAT_MeasurementModel,
@@ -2303,7 +2333,7 @@ namespace ContentPackageTabulator
             return xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:MaximumNumberOfPoints", xmlNamespaceManager);
         }
 
-        private void TabulateWordList(ItemContext it)
+        private void TabulateWordList(ItemContext it, bool write = true)
         {
             // Read the item XML
             var xml = new XDocument();
@@ -2379,7 +2409,7 @@ namespace ContentPackageTabulator
                 mingloss = 0;
             }
 
-            if (Program.gValidationOptions.IsEnabled("dsk"))
+            if (Program.gValidationOptions.IsEnabled("dsk") && write)
             {
                 //Folder,WIT_ID,RefCount,TermCount,MaxGloss,MinGloss,AvgGloss
                 mWordlistReport.WriteLine(string.Join(",", it.Folder, ReportingUtility.CsvEncode(it.ItemId),
@@ -2559,9 +2589,9 @@ namespace ContentPackageTabulator
             return string.Concat(itemId, "~", dependsOnId);
         }
 
-        private void SummaryReport(TextWriter writer)
+        private void SummaryReport(TextWriter writer, bool write = true)
         {
-            if (Program.gValidationOptions.IsEnabled("dsk"))
+            if (Program.gValidationOptions.IsEnabled("dsk") && write)
             {
                 writer.WriteLine("Errors: {0}", ReportingUtility.ErrorCount);
                 writer.WriteLine("Items: {0}", mItemCount);

@@ -24,7 +24,7 @@ namespace ContentPackageTabulator
         /// <summary>
         ///     The name of the file
         /// </summary>
-        public string Name { get; }
+        public string Name { get; set; }
 
         /// <summary>
         ///     The path to the file from the root of the collection. Starts with a backslash but no drive letter.

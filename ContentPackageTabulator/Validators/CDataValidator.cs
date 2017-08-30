@@ -689,7 +689,7 @@ namespace ContentPackageTabulator.Validators
         }
 
         public static void ValidateWordlistVocabulary(string wordlistId, ItemContext itemIt, List<int> termIndices,
-            List<string> terms)
+            List<string> terms, bool write = true)
         {
             // Read the wordlist XML
             ItemContext it;
@@ -897,7 +897,7 @@ namespace ContentPackageTabulator.Validators
                     }
 
                     // Folder,WIT_ID,ItemId,Index,Term,Language,Length,Audio,AudioSize,Image,ImageSize
-                    if (Program.gValidationOptions.IsEnabled("gtr") && Program.gValidationOptions.IsEnabled("dsk"))
+                    if (Program.gValidationOptions.IsEnabled("gtr") && Program.gValidationOptions.IsEnabled("dsk") && write)
                     {
                         Tabulator.mGlossaryReport.WriteLine(string.Join(",", it.Folder,
                             ReportingUtility.CsvEncode(it.ItemId), itemIt.ItemId,
@@ -906,7 +906,7 @@ namespace ContentPackageTabulator.Validators
                             audioType, audioSize.ToString(), imageType, imageSize.ToString(),
                             ReportingUtility.CsvEncode(html)));
                     }
-                    else if (Program.gValidationOptions.IsEnabled("dsk"))
+                    else if (Program.gValidationOptions.IsEnabled("dsk") && write)
                             {
                         Tabulator.mGlossaryReport.WriteLine(string.Join(",", it.Folder,
                             ReportingUtility.CsvEncode(it.ItemId), itemIt.ItemId,

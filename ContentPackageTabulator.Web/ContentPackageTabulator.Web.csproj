@@ -19,6 +19,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="tabulationsettings.json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\ContentPackageTabulator\ContentPackageTabulator.csproj" />
   </ItemGroup>
 </Project>
