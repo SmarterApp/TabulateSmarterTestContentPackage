@@ -139,7 +139,7 @@ namespace ContentPackageTabulator
         public static string LoadXmlErrorDetail { get; set; }
 
         // Tabulate a package in the specified directory
-        public IEnumerable<TabulationError> TabulateOne(string path)
+        public void TabulateOne(string path)
         {
             var result = new List<TabulationError>();
             try
@@ -178,7 +178,6 @@ namespace ContentPackageTabulator
             {
                 Conclude();
             }
-            return result;
         }
 
         // Individually tabulate each package in subdirectories
@@ -267,6 +266,12 @@ namespace ContentPackageTabulator
             {
                 Conclude();
             }
+        }
+
+        public IEnumerable<TabulationError> TabulateErrors(string path) {
+            var result = new List<TabulationError>();
+
+            return result;
         }
 
         // Initialize all files and collections for a tabulation run

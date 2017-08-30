@@ -181,7 +181,7 @@ Error severity definitions:
                 switch (operation)
                 {
                     default:
-                        tabulationErrors = tab.TabulateOne(rootPath);
+                        tab.TabulateOne(rootPath);
                         break;
 
                     case 's':
@@ -204,30 +204,6 @@ Error severity definitions:
 
             var elapsedTicks = Environment.TickCount - startTicks;
             Console.WriteLine("Info: Elapsed time: {0}.{1:d3} seconds", elapsedTicks / 1000, elapsedTicks % 1000);
-        }
-    }
-
-    internal class ValidationOptions : Dictionary<string, bool>
-    {
-        public void Enable(string option)
-        {
-            this[option] = true;
-        }
-
-        public void Disable(string option)
-        {
-            this[option] = false;
-        }
-
-        public void EnableAll()
-        {
-            Clear(); // Since options default to enabled, clearing enables all.
-        }
-
-        public bool IsEnabled(string option)
-        {
-            bool value;
-            return !TryGetValue(option, out value) || value;
         }
     }
 }

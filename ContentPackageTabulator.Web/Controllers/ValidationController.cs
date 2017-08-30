@@ -4,16 +4,15 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace TabulateSmarterTestContentPackage.Web.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/v1/[controller]")]
     public class ValidationController : Controller
     {
-        [HttpGet]
-        [Route("{type}/{id}")]
-        public HttpResponseMessage Get([FromRoute] string type, [FromRoute] string id)
+        [HttpPost]
+        [Route("{path}")]
+        public HttpResponseMessage Get([FromBody] string path)
         {
             var tabulator = new Tabulator();
-            var path = $"{type}-{id}";
-            var result = tabulator.TabulateOne(path);
+            //tabulator.ProduceErrors(path);
             return new HttpResponseMessage
             {
                 StatusCode = System.Net.HttpStatusCode.OK
