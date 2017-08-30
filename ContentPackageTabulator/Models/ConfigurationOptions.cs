@@ -9,7 +9,7 @@ namespace ContentPackageTabulator.Models
         {
             Configuration = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appsettings.json", false, true)
+                .AddJsonFile("tabulationsettings.json", false, true)
                 .Build();
             AslMean = double.Parse(Configuration["AslMean"]);
             AslStandardDeviation = double.Parse(Configuration["AslStandardDeviation"]);

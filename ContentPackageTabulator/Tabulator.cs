@@ -141,6 +141,7 @@ namespace ContentPackageTabulator
         // Tabulate a package in the specified directory
         public void TabulateOne(string path)
         {
+            var result = new List<TabulationError>();
             try
             {
                 if (path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
@@ -267,49 +268,90 @@ namespace ContentPackageTabulator
             }
         }
 
-        // Initialize all files and collections for a tabulation run
-        private void Initialize(string reportPrefix)
+        public IEnumerable<TabulationError> TabulateErrors(string path)
         {
-            reportPrefix = string.Concat(reportPrefix, "_");
-            ReportingUtility.ErrorReportPath = string.Concat(reportPrefix, cErrorReportFn);
-            if (File.Exists(ReportingUtility.ErrorReportPath))
+            var result = new List<TabulationError>();
+            Program.gValidationOptions.EnableAll();
+            Program.gValidationOptions.Enable("dsk");
+            if (Directory.Exists(path))
             {
-                File.Delete(ReportingUtility.ErrorReportPath);
+                var folder = new FsFolder(path)
+                {
+                    Name = Path.GetFileNameWithoutExtension(path)
+                };
+                try
+                {
+                    TabulateItem_Pass1(folder);
+                }
+                catch (Exception err)
+                {
+                    ReportingUtility.ReportError(new ItemContext(this, folder, null, null), ErrorCategory.Exception,
+                        ErrorSeverity.Severe, err.ToString());
+                }
+                foreach (var entry in mIdToItemContext)
+                {
+                    try
+                    {
+                        TabulateItem_Pass2(entry.Value, false);
+                    }
+                    catch (Exception err)
+                    {
+                        ReportingUtility.ReportError(entry.Value, ErrorCategory.Exception, ErrorSeverity.Severe,
+                            err.ToString());
+                    }
+                }
             }
+            result.AddRange(ReportingUtility.Errors);
+            return result;
+        }
 
-            mItemReport = new StreamWriter(
-                File.Open(string.Concat(reportPrefix, cItemReportFn), FileMode.OpenOrCreate), Encoding.UTF8);
-            // DOK is "Depth of Knowledge"
-            // In the case of multiple standards/claims/targets, these headers will not be sufficient
-            // TODO: Add CsvHelper library to allow expandable headers
-            mItemReport.WriteLine("Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL," +
-                                  "BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice,MaxPoints," +
-                                  "CommonCore,ClaimContentTarget,SecondaryCommonCore,SecondaryClaimContentTarget, CAT_MeasurementModel," +
-                                  "CAT_ScorePoints,CAT_Dimension,CAT_Weight,CAT_Parameters, PP_MeasurementModel," +
-                                  "PP_ScorePoints,PP_Dimension,PP_Weight,PP_Parameters");
-
-            mStimulusReport =
-                new StreamWriter(File.Open(string.Concat(reportPrefix, cStimulusReportFn), FileMode.OpenOrCreate),
-                    Encoding.UTF8);
-            mStimulusReport.WriteLine(
-                "Folder,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,Media,Size,WordCount");
-
-            mWordlistReport =
-                new StreamWriter(File.Open(string.Concat(reportPrefix, cWordlistReportFn), FileMode.OpenOrCreate),
-                    Encoding.UTF8);
-            mWordlistReport.WriteLine("Folder,WIT_ID,RefCount,TermCount,MaxGloss,MinGloss,AvgGloss");
-
-            mGlossaryReport =
-                new StreamWriter(File.Open(string.Concat(reportPrefix, cGlossaryReportFn), FileMode.OpenOrCreate),
-                    Encoding.UTF8);
-            mGlossaryReport.WriteLine(Program.gValidationOptions.IsEnabled("gtr")
-                ? "Folder,WIT_ID,ItemId,Index,Term,Language,Length,Audio,AudioSize,Image,ImageSize,Text"
-                : "Folder,WIT_ID,ItemId,Index,Term,Language,Length,Audio,AudioSize,Image,ImageSize");
-
-            mSummaryReportPath = string.Concat(reportPrefix, cSummaryReportFn);
-            if (File.Exists(mSummaryReportPath))
+        // Initialize all files and collections for a tabulation run
+        private void Initialize(string reportPrefix, bool write = true)
+        {
+            if (Program.gValidationOptions.IsEnabled("dsk") && write)
             {
-                File.Delete(mSummaryReportPath);
+                reportPrefix = string.Concat(reportPrefix, "_");
+                ReportingUtility.ErrorReportPath = string.Concat(reportPrefix, cErrorReportFn);
+                if (File.Exists(ReportingUtility.ErrorReportPath))
+                {
+                    File.Delete(ReportingUtility.ErrorReportPath);
+                }
+
+                mItemReport = new StreamWriter(
+                    File.Open(string.Concat(reportPrefix, cItemReportFn), FileMode.OpenOrCreate), Encoding.UTF8);
+                // DOK is "Depth of Knowledge"
+                // In the case of multiple standards/claims/targets, these headers will not be sufficient
+                // TODO: Add CsvHelper library to allow expandable headers
+                mItemReport.WriteLine(
+                    "Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL," +
+                    "BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice,MaxPoints," +
+                    "CommonCore,ClaimContentTarget,SecondaryCommonCore,SecondaryClaimContentTarget, CAT_MeasurementModel," +
+                    "CAT_ScorePoints,CAT_Dimension,CAT_Weight,CAT_Parameters, PP_MeasurementModel," +
+                    "PP_ScorePoints,PP_Dimension,PP_Weight,PP_Parameters");
+
+                mStimulusReport =
+                    new StreamWriter(File.Open(string.Concat(reportPrefix, cStimulusReportFn), FileMode.OpenOrCreate),
+                        Encoding.UTF8);
+                mStimulusReport.WriteLine(
+                    "Folder,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,Media,Size,WordCount");
+
+                mWordlistReport =
+                    new StreamWriter(File.Open(string.Concat(reportPrefix, cWordlistReportFn), FileMode.OpenOrCreate),
+                        Encoding.UTF8);
+                mWordlistReport.WriteLine("Folder,WIT_ID,RefCount,TermCount,MaxGloss,MinGloss,AvgGloss");
+
+                mGlossaryReport =
+                    new StreamWriter(File.Open(string.Concat(reportPrefix, cGlossaryReportFn), FileMode.OpenOrCreate),
+                        Encoding.UTF8);
+                mGlossaryReport.WriteLine(Program.gValidationOptions.IsEnabled("gtr")
+                    ? "Folder,WIT_ID,ItemId,Index,Term,Language,Length,Audio,AudioSize,Image,ImageSize,Text"
+                    : "Folder,WIT_ID,ItemId,Index,Term,Language,Length,Audio,AudioSize,Image,ImageSize");
+
+                mSummaryReportPath = string.Concat(reportPrefix, cSummaryReportFn);
+                if (File.Exists(mSummaryReportPath))
+                {
+                    File.Delete(mSummaryReportPath);
+                }
             }
 
             ReportingUtility.ErrorCount = 0;
@@ -567,7 +609,7 @@ namespace ContentPackageTabulator
             CountWordlistReferences(it, xml);
         }
 
-        private void TabulateItem_Pass2(ItemContext it)
+        private void TabulateItem_Pass2(ItemContext it, bool write = true)
         {
             switch (it.ItemType)
             {
@@ -582,26 +624,26 @@ namespace ContentPackageTabulator
                 case "sa": // Short Answer
                 case "ti": // Table Interaction
                 case "wer": // Writing Extended Response
-                    TabulateInteraction(it);
+                    TabulateInteraction(it, write);
                     break;
 
                 case "nl": // Natural Language
                 case "SIM": // Simulation
                     ReportingUtility.ReportError(it, ErrorCategory.Unsupported, ErrorSeverity.Severe,
                         "Item type is not fully supported by the open source TDS.", "itemType='{0}'", it.ItemType);
-                    TabulateInteraction(it);
+                    TabulateInteraction(it, write);
                     break;
 
                 case "wordList": // Word List (Glossary)
-                    TabulateWordList(it);
+                    TabulateWordList(it, write);
                     break;
 
                 case "pass": // Passage
-                    TabulatePassage(it);
+                    TabulatePassage(it, write);
                     break;
 
                 case "tut": // Tutorial
-                    TabulateTutorial(it);
+                    TabulateTutorial(it, write);
                     break;
 
                 default:
@@ -611,7 +653,7 @@ namespace ContentPackageTabulator
             }
         }
 
-        private void TabulateInteraction(ItemContext it)
+        private void TabulateInteraction(ItemContext it, bool write = true)
         {
             // Read the item XML
             var xml = new XDocument();
@@ -964,15 +1006,16 @@ namespace ContentPackageTabulator
                     }
                 }
 
-				// If non-embedded answer key (either hand-scored or QRX scoring but not EBSR type check for a rubric (human scoring guidance)
-				// We only care about english rubrics (at least for the present)
-				if (scoringType != ScoringType.Basic && !it.ItemType.Equals("EBSR", StringComparison.OrdinalIgnoreCase) && 
-                    !(xml.SelectSingleNode("itemrelease/item/content[@language='ENU']/rubriclist/rubric/val") is XElement))
-				{
-					ReportingUtility.ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Tolerable,
-						"Hand-scored or QRX-scored item lacks a human-readable rubric",
-						$"AnswerKey: '{answerKey}'");
-				}
+                // If non-embedded answer key (either hand-scored or QRX scoring but not EBSR type check for a rubric (human scoring guidance)
+                // We only care about english rubrics (at least for the present)
+                if (scoringType != ScoringType.Basic && !it.ItemType.Equals("EBSR", StringComparison.OrdinalIgnoreCase) &&
+                    !(xml.SelectSingleNode("itemrelease/item/content[@language='ENU']/rubriclist/rubric/val") is
+                        XElement))
+                {
+                    ReportingUtility.ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Tolerable,
+                        "Hand-scored or QRX-scored item lacks a human-readable rubric",
+                        $"AnswerKey: '{answerKey}'");
+                }
             }
 
             // AssessmentType (PT or CAT)
@@ -1081,60 +1124,67 @@ namespace ContentPackageTabulator
                     x => !string.IsNullOrEmpty(x.Domain) && x.Domain.Equals("paper", StringComparison.OrdinalIgnoreCase))
                 .ToList();
 
-            // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,
-            // MathematicalPractice, MaxPoints, CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget, measurementmodel, scorepoints,
-            // dimension, weight, parameters
-            mItemReport.WriteLine(string.Join(",", ReportingUtility.CsvEncode(it.Folder),
-                ReportingUtility.CsvEncode(it.ItemId), ReportingUtility.CsvEncode(it.ItemType),
-                ReportingUtility.CsvEncode(version), ReportingUtility.CsvEncode(subject),
-                ReportingUtility.CsvEncode(grade), ReportingUtility.CsvEncode(answerKey),
-                ReportingUtility.CsvEncode(assessmentType), ReportingUtility.CsvEncode(wordlistId),
-                ReportingUtility.CsvEncode(asl), ReportingUtility.CsvEncode(brailleType),
-                ReportingUtility.CsvEncode(translation), ReportingUtility.CsvEncode(media), size.ToString(),
-                ReportingUtility.CsvEncode(depthOfKnowledge), ReportingUtility.CsvEncode(allowCalculator),
-                ReportingUtility.CsvEncode(mathematicalPractice), ReportingUtility.CsvEncode(maximumNumberOfPoints),
-                ReportingUtility.CsvEncode(standardClaimTarget.PrimaryCommonCore),
-                ReportingUtility.CsvEncode(standardClaimTarget.PrimaryClaimsContentTargets),
-                ReportingUtility.CsvEncode(standardClaimTarget.SecondaryCommonCore),
-                ReportingUtility.CsvEncode(standardClaimTarget.SecondaryClaimsContentTargets),
-                ReportingUtility.CsvEncode(
-                    scoringSeparation.FirstOrDefault(x => !x.Key)?
-                        .Select(x => x.MeasurementModel)
-                        .Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
-                ReportingUtility.CsvEncode(
-                    scoringSeparation.FirstOrDefault(x => !x.Key)?
-                        .Select(x => x.ScorePoints)
-                        .Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
-                ReportingUtility.CsvEncode(
-                    scoringSeparation.FirstOrDefault(x => !x.Key)?
-                        .Select(x => x.Dimension)
-                        .Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
-                ReportingUtility.CsvEncode(
-                    scoringSeparation.FirstOrDefault(x => !x.Key)?.Select(x => x.Weight).Aggregate((x, y) => $"{x};{y}") ??
-                    string.Empty),
-                ReportingUtility.CsvEncode(
-                    scoringSeparation.FirstOrDefault(x => !x.Key)?
-                        .Select(x => x.GetParameters())
-                        .Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
-                ReportingUtility.CsvEncode(
-                    scoringSeparation.FirstOrDefault(x => x.Key)?
-                        .Select(x => x.MeasurementModel)
-                        .Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
-                ReportingUtility.CsvEncode(
-                    scoringSeparation.FirstOrDefault(x => x.Key)?
-                        .Select(x => x.ScorePoints)
-                        .Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
-                ReportingUtility.CsvEncode(
-                    scoringSeparation.FirstOrDefault(x => x.Key)?
-                        .Select(x => x.Dimension)
-                        .Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
-                ReportingUtility.CsvEncode(
-                    scoringSeparation.FirstOrDefault(x => x.Key)?.Select(x => x.Weight).Aggregate((x, y) => $"{x};{y}") ??
-                    string.Empty),
-                ReportingUtility.CsvEncode(
-                    scoringSeparation.FirstOrDefault(x => x.Key)?
-                        .Select(x => x.GetParameters())
-                        .Aggregate((x, y) => $"{x};{y}") ?? string.Empty)));
+            if (Program.gValidationOptions.IsEnabled("dsk") && write)
+            {
+                // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,
+                // MathematicalPractice, MaxPoints, CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget, measurementmodel, scorepoints,
+                // dimension, weight, parameters
+                mItemReport.WriteLine(string.Join(",", ReportingUtility.CsvEncode(it.Folder),
+                    ReportingUtility.CsvEncode(it.ItemId), ReportingUtility.CsvEncode(it.ItemType),
+                    ReportingUtility.CsvEncode(version), ReportingUtility.CsvEncode(subject),
+                    ReportingUtility.CsvEncode(grade), ReportingUtility.CsvEncode(answerKey),
+                    ReportingUtility.CsvEncode(assessmentType), ReportingUtility.CsvEncode(wordlistId),
+                    ReportingUtility.CsvEncode(asl), ReportingUtility.CsvEncode(brailleType),
+                    ReportingUtility.CsvEncode(translation), ReportingUtility.CsvEncode(media), size.ToString(),
+                    ReportingUtility.CsvEncode(depthOfKnowledge), ReportingUtility.CsvEncode(allowCalculator),
+                    ReportingUtility.CsvEncode(mathematicalPractice), ReportingUtility.CsvEncode(maximumNumberOfPoints),
+                    ReportingUtility.CsvEncode(standardClaimTarget.PrimaryCommonCore),
+                    ReportingUtility.CsvEncode(standardClaimTarget.PrimaryClaimsContentTargets),
+                    ReportingUtility.CsvEncode(standardClaimTarget.SecondaryCommonCore),
+                    ReportingUtility.CsvEncode(standardClaimTarget.SecondaryClaimsContentTargets),
+                    ReportingUtility.CsvEncode(
+                        scoringSeparation.FirstOrDefault(x => !x.Key)?
+                            .Select(x => x.MeasurementModel)
+                            .Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
+                    ReportingUtility.CsvEncode(
+                        scoringSeparation.FirstOrDefault(x => !x.Key)?
+                            .Select(x => x.ScorePoints)
+                            .Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
+                    ReportingUtility.CsvEncode(
+                        scoringSeparation.FirstOrDefault(x => !x.Key)?
+                            .Select(x => x.Dimension)
+                            .Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
+                    ReportingUtility.CsvEncode(
+                        scoringSeparation.FirstOrDefault(x => !x.Key)?
+                            .Select(x => x.Weight)
+                            .Aggregate((x, y) => $"{x};{y}") ??
+                        string.Empty),
+                    ReportingUtility.CsvEncode(
+                        scoringSeparation.FirstOrDefault(x => !x.Key)?
+                            .Select(x => x.GetParameters())
+                            .Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
+                    ReportingUtility.CsvEncode(
+                        scoringSeparation.FirstOrDefault(x => x.Key)?
+                            .Select(x => x.MeasurementModel)
+                            .Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
+                    ReportingUtility.CsvEncode(
+                        scoringSeparation.FirstOrDefault(x => x.Key)?
+                            .Select(x => x.ScorePoints)
+                            .Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
+                    ReportingUtility.CsvEncode(
+                        scoringSeparation.FirstOrDefault(x => x.Key)?
+                            .Select(x => x.Dimension)
+                            .Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
+                    ReportingUtility.CsvEncode(
+                        scoringSeparation.FirstOrDefault(x => x.Key)?
+                            .Select(x => x.Weight)
+                            .Aggregate((x, y) => $"{x};{y}") ??
+                        string.Empty),
+                    ReportingUtility.CsvEncode(
+                        scoringSeparation.FirstOrDefault(x => x.Key)?
+                            .Select(x => x.GetParameters())
+                            .Aggregate((x, y) => $"{x};{y}") ?? string.Empty)));
+            }
 
             // === Tabulation is complete, check for other errors
 
@@ -1370,7 +1420,7 @@ namespace ContentPackageTabulator
 
                     // Look for the tutorial
                     var tutorialFilename = string.Format(@"Items\item-{1}-{0}\item-{1}-{0}.xml", tutorialId, bankKey);
-                    if (!mPackageFolder.FileExists(tutorialFilename))
+                    if (!mPackageFolder?.FileExists(tutorialFilename) ?? false)
                     {
                         ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Tutorial not found.",
                             "TutorialId='{0}'", tutorialId);
@@ -1382,7 +1432,7 @@ namespace ContentPackageTabulator
             }
         } // TablulateInteraction
 
-        private void TabulatePassage(ItemContext it)
+        private void TabulatePassage(ItemContext it, bool write = true)
         {
             // Read the item XML
             var xml = new XDocument();
@@ -1427,7 +1477,7 @@ namespace ContentPackageTabulator
             }
 
             // Get the version
-            string version = xml.XpEvalE("itemrelease/passage/@version");
+            var version = xml.XpEvalE("itemrelease/passage/@version");
 
             // Subject
             string subject = xml.XpEvalE("itemrelease/passage/attriblist/attrib[@attid='itm_item_subject']/val");
@@ -1493,17 +1543,20 @@ namespace ContentPackageTabulator
             // WordCount
             var wordCount = GetWordCount(it, xml);
 
-            // Folder,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,Media,Size,WordCount
-            mStimulusReport.WriteLine(string.Join(",", ReportingUtility.CsvEncode(it.Folder),
-                ReportingUtility.CsvEncode(it.ItemId), ReportingUtility.CsvEncode(version),
-                ReportingUtility.CsvEncode(subject), ReportingUtility.CsvEncode(wordlistId),
-                ReportingUtility.CsvEncode(asl), ReportingUtility.CsvEncode(brailleType),
-                ReportingUtility.CsvEncode(translation), ReportingUtility.CsvEncode(media), size.ToString(),
-                wordCount.ToString()));
+            if (Program.gValidationOptions.IsEnabled("dsk") && write)
+            {
+                // Folder,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,Media,Size,WordCount
+                mStimulusReport.WriteLine(string.Join(",", ReportingUtility.CsvEncode(it.Folder),
+                    ReportingUtility.CsvEncode(it.ItemId), ReportingUtility.CsvEncode(version),
+                    ReportingUtility.CsvEncode(subject), ReportingUtility.CsvEncode(wordlistId),
+                    ReportingUtility.CsvEncode(asl), ReportingUtility.CsvEncode(brailleType),
+                    ReportingUtility.CsvEncode(translation), ReportingUtility.CsvEncode(media), size.ToString(),
+                    wordCount.ToString()));
+            }
         } // TabulatePassage
 
 
-        private void TabulateTutorial(ItemContext it)
+        private void TabulateTutorial(ItemContext it, bool write = true)
         {
             // Read the item XML
             var xml = new XDocument();
@@ -1526,7 +1579,7 @@ namespace ContentPackageTabulator
             var version = xml.XpEvalE("itemrelease/item/@version");
 
             // Subject
-            string subject = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='itm_item_subject']/val");
+            var subject = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='itm_item_subject']/val");
             string metaSubject = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:Subject", sXmlNs);
             if (string.IsNullOrEmpty(subject))
             {
@@ -1577,21 +1630,24 @@ namespace ContentPackageTabulator
             // Translation
             var translation = GetTranslation(it, xml, xmlMetadata);
 
-            // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,MathematicalPractice, MaxPoints, 
-            // CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget, CAT_MeasurementModel,
-            // CAT_ScorePoints, CAT_Dimension, CAT_Weight,CAT_Parameters, PP_MeasurementModel
-            // PP_ScorePoints,PP_Dimension,PP_Weight,PP_Parameters
-            mItemReport.WriteLine(string.Join(",", ReportingUtility.CsvEncode(it.Folder),
-                ReportingUtility.CsvEncode(it.ItemId), ReportingUtility.CsvEncode(it.ItemType),
-                ReportingUtility.CsvEncode(version), ReportingUtility.CsvEncode(subject),
-                ReportingUtility.CsvEncode(grade), ReportingUtility.CsvEncode(answerKey),
-                ReportingUtility.CsvEncode(assessmentType), ReportingUtility.CsvEncode(wordlistId),
-                ReportingUtility.CsvEncode(asl), ReportingUtility.CsvEncode(brailleType),
-                ReportingUtility.CsvEncode(translation),
-                string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty,
-                string.Empty, string.Empty, string.Empty, string.Empty,
-                string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty,
-                string.Empty, string.Empty, string.Empty));
+            if (Program.gValidationOptions.IsEnabled("dsk") && write)
+            {
+                // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,MathematicalPractice, MaxPoints, 
+                // CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget, CAT_MeasurementModel,
+                // CAT_ScorePoints, CAT_Dimension, CAT_Weight,CAT_Parameters, PP_MeasurementModel
+                // PP_ScorePoints,PP_Dimension,PP_Weight,PP_Parameters
+                mItemReport.WriteLine(string.Join(",", ReportingUtility.CsvEncode(it.Folder),
+                    ReportingUtility.CsvEncode(it.ItemId), ReportingUtility.CsvEncode(it.ItemType),
+                    ReportingUtility.CsvEncode(version), ReportingUtility.CsvEncode(subject),
+                    ReportingUtility.CsvEncode(grade), ReportingUtility.CsvEncode(answerKey),
+                    ReportingUtility.CsvEncode(assessmentType), ReportingUtility.CsvEncode(wordlistId),
+                    ReportingUtility.CsvEncode(asl), ReportingUtility.CsvEncode(brailleType),
+                    ReportingUtility.CsvEncode(translation),
+                    string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty,
+                    string.Empty, string.Empty, string.Empty, string.Empty,
+                    string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty,
+                    string.Empty, string.Empty, string.Empty));
+            }
         } // TabulateTutorial
 
         public static bool TryLoadXml(FileFolder ff, string filename, out XDocument xml)
@@ -1793,9 +1849,9 @@ namespace ContentPackageTabulator
                         continue; // Not braille attachment
                     }
 
-					// === From here forward we are only dealing with Braille attachments and the error messages reflect that ===
+                    // === From here forward we are only dealing with Braille attachments and the error messages reflect that ===
 
-					if (!attachType.Equals(brailleTypeMeta))
+                    if (!attachType.Equals(brailleTypeMeta))
                     {
                         ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Severe,
                             "Braille metadata does not match attachment type.", "metadata='{0}', fileType='{1}'",
@@ -1828,7 +1884,8 @@ namespace ContentPackageTabulator
                     if (!string.Equals(extension, attachType, StringComparison.OrdinalIgnoreCase))
                     {
                         ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                            "Braille embossing filename has unexpected extension.", "extension='{0}' expected='{1}' filename='{2}'",
+                            "Braille embossing filename has unexpected extension.",
+                            "extension='{0}' expected='{1}' filename='{2}'",
                             extension, attachType, filename);
                     }
 
@@ -1903,7 +1960,7 @@ namespace ContentPackageTabulator
                             ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
                                 "Braille embossing filename doesn't match expected braille type.",
                                 $"Embossing Braille Type: {match.Groups[4].Value} Expected Braille Type: " +
-                                                         $"{subtype.Split('_').First()} Filename: {filename}");
+                                $"{subtype.Split('_').First()} Filename: {filename}");
                         }
                         if (!string.IsNullOrEmpty(match.Groups[5].Value) &&
                             !match.Groups[5].Value.Equals("_transcript", StringComparison.OrdinalIgnoreCase))
@@ -1923,14 +1980,14 @@ namespace ContentPackageTabulator
                     }
                     else
                     {
-						/*
+                        /*
                          *       Report a ‘degraded’ error if the set of braille attachments doesn’t match one of these patterns.
                          *       Report a ‘degraded’ error if the set of braille transcript attachments doesn’t match one of these patterns.
                          *       Report a ‘warning’ error if the braille file extensions don’t match (e.g. some are BRF and others are PRN).
                          *       Concatenate the pattern code from the table above to the “Braille” column in ItemReport and StimulusReport. For example, “BRF UEB2” or “PRN UEB4”  
                          *       If the item has braille transcripts then concatenate both pattern codes. For example, “BRF Both4 Both6”. 
                          */
-						ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
+                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
                             "Braille embossing filename does not match naming convention.",
                             $"Filename: {filename}");
                     }
@@ -2276,7 +2333,7 @@ namespace ContentPackageTabulator
             return xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:MaximumNumberOfPoints", xmlNamespaceManager);
         }
 
-        private void TabulateWordList(ItemContext it)
+        private void TabulateWordList(ItemContext it, bool write = true)
         {
             // Read the item XML
             var xml = new XDocument();
@@ -2352,10 +2409,13 @@ namespace ContentPackageTabulator
                 mingloss = 0;
             }
 
-            //Folder,WIT_ID,RefCount,TermCount,MaxGloss,MinGloss,AvgGloss
-            mWordlistReport.WriteLine(string.Join(",", it.Folder, ReportingUtility.CsvEncode(it.ItemId),
-                refCount.ToString(), termcount.ToString(), maxgloss.ToString(), mingloss.ToString(),
-                termcount > 0 ? (totalgloss / (double) termcount).ToString("f2") : "0"));
+            if (Program.gValidationOptions.IsEnabled("dsk") && write)
+            {
+                //Folder,WIT_ID,RefCount,TermCount,MaxGloss,MinGloss,AvgGloss
+                mWordlistReport.WriteLine(string.Join(",", it.Folder, ReportingUtility.CsvEncode(it.ItemId),
+                    refCount.ToString(), termcount.ToString(), maxgloss.ToString(), mingloss.ToString(),
+                    termcount > 0 ? (totalgloss / (double) termcount).ToString("f2") : "0"));
+            }
         }
 
         // This is kind of ugly with so many parameters but it's the cleanest way to handle this task that's repeated multiple times
@@ -2529,28 +2589,31 @@ namespace ContentPackageTabulator
             return string.Concat(itemId, "~", dependsOnId);
         }
 
-        private void SummaryReport(TextWriter writer)
+        private void SummaryReport(TextWriter writer, bool write = true)
         {
-            writer.WriteLine("Errors: {0}", ReportingUtility.ErrorCount);
-            writer.WriteLine("Items: {0}", mItemCount);
-            writer.WriteLine("Word Lists: {0}", mWordlistCount);
-            writer.WriteLine("Glossary Terms: {0}", mGlossaryTermCount);
-            writer.WriteLine("Unique Glossary Terms: {0}", mTermCounts.Count);
-            writer.WriteLine("Glossary m4a Audio: {0}", mGlossaryM4aCount);
-            writer.WriteLine("Glossary ogg Audio: {0}", mGlossaryOggCount);
-            writer.WriteLine();
-            writer.WriteLine("Item Type Counts:");
-            mTypeCounts.Dump(writer);
-            writer.WriteLine();
-            writer.WriteLine("Translation Counts:");
-            mTranslationCounts.Dump(writer);
-            writer.WriteLine();
-            writer.WriteLine("Answer Key Counts:");
-            mAnswerKeyCounts.Dump(writer);
-            writer.WriteLine();
-            writer.WriteLine("Glossary Terms Used in Wordlists:");
-            mTermCounts.Dump(writer);
-            writer.WriteLine();
+            if (Program.gValidationOptions.IsEnabled("dsk") && write)
+            {
+                writer.WriteLine("Errors: {0}", ReportingUtility.ErrorCount);
+                writer.WriteLine("Items: {0}", mItemCount);
+                writer.WriteLine("Word Lists: {0}", mWordlistCount);
+                writer.WriteLine("Glossary Terms: {0}", mGlossaryTermCount);
+                writer.WriteLine("Unique Glossary Terms: {0}", mTermCounts.Count);
+                writer.WriteLine("Glossary m4a Audio: {0}", mGlossaryM4aCount);
+                writer.WriteLine("Glossary ogg Audio: {0}", mGlossaryOggCount);
+                writer.WriteLine();
+                writer.WriteLine("Item Type Counts:");
+                mTypeCounts.Dump(writer);
+                writer.WriteLine();
+                writer.WriteLine("Translation Counts:");
+                mTranslationCounts.Dump(writer);
+                writer.WriteLine();
+                writer.WriteLine("Answer Key Counts:");
+                mAnswerKeyCounts.Dump(writer);
+                writer.WriteLine();
+                writer.WriteLine("Glossary Terms Used in Wordlists:");
+                mTermCounts.Dump(writer);
+                writer.WriteLine();
+            }
         }
 
         private class BrailleTypeComparer : IComparer<string>
@@ -2643,9 +2706,9 @@ namespace ContentPackageTabulator
 
         public static string FirstWord(this string str)
         {
-            str = str.Trim();
-            var space = str.IndexOfAny(cWhitespace);
-            return space > 0 ? str.Substring(0, space) : str;
+            str = str?.Trim();
+            var space = str?.IndexOfAny(cWhitespace) ?? 0;
+            return space > 0 ? str?.Substring(0, space) : str;
         }
 
         public static int ParseLeadingInteger(this string str)

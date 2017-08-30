@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using ContentPackageTabulator.Models;
+using ContentPackageTabulator.Utilities;
 
 namespace ContentPackageTabulator
 {
@@ -50,6 +52,7 @@ Validation Options:
             from mean (adjustible through app.config).
     -v-cdt  Disables CData validations including glossary tags and restricted css
     -v-tss  Check for text-to-speech silencing tags.
+    -v-dsk  Do not write files to disk
 
     -v+all  Enable all optional validation and tabulation features.
     -v+ebt  Embedded Braille Text: Enables checking embedded <brailleText>
@@ -104,7 +107,7 @@ Error severity definitions:
             gValidationOptions.Disable("iat"); // Disable checking for images without alternate text
             gValidationOptions.Disable("css"); // Disable reporting css color-contrast interference (temporary fix)
 
-			try
+            try
             {
                 string rootPath = null;
                 var operation = 'o'; // o=one, s=packages in Subdirectories, a=aggregate packages in subdirectories
@@ -193,6 +196,10 @@ Error severity definitions:
                         Console.WriteLine(cSyntax);
                         break;
                 }
+                if (gValidationOptions.IsEnabled("dsk"))
+                {
+                    ReportingUtility.ReportErrors();
+                }
             }
             catch (Exception ex)
             {
@@ -201,30 +208,6 @@ Error severity definitions:
 
             var elapsedTicks = Environment.TickCount - startTicks;
             Console.WriteLine("Info: Elapsed time: {0}.{1:d3} seconds", elapsedTicks / 1000, elapsedTicks % 1000);
-        }
-    }
-
-    internal class ValidationOptions : Dictionary<string, bool>
-    {
-        public void Enable(string option)
-        {
-            this[option] = true;
-        }
-
-        public void Disable(string option)
-        {
-            this[option] = false;
-        }
-
-        public void EnableAll()
-        {
-            Clear(); // Since options default to enabled, clearing enables all.
-        }
-
-        public bool IsEnabled(string option)
-        {
-            bool value;
-            return !TryGetValue(option, out value) || value;
         }
     }
 }
