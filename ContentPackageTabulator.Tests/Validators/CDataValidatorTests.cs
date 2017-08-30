@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Xml;
 using System.Xml.Linq;
@@ -73,6 +74,174 @@ namespace ContentPackageTabulator.Tests.Validators
         }
 
         [Test]
+        public void ElementsFreeOfColorAlterationsBgColorViolatorReturnsFalse()
+        {
+            // Arrange
+            var xml = "<root><p bgcolor=\"red\">test</p></root>";
+            var xmlDoc = new XDocument().LoadXml(xml).Root;
+            var itemContext = new ItemContext(null, null, null, null);
+            var errorSeverity = ErrorSeverity.Severe;
+
+            // Act
+            var result = CDataValidator.ElementsFreeOfColorAlterations(xmlDoc, itemContext, errorSeverity);
+
+            // Assert
+            Assert.IsFalse(result);
+        }
+
+        [Test]
+        public void ElementsFreeOfColorAlterationsColorViolatorReturnsFalse()
+        {
+            // Arrange
+            var xml = "<root><p color=\"red\">test</p></root>";
+            var xmlDoc = new XDocument().LoadXml(xml).Root;
+            var itemContext = new ItemContext(null, null, null, null);
+            var errorSeverity = ErrorSeverity.Severe;
+
+            // Act
+            var result = CDataValidator.ElementsFreeOfColorAlterations(xmlDoc, itemContext, errorSeverity);
+
+            // Assert
+            Assert.IsFalse(result);
+        }
+
+        [Test]
+        public void ElementsFreeOfColorAlterationsNoViolatorsReturnsTrue()
+        {
+            // Arrange
+            var xml = "<root><p >test</p></root>";
+            var xmlDoc = new XDocument().LoadXml(xml).Root;
+            var itemContext = new ItemContext(null, null, null, null);
+            var errorSeverity = ErrorSeverity.Severe;
+
+            // Act
+            var result = CDataValidator.ElementsFreeOfColorAlterations(xmlDoc, itemContext, errorSeverity);
+
+            // Assert
+            Assert.IsTrue(result);
+        }
+
+        [Test]
+        public void ElementsFreeOfViolatingStyleTextColorViolationsReturnsFalse()
+        {
+            // Arrange
+            var xml = "<root><p style=\"color:red;\">test</p></root>";
+            var xmlDoc = new XDocument().LoadXml(xml).Root;
+            var itemContext = new ItemContext(null, null, null, null);
+            var errorSeverity = ErrorSeverity.Severe;
+
+            // Act
+            var result = CDataValidator.ElementsFreeOfViolatingStyleText(xmlDoc,
+                CDataValidator.GetCssColorCodes()
+                    .ToDictionary(x => x, CDataValidator.Regexify), itemContext, errorSeverity);
+
+            // Assert
+            Assert.IsFalse(result);
+        }
+
+        [Test]
+        public void ElementsFreeOfViolatingStyleTextHexViolationsReturnsFalse()
+        {
+            // Arrange
+            var xml = "<root><p style=\"color:#123456;\">test</p></root>";
+            var xmlDoc = new XDocument().LoadXml(xml).Root;
+            var itemContext = new ItemContext(null, null, null, null);
+            var errorSeverity = ErrorSeverity.Severe;
+
+            // Act
+            var result = CDataValidator.ElementsFreeOfViolatingStyleText(xmlDoc,
+                CDataValidator.GetCssColorPatterns(), itemContext, errorSeverity);
+
+            // Assert
+            Assert.IsFalse(result);
+        }
+
+        [Test]
+        public void ElementsFreeOfViolatingStyleTextHSLAViolationsReturnsFalse()
+        {
+            // Arrange
+            var xml = "<root><p style=\"color:hsla(120, 60%, 70%, 0.3);\">test</p></root>";
+            var xmlDoc = new XDocument().LoadXml(xml).Root;
+            var itemContext = new ItemContext(null, null, null, null);
+            var errorSeverity = ErrorSeverity.Severe;
+
+            // Act
+            var result = CDataValidator.ElementsFreeOfViolatingStyleText(xmlDoc,
+                CDataValidator.GetCssColorPatterns(), itemContext, errorSeverity);
+            // Assert
+            Assert.IsFalse(result);
+        }
+
+        [Test]
+        public void ElementsFreeOfViolatingStyleTextHSLViolationsReturnsFalse()
+        {
+            // Arrange
+            var xml = "<root><p style=\"color:hsl(120, 60%, 70%);\">test</p></root>";
+            var xmlDoc = new XDocument().LoadXml(xml).Root;
+            var itemContext = new ItemContext(null, null, null, null);
+            var errorSeverity = ErrorSeverity.Severe;
+
+            // Act
+            var result = CDataValidator.ElementsFreeOfViolatingStyleText(xmlDoc,
+                CDataValidator.GetCssColorPatterns(), itemContext, errorSeverity);
+
+            // Assert
+            Assert.IsFalse(result);
+        }
+
+        [Test]
+        public void ElementsFreeOfViolatingStyleTextNoViolationsReturnsTrue()
+        {
+            // Arrange
+            var xml = "<root><p style=\"\">test</p></root>";
+            var xmlDoc = new XDocument().LoadXml(xml).Root;
+            var itemContext = new ItemContext(null, null, null, null);
+            var errorSeverity = ErrorSeverity.Severe;
+
+            // Act
+            var result = CDataValidator.ElementsFreeOfViolatingStyleText(xmlDoc,
+                CDataValidator.GetCssColorCodes()
+                    .ToDictionary(x => x, CDataValidator.Regexify), itemContext, errorSeverity);
+
+            // Assert
+            Assert.IsTrue(result);
+        }
+
+        [Test]
+        public void ElementsFreeOfViolatingStyleTextRGBAViolationsReturnsFalse()
+        {
+            // Arrange
+            var xml = "<root><p style=\"color:rgba(0,0,255,0.3);\">test</p></root>";
+            var xmlDoc = new XDocument().LoadXml(xml).Root;
+            var itemContext = new ItemContext(null, null, null, null);
+            var errorSeverity = ErrorSeverity.Severe;
+
+            // Act
+            var result = CDataValidator.ElementsFreeOfViolatingStyleText(xmlDoc,
+                CDataValidator.GetCssColorPatterns(), itemContext, errorSeverity);
+
+            // Assert
+            Assert.IsFalse(result);
+        }
+
+        [Test]
+        public void ElementsFreeOfViolatingStyleTextRGBViolationsReturnsFalse()
+        {
+            // Arrange
+            var xml = "<root><p style=\"color:rgb(0,0,255);\">test</p></root>";
+            var xmlDoc = new XDocument().LoadXml(xml).Root;
+            var itemContext = new ItemContext(null, null, null, null);
+            var errorSeverity = ErrorSeverity.Severe;
+
+            // Act
+            var result = CDataValidator.ElementsFreeOfViolatingStyleText(xmlDoc,
+                CDataValidator.GetCssColorPatterns(), itemContext, errorSeverity);
+
+            // Assert
+            Assert.IsFalse(result);
+        }
+
+        [Test]
         public void EmptyEndTagShouldReturnFalse()
         {
             // Arrange
@@ -98,6 +267,52 @@ namespace ContentPackageTabulator.Tests.Validators
 
             // Assert
             Assert.IsFalse(result);
+        }
+
+        [Test]
+        public void ImgSelectorShouldReturnValidImageObjects()
+        {
+            // Arrange
+            var xml = "<content language =\"ENU\" version=\"2.0\" approvedVersion=\"3\">\r\n      " +
+                      "<rationaleoptlist />\r\n      " +
+                      "<stem><![CDATA[<p style=\"\"><span id=\"item_1832_TAG_3\" class=\"its-tag\" data-tag=\"word\" data-tag-boundary=\"start\" data-word-index=\"1\"></span>" +
+                      "Enter" +
+                      "<span class=\"its-tag\" data-tag-ref=\"item_1832_TAG_3\" data-tag-boundary=\"end\"></span> " +
+                      "the value of " +
+                      "<img id=\"item_1832_Object1\" style=\"vertical-align:middle;\" src=\"item_1832_v3_Object1_png16malpha.png\" width=\"125\" height=\"39\" />." +
+                      "<span id=\"test\"><img id=\"item_1832_ObjectTest\" style=\"vertical-align:middle;\" src=\"item_1832_v3_ObjectTest_png16malpha.png\" width=\"125\" height=\"39\" /></span>" +
+                      "</p>]]></stem>\r\n      " +
+                      "<rubriclist>\r\n        " +
+                      "<rubric scorepoint=\"\">\r\n          " +
+                      "<name>\r\n        " +
+                      "Rubric\u00A0</name>\r\n          " +
+                      "<val><![CDATA[<p style=\"\">&#xA0;</p><p style=\"\">Exemplar: <img id=\"item_1832_Object2\" style=\"vertical-align:middle;\" src=\"item_1832_v3_Object2_png16malpha.png\" width=\"28\" height=\"39\" alt=\"testValue\" /></p><p style=\"\">&#xA0;</p><p style=\"\">1 point: Student enters 5 1/3 or the equivalent.</p><p style=\"\">&#xA0;</p>]]></val>\r\n        " +
+                      "</rubric>\r\n        " +
+                      "<samplelist maxval=\"\" minval=\"\" />\r\n      " +
+                      "</rubriclist>\r\n" +
+                      "</content>";
+            var xmlDoc = new XDocument().LoadXml(xml).Root;
+            var cData = CDataExtractor.ExtractCData(xmlDoc, false).ToList();
+            var itemContext = new ItemContext(null, null, null, null);
+                // This is useful for reporting and not here. Use the null implementation
+            var errorSeverity = ErrorSeverity.Severe;
+
+            // Act
+            var result =
+                cData.SelectMany(
+                    y => new XDocument().LoadXml($"<root>{y.Value}</root>") // Load up the CData as its own document
+                        .XPathSelectElements("//img") // Retrieve all image references in the CData section
+                        .Select(x => CDataValidator.ImgElementHasValidAltReference(x, itemContext, errorSeverity))
+                        .ToList());
+            // This should return a HtmlImageTag object per element found
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.IsTrue(result.Any());
+            Assert.AreEqual(result.Count(), 3);
+            Assert.AreEqual(
+                result.ToList().Count(x => x.EnclosingSpanId.Equals("test", StringComparison.CurrentCultureIgnoreCase)),
+                1);
         }
 
         [Test]
@@ -407,212 +622,5 @@ namespace ContentPackageTabulator.Tests.Validators
             // Assert
             Assert.IsTrue(result);
         }
-
-        [Test]
-        public void ImgSelectorShouldReturnValidImageObjects()
-        {
-            // Arrange
-            var xml = "<content language =\"ENU\" version=\"2.0\" approvedVersion=\"3\">\r\n      " +
-                               "<rationaleoptlist />\r\n      " +
-                               "<stem><![CDATA[<p style=\"\"><span id=\"item_1832_TAG_3\" class=\"its-tag\" data-tag=\"word\" data-tag-boundary=\"start\" data-word-index=\"1\"></span>" +
-                                "Enter" +
-                                "<span class=\"its-tag\" data-tag-ref=\"item_1832_TAG_3\" data-tag-boundary=\"end\"></span> " +
-                                "the value of " +
-                                "<img id=\"item_1832_Object1\" style=\"vertical-align:middle;\" src=\"item_1832_v3_Object1_png16malpha.png\" width=\"125\" height=\"39\" />." +
-                                "<span id=\"test\"><img id=\"item_1832_ObjectTest\" style=\"vertical-align:middle;\" src=\"item_1832_v3_ObjectTest_png16malpha.png\" width=\"125\" height=\"39\" /></span>" +
-                                "</p>]]></stem>\r\n      " +
-                               "<rubriclist>\r\n        " +
-                               "<rubric scorepoint=\"\">\r\n          " +
-                               "<name>\r\n        " +
-                               "Rubric\u00A0</name>\r\n          " +
-                               "<val><![CDATA[<p style=\"\">&#xA0;</p><p style=\"\">Exemplar: <img id=\"item_1832_Object2\" style=\"vertical-align:middle;\" src=\"item_1832_v3_Object2_png16malpha.png\" width=\"28\" height=\"39\" alt=\"testValue\" /></p><p style=\"\">&#xA0;</p><p style=\"\">1 point: Student enters 5 1/3 or the equivalent.</p><p style=\"\">&#xA0;</p>]]></val>\r\n        " +
-                               "</rubric>\r\n        " +
-                               "<samplelist maxval=\"\" minval=\"\" />\r\n      " +
-                               "</rubriclist>\r\n" +
-                               "</content>";
-            var xmlDoc = new XDocument().LoadXml(xml).Root;
-            var cData = CDataExtractor.ExtractCData(xmlDoc, false).ToList();
-            var itemContext = new ItemContext(null, null, null, null); // This is useful for reporting and not here. Use the null implementation
-            var errorSeverity = ErrorSeverity.Severe;
-
-            // Act
-            var result = cData.SelectMany(y => new XDocument().LoadXml($"<root>{y.Value}</root>") // Load up the CData as its own document
-                                      .XPathSelectElements("//img") // Retrieve all image references in the CData section
-                                      .Select(x => CDataValidator.ImgElementHasValidAltReference(x, itemContext, errorSeverity)).ToList());
-            // This should return a HtmlImageTag object per element found
-
-            // Assert
-            Assert.NotNull(result);
-            Assert.IsTrue(result.Any());
-            Assert.AreEqual(result.Count(), 3);
-            Assert.AreEqual(result.ToList().Count(x => x.EnclosingSpanId.Equals("test", System.StringComparison.CurrentCultureIgnoreCase)), 1);
-        }
-
-        [Test]
-        public void ElementsFreeOfColorAlterationsNoViolatorsReturnsTrue() {
-			// Arrange
-			var xml = "<root><p >test</p></root>";
-			var xmlDoc = new XDocument().LoadXml(xml).Root;
-			var itemContext = new ItemContext(null, null, null, null);
-			var errorSeverity = ErrorSeverity.Severe;
-
-            // Act
-            var result = CDataValidator.ElementsFreeOfColorAlterations(xmlDoc, itemContext, errorSeverity);
-
-            // Assert
-            Assert.IsTrue(result);
-		}
-
-        [Test]
-		public void ElementsFreeOfColorAlterationsColorViolatorReturnsFalse()
-		{
-			// Arrange
-			var xml = "<root><p color=\"red\">test</p></root>";
-			var xmlDoc = new XDocument().LoadXml(xml).Root;
-			var itemContext = new ItemContext(null, null, null, null);
-			var errorSeverity = ErrorSeverity.Severe;
-
-			// Act
-			var result = CDataValidator.ElementsFreeOfColorAlterations(xmlDoc, itemContext, errorSeverity);
-
-			// Assert
-			Assert.IsFalse(result);
-		}
-
-        [Test]
-		public void ElementsFreeOfColorAlterationsBgColorViolatorReturnsFalse()
-		{
-			// Arrange
-			var xml = "<root><p bgcolor=\"red\">test</p></root>";
-			var xmlDoc = new XDocument().LoadXml(xml).Root;
-			var itemContext = new ItemContext(null, null, null, null);
-			var errorSeverity = ErrorSeverity.Severe;
-
-			// Act
-			var result = CDataValidator.ElementsFreeOfColorAlterations(xmlDoc, itemContext, errorSeverity);
-
-			// Assert
-			Assert.IsFalse(result);
-		}
-
-        [Test]
-		public void ElementsFreeOfViolatingStyleTextNoViolationsReturnsTrue()
-		{
-			// Arrange
-			var xml = "<root><p style=\"\">test</p></root>";
-			var xmlDoc = new XDocument().LoadXml(xml).Root;
-			var itemContext = new ItemContext(null, null, null, null);
-			var errorSeverity = ErrorSeverity.Severe;
-
-			// Act
-			var result = CDataValidator.ElementsFreeOfViolatingStyleText(xmlDoc, 
-                                                                         CDataValidator.GetCssColorCodes()
-                                                                         .ToDictionary(x => x, CDataValidator.Regexify), itemContext, errorSeverity);
-
-			// Assert
-			Assert.IsTrue(result);
-		}
-
-        [Test]
-		public void ElementsFreeOfViolatingStyleTextColorViolationsReturnsFalse()
-		{
-			// Arrange
-            var xml = "<root><p style=\"color:red;\">test</p></root>";
-			var xmlDoc = new XDocument().LoadXml(xml).Root;
-			var itemContext = new ItemContext(null, null, null, null);
-			var errorSeverity = ErrorSeverity.Severe;
-
-			// Act
-			var result = CDataValidator.ElementsFreeOfViolatingStyleText(xmlDoc,
-																		 CDataValidator.GetCssColorCodes()
-																		 .ToDictionary(x => x, CDataValidator.Regexify), itemContext, errorSeverity);
-
-			// Assert
-			Assert.IsFalse(result);
-		}
-
-        [Test]
-		public void ElementsFreeOfViolatingStyleTextHexViolationsReturnsFalse()
-		{
-			// Arrange
-			var xml = "<root><p style=\"color:#123456;\">test</p></root>";
-			var xmlDoc = new XDocument().LoadXml(xml).Root;
-			var itemContext = new ItemContext(null, null, null, null);
-			var errorSeverity = ErrorSeverity.Severe;
-
-			// Act
-			var result = CDataValidator.ElementsFreeOfViolatingStyleText(xmlDoc,
-																		 CDataValidator.GetCssColorPatterns(), itemContext, errorSeverity);
-
-			// Assert
-			Assert.IsFalse(result);
-		}
-
-        [Test]
-		public void ElementsFreeOfViolatingStyleTextRGBViolationsReturnsFalse()
-		{
-			// Arrange
-            var xml = "<root><p style=\"color:rgb(0,0,255);\">test</p></root>";
-			var xmlDoc = new XDocument().LoadXml(xml).Root;
-			var itemContext = new ItemContext(null, null, null, null);
-			var errorSeverity = ErrorSeverity.Severe;
-
-			// Act
-			var result = CDataValidator.ElementsFreeOfViolatingStyleText(xmlDoc,
-																		 CDataValidator.GetCssColorPatterns(), itemContext, errorSeverity);
-
-			// Assert
-			Assert.IsFalse(result);
-		}
-
-        [Test]
-		public void ElementsFreeOfViolatingStyleTextRGBAViolationsReturnsFalse()
-		{
-			// Arrange
-			var xml = "<root><p style=\"color:rgba(0,0,255,0.3);\">test</p></root>";
-			var xmlDoc = new XDocument().LoadXml(xml).Root;
-			var itemContext = new ItemContext(null, null, null, null);
-			var errorSeverity = ErrorSeverity.Severe;
-
-			// Act
-			var result = CDataValidator.ElementsFreeOfViolatingStyleText(xmlDoc,
-																		 CDataValidator.GetCssColorPatterns(), itemContext, errorSeverity);
-
-			// Assert
-			Assert.IsFalse(result);
-		}
-
-        [Test]
-		public void ElementsFreeOfViolatingStyleTextHSLViolationsReturnsFalse()
-		{
-			// Arrange
-			var xml = "<root><p style=\"color:hsl(120, 60%, 70%);\">test</p></root>";
-			var xmlDoc = new XDocument().LoadXml(xml).Root;
-			var itemContext = new ItemContext(null, null, null, null);
-			var errorSeverity = ErrorSeverity.Severe;
-
-			// Act
-			var result = CDataValidator.ElementsFreeOfViolatingStyleText(xmlDoc,
-																		 CDataValidator.GetCssColorPatterns(), itemContext, errorSeverity);
-
-			// Assert
-			Assert.IsFalse(result);
-		}
-
-        [Test]
-		public void ElementsFreeOfViolatingStyleTextHSLAViolationsReturnsFalse()
-		{
-			// Arrange
-			var xml = "<root><p style=\"color:hsla(120, 60%, 70%, 0.3);\">test</p></root>";
-			var xmlDoc = new XDocument().LoadXml(xml).Root;
-			var itemContext = new ItemContext(null, null, null, null);
-			var errorSeverity = ErrorSeverity.Severe;
-
-			// Act
-			var result = CDataValidator.ElementsFreeOfViolatingStyleText(xmlDoc,
-																		 CDataValidator.GetCssColorPatterns(), itemContext, errorSeverity);
-			// Assert
-			Assert.IsFalse(result);
-		}
     }
 }

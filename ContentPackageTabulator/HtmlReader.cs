@@ -93,6 +93,7 @@ namespace ContentPackageTabulator
 
         private class Node
         {
+            public readonly string Value;
             public int AttributeIndex;
             public List<Node> Attributes;
             public bool IsEmptyElement;
@@ -102,7 +103,6 @@ namespace ContentPackageTabulator
             public Dictionary<string, string> NamespaceMap;
 
             public XmlNodeType NodeType;
-            public readonly string Value;
 
             public Node(Node parent, XmlNodeType type, string value)
             {

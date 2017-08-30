@@ -17,14 +17,14 @@ namespace ContentPackageTabulator.Extractors
                     .Cast<XCData>();
             }
             // By default, we only want the elements shown to the student
-			var studentContent = element?.XPathSelectElements("itemrelease/item/content/stem")?
-                                         .SelectMany(x => x.DescendantNodes())
-			                             .Where(x => x.NodeType == XmlNodeType.CDATA)
-										 .Cast<XCData>().ToList();
+            var studentContent = element?.XPathSelectElements("itemrelease/item/content/stem")?
+                .SelectMany(x => x.DescendantNodes())
+                .Where(x => x.NodeType == XmlNodeType.CDATA)
+                .Cast<XCData>().ToList();
             studentContent.AddRange(element?.XPathSelectElements("itemrelease/item/content/optionlist/option/val")?
-								   .SelectMany(x => x.DescendantNodes())
-										 .Where(x => x.NodeType == XmlNodeType.CDATA)
-										 .Cast<XCData>() ?? new List<XCData>());
+                                        .SelectMany(x => x.DescendantNodes())
+                                        .Where(x => x.NodeType == XmlNodeType.CDATA)
+                                        .Cast<XCData>() ?? new List<XCData>());
             return studentContent;
         }
     }

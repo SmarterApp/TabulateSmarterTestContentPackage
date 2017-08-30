@@ -40,7 +40,8 @@ namespace ContentPackageTabulator.Validators
                 var imgTags = cDataSection.XPathSelectElements("//img");
 
                 // Check to make sure all images have valid alt tags
-                var imageTags = imgTags.Select(x => ImgElementHasValidAltReference(x, itemContext, errorSeverity)).ToList();
+                var imageTags =
+                    imgTags.Select(x => ImgElementHasValidAltReference(x, itemContext, errorSeverity)).ToList();
                 ReportMissingImgAltTags(itemContext, cData.Document, imageTags);
 
 
@@ -82,12 +83,12 @@ namespace ContentPackageTabulator.Validators
             return false;
         }
 
-		// <summary>This method checks all elements in provided xml for "color" and "bgcolor" attributes which
-		// could potentially override accommodations applied by ART or Proctor at runtime</summary>
-		// <param name="rootElement"> Root where check should start </param>
-		// <param name="itemContext"> Context to use when writing any error messages </param>
-		// <param name="errorSeverity"> Severity of any reported error messages </param>
-		public static bool ElementsFreeOfColorAlterations(XElement rootElement, ItemContext itemContext,
+        // <summary>This method checks all elements in provided xml for "color" and "bgcolor" attributes which
+        // could potentially override accommodations applied by ART or Proctor at runtime</summary>
+        // <param name="rootElement"> Root where check should start </param>
+        // <param name="itemContext"> Context to use when writing any error messages </param>
+        // <param name="errorSeverity"> Severity of any reported error messages </param>
+        public static bool ElementsFreeOfColorAlterations(XElement rootElement, ItemContext itemContext,
             ErrorSeverity errorSeverity)
         {
             if (rootElement == null)
@@ -126,13 +127,13 @@ namespace ContentPackageTabulator.Validators
             return false;
         }
 
-		// <summary>This method checks all elements in provided xml with "style" attributes for patterns indicating colors which
-		// could potentially override accommodations applied by ART or Proctor at runtime</summary>
-		// <param name="rootElement"> Root where check should start </param>
+        // <summary>This method checks all elements in provided xml with "style" attributes for patterns indicating colors which
+        // could potentially override accommodations applied by ART or Proctor at runtime</summary>
+        // <param name="rootElement"> Root where check should start </param>
         // <param name="restrictedPatterns"> Regex values for restricted patterns (rgb, rgba, hsl, hsla, color constants, hex) </params>
-		// <param name="itemContext"> Context to use when writing any error messages </param>
-		// <param name="errorSeverity"> Severity of any reported error messages </param>
-		public static bool ElementsFreeOfViolatingStyleText(XElement rootElement,
+        // <param name="itemContext"> Context to use when writing any error messages </param>
+        // <param name="errorSeverity"> Severity of any reported error messages </param>
+        public static bool ElementsFreeOfViolatingStyleText(XElement rootElement,
             IDictionary<string, string> restrictedPatterns,
             ItemContext itemContext, ErrorSeverity errorSeverity)
         {
@@ -196,7 +197,7 @@ namespace ContentPackageTabulator.Validators
                     Name = x.Name.LocalName,
                     x.Value
                 });
-                var idAttribute = attributes.FirstOrDefault(x => x.Name.Equals("id"));
+            var idAttribute = attributes.FirstOrDefault(x => x.Name.Equals("id"));
             if (idAttribute == null)
             {
                 Console.WriteLine($"Error: Img element does not contain a valid id attribute. Value: {imageElement}");
@@ -218,20 +219,25 @@ namespace ContentPackageTabulator.Validators
             {
                 Source = attributes.FirstOrDefault(x => x.Name.Equals("src"))?.Value ?? string.Empty,
                 Id = idAttribute.Value,
-                EnclosingSpanId = imageElement.Parent.Name.LocalName.Equals("span", StringComparison.OrdinalIgnoreCase) ?
-                                              imageElement.Parent.GetAttribute("id") :
-                                              string.Empty
+                EnclosingSpanId =
+                    imageElement.Parent.Name.LocalName.Equals("span", StringComparison.OrdinalIgnoreCase)
+                        ? imageElement.Parent.GetAttribute("id")
+                        : string.Empty
             };
         }
 
         public static void ReportMissingImgAltTags(ItemContext it, XDocument xml, List<HtmlImageTag> imgList)
-        { 
-            if (imgList == null) return;
+        {
+            if (imgList == null)
+            {
+                return;
+            }
             foreach (var img in imgList)
             {
                 if (string.IsNullOrEmpty(img?.Source))
                 {
-                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, "Img tag is missing src attribute");
+                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
+                        "Img tag is missing src attribute");
                 }
                 if (string.IsNullOrEmpty(img?.Id))
                 {
@@ -240,18 +246,23 @@ namespace ContentPackageTabulator.Validators
                 }
                 else
                 {
-                    var xpAccessibility = $"itemrelease/{(it.IsPassage ? "passage" : "item")}/content/apipAccessibility/accessibilityInfo/accessElement/contentLinkInfo";
+                    var xpAccessibility =
+                        $"itemrelease/{(it.IsPassage ? "passage" : "item")}/content/apipAccessibility/accessibilityInfo/accessElement/contentLinkInfo";
                     // Search for matching ID in the accessibility nodes. If none exist, record an error.
                     var accessibilityNodes = xml.SelectNodes(xpAccessibility)
                         .Cast<XElement>()
-                                                .Where(accessibilityNode => accessibilityNode.GetAttribute("itsLinkIdentifierRef").Equals(img.Id)
-                            || (!string.IsNullOrEmpty(img.EnclosingSpanId)
-                            && accessibilityNode.GetAttribute("itsLinkIdentifierRef").Equals(img.EnclosingSpanId)))
+                        .Where(
+                            accessibilityNode => accessibilityNode.GetAttribute("itsLinkIdentifierRef").Equals(img.Id)
+                                                 || !string.IsNullOrEmpty(img.EnclosingSpanId)
+                                                 &&
+                                                 accessibilityNode.GetAttribute("itsLinkIdentifierRef")
+                                                     .Equals(img.EnclosingSpanId))
                         .ToList();
                     if (!accessibilityNodes.Any())
                     {
                         ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                            "Img tag does not have associated alternative text.", "id ='{0}' src='{1}'", img.Id, img.Source);
+                            "Img tag does not have associated alternative text.", "id ='{0}' src='{1}'", img.Id,
+                            img.Source);
                     }
                     else
                     {
@@ -265,17 +276,26 @@ namespace ContentPackageTabulator.Validators
         }
 
         // Acceptable sub-elements: textToSpeechPronunciation, textToSpeechPronunciationAlternate, audioText, audioSortDesc, audioLongDesc
-        public static void CheckForNonEmptyReadAloudSubElement(ItemContext it, XNode xml, string id, string src, string enclosingSpanId)
+        public static void CheckForNonEmptyReadAloudSubElement(ItemContext it, XNode xml, string id, string src,
+            string enclosingSpanId)
         {
-            if (!new List<string> { "textToSpeechPronunciation", "textToSpeechPronunciationAlternate", "audioText", "audioShortDesc", "audioLongDesc" }
-                .Select(t => $"relatedElementInfo/readAloud/{t}") // Select sub-elements from list above
-                .Any(element => ElementExistsAndIsNonEmpty(xml, element))) // Check if the sub-element exists and has a value
+            if (
+                    !new List<string>
+                        {
+                            "textToSpeechPronunciation",
+                            "textToSpeechPronunciationAlternate",
+                            "audioText",
+                            "audioShortDesc",
+                            "audioLongDesc"
+                        }
+                        .Select(t => $"relatedElementInfo/readAloud/{t}") // Select sub-elements from list above
+                        .Any(element => ElementExistsAndIsNonEmpty(xml, element)))
+                // Check if the sub-element exists and has a value
             {
                 ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
                     "Img tag is missing alternative text in the <readAloud> accessibility element.",
                     "id ='{0}' src='{1}' spanId='{2}'", id, src, enclosingSpanId ?? string.Empty);
             }
-
         }
 
         private static bool ElementExistsAndIsNonEmpty(XNode xml, string path)
@@ -394,7 +414,7 @@ namespace ContentPackageTabulator.Validators
                             // add a new glossary entry
                             result.Add(node.ToString(), 1);
                         }
-                        node = siblings.Count > index+1 ? siblings[++index] : null;
+                        node = siblings.Count > index + 1 ? siblings[++index] : null;
                         continue;
                     }
                     // Check for another opening tag (which means they are overlapping inappropriately)
@@ -522,7 +542,8 @@ namespace ContentPackageTabulator.Validators
             return result;
         }
 
-        private static string EscapeRegexControlCharacters(string input) {
+        private static string EscapeRegexControlCharacters(string input)
+        {
             return input.Replace("?", @"\?");
         }
 
@@ -550,7 +571,7 @@ namespace ContentPackageTabulator.Validators
                 }
                 else
                 {
-                    var glossaryTerms = CDataExtractor.ExtractCData((XElement)contentNode, false)
+                    var glossaryTerms = CDataExtractor.ExtractCData((XElement) contentNode, false)
                         .ToList()
                         .Select(x => ValidateContentCData(it,
                             new XDocument().LoadXml($"<root>{x.Value}</root>"))).ToList();
@@ -876,7 +897,7 @@ namespace ContentPackageTabulator.Validators
                     }
 
                     // Folder,WIT_ID,ItemId,Index,Term,Language,Length,Audio,AudioSize,Image,ImageSize
-                    if (Program.gValidationOptions.IsEnabled("gtr"))
+                    if (Program.gValidationOptions.IsEnabled("gtr") && Program.gValidationOptions.IsEnabled("dsk"))
                     {
                         Tabulator.mGlossaryReport.WriteLine(string.Join(",", it.Folder,
                             ReportingUtility.CsvEncode(it.ItemId), itemIt.ItemId,
@@ -885,8 +906,8 @@ namespace ContentPackageTabulator.Validators
                             audioType, audioSize.ToString(), imageType, imageSize.ToString(),
                             ReportingUtility.CsvEncode(html)));
                     }
-                    else
-                    {
+                    else if (Program.gValidationOptions.IsEnabled("dsk"))
+                            {
                         Tabulator.mGlossaryReport.WriteLine(string.Join(",", it.Folder,
                             ReportingUtility.CsvEncode(it.ItemId), itemIt.ItemId,
                             index.ToString(), ReportingUtility.CsvEncodeExcel(term),

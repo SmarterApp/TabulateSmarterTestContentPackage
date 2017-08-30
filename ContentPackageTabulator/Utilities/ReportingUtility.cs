@@ -1,4 +1,6 @@
-﻿using System.IO;
+﻿using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Text;
 using ContentPackageTabulator.Models;
 
@@ -10,17 +12,14 @@ namespace ContentPackageTabulator.Utilities
         public static int ErrorCount { get; set; }
         public static string ErrorReportPath { get; set; }
         public static TextWriter ErrorReport { get; set; }
+        public static IList<TabulationError> Errors { get; set; } = new List<TabulationError>();
 
-        public static void ReportError(TabulationError tabulationError) {
-            ReportError(tabulationError.Context, 
-                        tabulationError.Category, 
-                        tabulationError.Severity, 
-                        tabulationError.Message, 
-                        tabulationError.Detail);
+        public static void ReportErrors()
+        {
+            Errors.ToList().ForEach(ReportError);
         }
 
-        public static void ReportError(ItemContext it, ErrorCategory category, ErrorSeverity severity, string msg,
-            string detail, params object[] args)
+        public static void ReportError(TabulationError tabulationError)
         {
             if (ErrorReport == null)
             {
@@ -28,15 +27,32 @@ namespace ContentPackageTabulator.Utilities
                 ErrorReport.WriteLine("Folder,ItemId,ItemType,Category,Severity,ErrorMessage,Detail");
             }
 
-            msg = string.IsNullOrEmpty(msg) ? string.Empty : CsvEncode(msg);
+            var msg = string.IsNullOrEmpty(tabulationError.Message) ? string.Empty : CsvEncode(tabulationError.Message);
 
-            detail = string.IsNullOrEmpty(detail) ? string.Empty : CsvEncode(string.Format(detail, args));
+            var detail = string.IsNullOrEmpty(tabulationError.Detail) ? string.Empty : CsvEncode(tabulationError.Detail);
 
             // "Folder,ItemId,ItemType,Category,ErrorMessage"
-            ErrorReport.WriteLine(string.Join(",", CsvEncode(it.Folder), CsvEncode(it.ItemId),
-                CsvEncode(it.ItemType), category.ToString(), severity.ToString(), msg, detail));
+            ErrorReport.WriteLine(string.Join(",", CsvEncode(tabulationError.Context.Folder), CsvEncode(tabulationError.Context.ItemId),
+                CsvEncode(tabulationError.Context.ItemType), tabulationError.Category.ToString(), tabulationError.Severity.ToString(), msg, detail));
 
             ++ErrorCount;
+        }
+
+        public static void ReportError(ItemContext it, ErrorCategory category, ErrorSeverity severity, string msg,
+            string detail, params object[] args)
+        {
+            if (!string.IsNullOrEmpty(detail))
+            {
+                detail = string.Format(detail, args);
+            }
+            Errors.Add(new TabulationError
+            {
+                Category = category,
+                Context = it,
+                Detail = detail,
+                Message = msg,
+                Severity = severity
+            });
         }
 
         public static void ReportError(ItemContext it, ErrorCategory category, ErrorSeverity severity, string msg)

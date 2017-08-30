@@ -226,8 +226,8 @@ namespace ContentPackageTabulator
 
         private class FsFile : FileFile
         {
-            private long mLength = -1;
             private readonly string mPhysicalPath;
+            private long mLength = -1;
 
             public FsFile(string physicalPath, string rootedName, string name)
                 : base(rootedName, name)

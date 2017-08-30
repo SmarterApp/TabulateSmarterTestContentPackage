@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using ContentPackageTabulator.Models;
+using ContentPackageTabulator.Utilities;
 
 namespace ContentPackageTabulator
 {
@@ -51,6 +52,7 @@ Validation Options:
             from mean (adjustible through app.config).
     -v-cdt  Disables CData validations including glossary tags and restricted css
     -v-tss  Check for text-to-speech silencing tags.
+    -v-dsk  Do not write files to disk
 
     -v+all  Enable all optional validation and tabulation features.
     -v+ebt  Embedded Braille Text: Enables checking embedded <brailleText>
@@ -105,7 +107,7 @@ Error severity definitions:
             gValidationOptions.Disable("iat"); // Disable checking for images without alternate text
             gValidationOptions.Disable("css"); // Disable reporting css color-contrast interference (temporary fix)
 
-			try
+            try
             {
                 string rootPath = null;
                 var operation = 'o'; // o=one, s=packages in Subdirectories, a=aggregate packages in subdirectories
@@ -175,8 +177,6 @@ Error severity definitions:
                 Console.WriteLine(Enumerable.Repeat("-", 20).Aggregate((x, y) => $"{x}{y}"));
                 Console.WriteLine();
 
-                IEnumerable<TabulationError> tabulationErrors = new List<TabulationError>();
-
                 var tab = new Tabulator();
                 switch (operation)
                 {
@@ -195,6 +195,10 @@ Error severity definitions:
                     case 'h':
                         Console.WriteLine(cSyntax);
                         break;
+                }
+                if (gValidationOptions.IsEnabled("dsk"))
+                {
+                    ReportingUtility.ReportErrors();
                 }
             }
             catch (Exception ex)

@@ -1,6 +1,8 @@
-﻿using System.Net.Http;
+﻿using System.Collections.Generic;
+using System.Linq;
 using ContentPackageTabulator;
 using Microsoft.AspNetCore.Mvc;
+using ContentPackageTabulator.Web.Models;
 
 namespace TabulateSmarterTestContentPackage.Web.Controllers
 {
@@ -8,15 +10,16 @@ namespace TabulateSmarterTestContentPackage.Web.Controllers
     public class ValidationController : Controller
     {
         [HttpPost]
-        [Route("{path}")]
-        public HttpResponseMessage Get([FromBody] string path)
+        public IEnumerable<TabulationErrorDto> Post([FromBody] ValidationDto validationDto)
         {
-            var tabulator = new Tabulator();
-            //tabulator.ProduceErrors(path);
-            return new HttpResponseMessage
+            var result = new Tabulator().TabulateErrors(validationDto.Path);
+            return result.Select(x => new TabulationErrorDto
             {
-                StatusCode = System.Net.HttpStatusCode.OK
-            };
+                Category = x.Category.ToString(),
+                Detail = x.Detail,
+                Message = x.Message,
+                Severity = x.Severity.ToString()
+            });
         }
     }
 }
