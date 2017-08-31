@@ -2,16 +2,15 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp1.1</TargetFramework>
-    <ReleaseVersion>2.0.1</ReleaseVersion>
+    <TargetFramework>netcoreapp2.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="CsvHelper" Version="2.16.3" />
-    <PackageReference Include="Microsoft.Extensions.Configuration" Version="1.1.2" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="1.1.2" />
     <PackageReference Include="System.Xml.XDocument" Version="4.3.0" />
     <PackageReference Include="System.Xml.XPath.XDocument" Version="4.3.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="2.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="2.0.0" />
   </ItemGroup>
 
   <ItemGroup>

@@ -298,8 +298,9 @@ namespace ContentPackageTabulator
 
         #region XmlReader Implementation
 
-        public void Close()
+        public override void Close()
         {
+            base.Close();
             if (m_settings.CloseInput)
             {
                 m_reader.Dispose();
