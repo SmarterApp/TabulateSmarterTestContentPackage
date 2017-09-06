@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using ContentPackageTabulator.Models;
 using ContentPackageTabulator.Utilities;
+using Newtonsoft.Json;
 
 namespace ContentPackageTabulator
 {
@@ -19,6 +21,7 @@ Options:
              results into one set of reports.
     -v-<opt> Disable a particular validation option (see below)
     -v+<opt> Enable a particular validation option
+    -j       Output a validation.json file
     -h       Display this help text
 
 Packages are typically delivered in .zip format. The tabulator can operate on
@@ -123,6 +126,9 @@ Error severity definitions:
                             case 'a':
                                 operation = 'a'; // Aggregate
                                 break;
+                            case 'j':
+                                operation = 'j'; // Output a validation.json file
+                                break;
                             case 'h':
                                 operation = 'h'; // Help
                                 break;
@@ -192,13 +198,13 @@ Error severity definitions:
                         tab.TabulateAggregate(rootPath);
                         break;
 
+                    case 'j':
+						tab.TabulateErrors(rootPath);
+                        break;
+
                     case 'h':
                         Console.WriteLine(cSyntax);
                         break;
-                }
-                if (gValidationOptions.IsEnabled("dsk"))
-                {
-                    ReportingUtility.ReportErrors();
                 }
             }
             catch (Exception ex)

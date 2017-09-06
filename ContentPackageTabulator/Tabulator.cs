@@ -29,6 +29,7 @@ namespace ContentPackageTabulator
         public const string cWordlistReportFn = "WordlistReport.csv";
         public const string cGlossaryReportFn = "GlossaryReport.csv";
         public const string cErrorReportFn = "ErrorReport.csv";
+        public const string validationReportFileName = "validation.json";
         public static NameTable sXmlNt;
         public static XmlNamespaceManager sXmlNs;
         public static Dictionary<string, int> sExpectedTranslationsIndex;
@@ -270,38 +271,59 @@ namespace ContentPackageTabulator
 
         public IEnumerable<TabulationError> TabulateErrors(string path)
         {
+            var folderpath = Path.GetFullPath(path);
+            Console.WriteLine("Tabulating " + Path.GetFileName(folderpath));
+            if (!Directory.Exists(folderpath))
+            {
+                throw new FileNotFoundException(
+                    $"Package '{folderpath}' directory not found!");
+            }
+
             var result = new List<TabulationError>();
             Program.gValidationOptions.EnableAll();
             Program.gValidationOptions.Enable("dsk");
-            if (Directory.Exists(path))
+
+            var folder = new FsFolder(path)
             {
-                var folder = new FsFolder(path)
+                Name = Path.GetFileNameWithoutExtension(path)
+            };
+            ReportingUtility.ValidationReportPath = Path.Combine(path, validationReportFileName);
+            try
+            {
+                var xml = new XDocument();
+                if (!TryLoadXml(folder, folder.Name + ".xml", out xml))
                 {
-                    Name = Path.GetFileNameWithoutExtension(path)
-                };
+                    throw new FileNotFoundException(
+                    $"Item target '{folder.Name}.xml' not found!");
+                }
+
+                if (xml.XPathSelectElement("itemrelease/passage") == null)
+                {
+                    TabulateItem_Pass1(folder, false);
+                } else {
+                    TabulateStim_Pass1(folder, false);
+                }                    
+            }
+            catch (Exception err)
+            {
+                ReportingUtility.ReportError(new ItemContext(this, folder, null, null), ErrorCategory.Exception,
+                ErrorSeverity.Severe, err.ToString());
+            }
+            foreach (var entry in mIdToItemContext)
+            {
                 try
                 {
-                    TabulateItem_Pass1(folder);
+                    TabulateItem_Pass2(entry.Value, false);
                 }
                 catch (Exception err)
                 {
-                    ReportingUtility.ReportError(new ItemContext(this, folder, null, null), ErrorCategory.Exception,
-                        ErrorSeverity.Severe, err.ToString());
-                }
-                foreach (var entry in mIdToItemContext)
-                {
-                    try
-                    {
-                        TabulateItem_Pass2(entry.Value, false);
-                    }
-                    catch (Exception err)
-                    {
-                        ReportingUtility.ReportError(entry.Value, ErrorCategory.Exception, ErrorSeverity.Severe,
-                            err.ToString());
-                    }
+                    ReportingUtility.ReportError(entry.Value, ErrorCategory.Exception, ErrorSeverity.Severe,
+                        err.ToString());
                 }
             }
+
             result.AddRange(ReportingUtility.Errors);
+            ReportingUtility.WriteValidationJson();
             return result;
         }
 
@@ -310,8 +332,8 @@ namespace ContentPackageTabulator
         {
             if (Program.gValidationOptions.IsEnabled("dsk") && write)
             {
-                reportPrefix = string.Concat(reportPrefix, "_");
                 ReportingUtility.ErrorReportPath = string.Concat(reportPrefix, cErrorReportFn);
+                reportPrefix = string.Concat(reportPrefix, "_");
                 if (File.Exists(ReportingUtility.ErrorReportPath))
                 {
                     File.Delete(ReportingUtility.ErrorReportPath);
@@ -505,7 +527,7 @@ namespace ContentPackageTabulator
             }
         }
 
-        private void TabulateItem_Pass1(FileFolder ffItem)
+        private void TabulateItem_Pass1(FileFolder ffItem, bool write = true)
         {
             // Read the item XML
             var xml = new XDocument();
@@ -552,7 +574,7 @@ namespace ContentPackageTabulator
             }
 
             // Check for filename match
-            if (!ffItem.Name.Equals($"item-{bankKey}-{itemId}", StringComparison.OrdinalIgnoreCase))
+            if (!ffItem.Name.Equals($"item-{bankKey}-{itemId}", StringComparison.OrdinalIgnoreCase) && write)
             {
                 ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
                     "Item ID doesn't match file/folder name", "bankKey='{0}' itemId='{1}' foldername='{2}'", bankKey,
@@ -563,7 +585,7 @@ namespace ContentPackageTabulator
             CountWordlistReferences(it, xml);
         }
 
-        private void TabulateStim_Pass1(FileFolder ffItem)
+        private void TabulateStim_Pass1(FileFolder ffItem, bool write = true)
         {
             // Read the item XML
             var xml = new XDocument();
@@ -598,7 +620,7 @@ namespace ContentPackageTabulator
             mStimContexts.AddLast(it);
 
             // Check for filename match
-            if (!ffItem.Name.Equals(string.Format("stim-{0}-{1}", bankKey, itemId), StringComparison.OrdinalIgnoreCase))
+            if (!ffItem.Name.Equals(string.Format("stim-{0}-{1}", bankKey, itemId), StringComparison.OrdinalIgnoreCase) && write)
             {
                 ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
                     "Stimulus ID doesn't match file/folder name", "bankKey='{0}' itemId='{1}' foldername='{2}'", bankKey,
@@ -766,8 +788,8 @@ namespace ContentPackageTabulator
             }
 
             // Grade
-            var grade = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='itm_att_Grade']/val").Trim();
-            var metaGrade = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:IntendedGrade", sXmlNs);
+            var grade = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='itm_att_Grade']/val")?.Trim() ?? string.Empty;
+            var metaGrade = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:IntendedGrade", sXmlNs) ?? string.Empty;
             if (string.IsNullOrEmpty(grade))
             {
                 ReportingUtility.ReportError(it, ErrorCategory.Attribute, ErrorSeverity.Tolerable,

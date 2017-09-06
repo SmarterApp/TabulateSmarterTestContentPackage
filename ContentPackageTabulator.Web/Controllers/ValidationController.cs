@@ -1,7 +1,10 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using ContentPackageTabulator;
+using ContentPackageTabulator.Models;
 using Microsoft.AspNetCore.Mvc;
+using System;
+using ContentPackageTabulator.Utilities;
 using ContentPackageTabulator.Web.Models;
 
 namespace TabulateSmarterTestContentPackage.Web.Controllers
@@ -19,7 +22,10 @@ namespace TabulateSmarterTestContentPackage.Web.Controllers
                 Detail = x.Detail,
                 Message = x.Message,
                 Severity = x.Severity.ToString()
-            });
+            }).OrderBy(x => x.Severity, new ErrorSeverityComparer(StringComparer.OrdinalIgnoreCase))
+                         .ThenBy(x => x.Category)
+                         .ThenBy(x => x.Message)
+                         .ThenBy(x => x.Detail);
         }
     }
 }

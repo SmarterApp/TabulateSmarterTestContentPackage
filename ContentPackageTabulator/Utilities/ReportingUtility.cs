@@ -1,8 +1,10 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
 using ContentPackageTabulator.Models;
+using Newtonsoft.Json;
 
 namespace ContentPackageTabulator.Utilities
 {
@@ -11,6 +13,7 @@ namespace ContentPackageTabulator.Utilities
         private static readonly char[] cCsvEscapeChars = {',', '"', '\'', '\r', '\n'};
         public static int ErrorCount { get; set; }
         public static string ErrorReportPath { get; set; }
+        public static string ValidationReportPath { get; set; }
         public static TextWriter ErrorReport { get; set; }
         public static IList<TabulationError> Errors { get; set; } = new List<TabulationError>();
 
@@ -36,6 +39,27 @@ namespace ContentPackageTabulator.Utilities
                 CsvEncode(tabulationError.Context.ItemType), tabulationError.Category.ToString(), tabulationError.Severity.ToString(), msg, detail));
 
             ++ErrorCount;
+        }
+
+        public static void WriteValidationJson() {
+			var json = Errors.Select(x => new TabulationErrorDto
+			{
+				Category = x.Category.ToString(),
+				Detail = x.Detail,
+				Message = x.Message,
+				Severity = x.Severity.ToString()
+			}).OrderBy(x => x.Severity, new ErrorSeverityComparer(StringComparer.OrdinalIgnoreCase))
+									 .ThenBy(x => x.Category)
+									 .ThenBy(x => x.Message)
+									 .ThenBy(x => x.Detail);
+            if(File.Exists(ValidationReportPath)) {
+                File.Delete(ValidationReportPath);
+            }
+			using (StreamWriter file = File.CreateText(ValidationReportPath))
+			{
+				JsonSerializer serializer = new JsonSerializer();
+				serializer.Serialize(file, json);
+			}
         }
 
         public static void ReportError(ItemContext it, ErrorCategory category, ErrorSeverity severity, string msg,
