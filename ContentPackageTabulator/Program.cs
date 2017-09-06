@@ -199,31 +199,12 @@ Error severity definitions:
                         break;
 
                     case 'j':
-						var result = new Tabulator().TabulateErrors(rootPath);
-						var json = result.Select(x => new TabulationErrorDto
-						{
-							Category = x.Category.ToString(),
-							Detail = x.Detail,
-							Message = x.Message,
-							Severity = x.Severity.ToString()
-						}).OrderBy(x => x.Severity, new CustomStringComparer(StringComparer.OrdinalIgnoreCase))
-									 .ThenBy(x => x.Category)
-									 .ThenBy(x => x.Message)
-									 .ThenBy(x => x.Detail);
-						using (StreamWriter file = File.CreateText(@"validation.json"))
-						{
-							JsonSerializer serializer = new JsonSerializer();
-							serializer.Serialize(file, json);
-						}
+						tab.TabulateErrors(rootPath);
                         break;
 
                     case 'h':
                         Console.WriteLine(cSyntax);
                         break;
-                }
-                if (gValidationOptions.IsEnabled("dsk"))
-                {
-                    ReportingUtility.ReportErrors();
                 }
             }
             catch (Exception ex)
@@ -235,45 +216,4 @@ Error severity definitions:
             Console.WriteLine("Info: Elapsed time: {0}.{1:d3} seconds", elapsedTicks / 1000, elapsedTicks % 1000);
         }
     }
-
-	class CustomStringComparer : IComparer<string>
-	{
-		private readonly IComparer<string> _baseComparer;
-		public CustomStringComparer(IComparer<string> baseComparer)
-		{
-			_baseComparer = baseComparer;
-		}
-
-		public int Compare(string x, string y)
-		{
-			if (_baseComparer.Compare(x, y) == 0)
-				return 0;
-
-			// "severe" comes before everything else
-			if (_baseComparer.Compare(x, "Severe") == 0)
-				return -1;
-			if (_baseComparer.Compare(y, "Severe") == 0)
-				return 1;
-
-			// "degraded" comes next
-			if (_baseComparer.Compare(x, "Degraded") == 0)
-				return -1;
-			if (_baseComparer.Compare(y, "Degraded") == 0)
-				return 1;
-
-			// "tolerable" comes next
-			if (_baseComparer.Compare(x, "Tolerable") == 0)
-				return -1;
-			if (_baseComparer.Compare(y, "Tolerable") == 0)
-				return 1;
-
-			// "benign" comes last
-			if (_baseComparer.Compare(x, "Benign") == 0)
-				return -1;
-			if (_baseComparer.Compare(y, "Benign") == 0)
-				return 1;
-
-			return _baseComparer.Compare(x, y);
-		}
-	}
 }
