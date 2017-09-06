@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>netcoreapp2.0</TargetFramework>
+    <ReleaseVersion>2.2.0</ReleaseVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -24,5 +25,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ContentPackageTabulator\ContentPackageTabulator.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="Models\TabulationErrorDto.cs" />
   </ItemGroup>
 </Project>

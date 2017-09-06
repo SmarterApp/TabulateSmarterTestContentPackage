@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-
-namespace ContentPackageTabulator.Models
+﻿namespace ContentPackageTabulator.Models
 {
     public class TabulationErrorDto
     {
