@@ -4,6 +4,7 @@ using System.Linq;
 using NLog;
 using TabulateSmarterTestContentPackage.Utilities;
 using Win32Interop;
+using System.IO;
 
 namespace TabulateSmarterTestContentPackage
 {
@@ -11,24 +12,27 @@ namespace TabulateSmarterTestContentPackage
     {
 // 78 character margin                                                       |
         private const string cSyntax =
-            @"Syntax: TabulateSmarterTestContentPackage [options] <path>
+@"Syntax: TabulateSmarterTestContentPackage [options] <path> [path]
 
 Options:
-    -s       Individually tabulate each package in Subdirectories of the
-             specified directory.
-    -a       Tabulate all packages in subdirectories and aggregate the
-             results into one set of reports.
-    -v-<opt> Disable a particular validation option (see below)
-    -v+<opt> Enable a particular validation option
-    -h       Display this help text
+    -a               Aggregate the results of all tabulations into one set of
+                     reports.
+    -v-<opt>         Disable a particular validation option (see below)
+    -v+<opt>         Enable a particular validation option
+    -h               Display this help text
 
 Packages are typically delivered in .zip format. The tabulator can operate on
 the package in its .zip form or unpacked into a directory tree. In either
 case, the package is recognized by the presence of 'imsmanifest.xml' in the
-root folder of the package.
+root folder of the package. If necessary, an empty file may be used for
+imsmanifest.xml.
 
 When tabulating a single package, the path should be to the .zip file or to
 the root folder of an unpacked package. When tabulating multiple packages
+you may use wildcards in the path and/or specify multiple paths on the
+commandline.
+
+If multiple paths are included on the command line, the output filenames
 (using the -s or -a option) the path should be to the folder containing
 the packages (in .zip or unpacked form). When tabulating multiple packages
 the packages are recognized by the presence of imsmanifest.xml.
@@ -36,6 +40,10 @@ the packages are recognized by the presence of imsmanifest.xml.
 Reports are a set of .csv files and one .txt file that are placed in the same
 directory as the .zip or package folder. Names are prefixed with the name of
 the package. For example, 'MyContentPackage_ItemReport.csv'.
+
+When the -a (aggregate) option is used, the reports will be prefixed with
+'Aggregate' and will be placed in teh same folder as the first path specified
+on the command line. For example, 'Aggregate_ItemReport.csv'.
 
 Validation options disable or enable the reporting of certain errors. Only a
 subset of errors can be controlled this way.
@@ -51,7 +59,8 @@ Validation Options:
     -v-asl  ASL video: Disables checking for ASL video whose ratio of video
             length to item stim length falls outside of two standard deviations
             from mean (adjustible through app.config).
-    -v-cdt  Disables CData validations including glossary tags and restricted css
+    -v+cdt  Disables CData validations including glossary tags and restricted
+            css
     -v-tss  Check for text-to-speech silencing tags.
 
     -v+all  Enable all optional validation and tabulation features.
@@ -88,8 +97,7 @@ Error severity definitions:
                may be missing data but if that term isn’t referenced in an
                item then it is benign.
 ";
-
-        // 78 character margin                                                       |
+// 78 character margin                                                       |
 
         public static ValidationOptions gValidationOptions = new ValidationOptions();
         public static Logger Logger = LogManager.GetCurrentClassLogger();
@@ -112,22 +120,20 @@ Error severity definitions:
 
             try
             {
-                string rootPath = null;
-                var operation = 'o'; // o=one, s=packages in Subdirectories, a=aggregate packages in subdirectories
+                var paths = new List<string>();
+                bool aggregate = false;
+                bool showHelp = false;
                 foreach (var arg in args)
                 {
                     if (arg[0] == '-') // Option
                     {
                         switch (char.ToLower(arg[1]))
                         {
-                            case 's':
-                                operation = 's'; // All subdirectories
-                                break;
                             case 'a':
-                                operation = 'a'; // Aggregate
+                                aggregate = true;
                                 break;
                             case 'h':
-                                operation = 'h'; // Help
+                                showHelp = true;
                                 break;
                             case 'v':
                                 if (arg[2] != '+' && arg[2] != '-')
@@ -156,19 +162,15 @@ Error severity definitions:
                                 throw new ArgumentException("Unexpected command-line option: " + arg);
                         }
                     }
-                    else if (rootPath == null)
-                    {
-                        rootPath = arg;
-                    }
                     else
                     {
-                        throw new ArgumentException("Unexpected command-line parameter: " + arg);
+                        string path = arg;
+                        if (!ValidatePath(ref path))
+                        {
+                            throw new ArgumentException("No match for path: " + arg);
+                        }
+                        paths.Add(arg);
                     }
-                }
-
-                if (rootPath == null)
-                {
-                    operation = 'h';
                 }
 
                 if (gValidationOptions.IsEnabled("asl"))
@@ -188,23 +190,17 @@ Error severity definitions:
                 Console.WriteLine();
 
                 var tab = new Tabulator();
-                switch (operation)
+                if (showHelp || paths.Count == 0)
                 {
-                    default:
-                        tab.TabulateOne(rootPath);
-                        break;
-
-                    case 's':
-                        tab.TabulateEach(rootPath);
-                        break;
-
-                    case 'a':
-                        tab.TabulateAggregate(rootPath);
-                        break;
-
-                    case 'h':
-                        Console.WriteLine(cSyntax);
-                        break;
+                    Console.WriteLine(cSyntax);
+                }
+                else if (aggregate)
+                {
+                    tab.TabulateAggregate(paths);
+                }
+                else
+                {
+                    tab.TabulateEach(paths);
                 }
             }
             catch (Exception ex)
@@ -223,6 +219,25 @@ Error severity definitions:
                 Console.Write("Press any key to exit.");
                 Console.ReadKey(true);
             }
+        }
+
+        // Returns true if at least one file or directory matches the path
+        // Updates the path to a full path
+        static bool ValidatePath(ref string path)
+        {
+            string directory = Path.GetFullPath(Path.GetDirectoryName(path));
+            string filename = Path.GetFileName(path);
+            if (!Directory.Exists(directory))
+            {
+                return false;
+            }
+            if (Directory.GetFileSystemEntries(directory, filename, SearchOption.TopDirectoryOnly).Length <= 0)
+            {
+                return false;
+            }
+
+            path = Path.Combine(directory, filename);
+            return true;
         }
     }
 

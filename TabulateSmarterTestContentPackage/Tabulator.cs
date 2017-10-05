@@ -125,26 +125,21 @@ namespace TabulateSmarterTestContentPackage
             {
                 if (path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
                 {
-                    var fi = new FileInfo(path);
-                    Console.WriteLine("Tabulating " + fi.Name);
-                    if (!fi.Exists) throw new FileNotFoundException($"Package '{path}' file not found!");
-
-                    var filepath = fi.FullName;
-                    Initialize(filepath.Substring(0, filepath.Length - 4));
-                    using (var tree = new ZipFileTree(filepath))
+                    using (var tree = new ZipFileTree(path))
                     {
-                        TabulatePackage(string.Empty, tree);
+                        Initialize(path.Substring(0, path.Length - 4));
+                        TabulatePackage(Path.GetFileNameWithoutExtension(path), tree);
                     }
+                }
+                else if (Directory.Exists(path))
+                {
+                    var tree = new FsFolder(path);
+                    Initialize(path);
+                    TabulatePackage(Path.GetFileName(path), tree);
                 }
                 else
                 {
-                    var folderpath = Path.GetFullPath(path);
-                    Console.WriteLine("Tabulating " + Path.GetFileName(folderpath));
-                    if (!Directory.Exists(folderpath)) throw new FileNotFoundException(
-                        $"Package '{folderpath}' directory not found!");
-
-                    Initialize(folderpath);
-                    TabulatePackage(string.Empty, new FsFolder(folderpath));
+                    Console.WriteLine($"{path}: Invalid content package: Not a directory or a .zip file.");
                 }
             }
             finally
@@ -154,83 +149,58 @@ namespace TabulateSmarterTestContentPackage
         }
 
         // Individually tabulate each package in subdirectories
-        public void TabulateEach(string rootPath)
+        public void TabulateEach(IReadOnlyCollection<string> paths)
         {
-            var diRoot = new DirectoryInfo(rootPath);
-
-            // Tablulate unpacked packages
-            foreach (var diPackageFolder in diRoot.GetDirectories())
+            foreach(var path in paths)
             {
-                if (File.Exists(Path.Combine(diPackageFolder.FullName, cImsManifest)))
+                string directory = Path.GetDirectoryName(path);
+                string pattern = Path.GetFileName(path);
+                string[] matches;
+                if (pattern.EndsWith(".zip"))
                 {
-                    try
-                    {
-                        Console.WriteLine("Tabulating " + diPackageFolder.Name);
-                        Initialize(diPackageFolder.FullName);
-                        TabulatePackage(string.Empty, new FsFolder(diPackageFolder.FullName));
-                    }
-                    finally
-                    {
-                        Conclude();
-                    }
+                    matches = Directory.GetFiles(directory, pattern, SearchOption.TopDirectoryOnly);
                 }
-            }
-
-            // Tabulate zipped packages
-            foreach (var fiPackageFile in diRoot.GetFiles("*.zip"))
-            {
-                var filepath = fiPackageFile.FullName;
-                Console.WriteLine("Opening " + fiPackageFile.Name);
-                using (var tree = new ZipFileTree(filepath))
+                else
                 {
-                    if (tree.FileExists(cImsManifest))
-                    {
-                        try
-                        {
-                            Console.WriteLine("Tabulating " + fiPackageFile.Name);
-                            Initialize(filepath.Substring(0, filepath.Length - 4));
-                            TabulatePackage(string.Empty, tree);
-                        }
-                        finally
-                        {
-                            Conclude();
-                        }
-                    }
+                    matches = Directory.GetDirectories(directory, pattern, SearchOption.TopDirectoryOnly);
+                }
+                foreach(var filename in matches)
+                {
+                    TabulateOne(Path.Combine(directory, filename));
                 }
             }
         }
 
         // Tabulate packages in subdirectories and aggregate the results
-        public void TabulateAggregate(string rootPath)
+        public void TabulateAggregate(IReadOnlyList<string> paths)
         {
-            var diRoot = new DirectoryInfo(rootPath);
             try
             {
-                Initialize(Path.Combine(rootPath, "Aggregate"));
+                // The aggregate report goes in the folder of the first package in the list.
+                string reportPrefix = Path.Combine(Path.GetDirectoryName(paths[0]), "Aggregate");
 
-                // Tabulate unpacked packages
-                foreach (DirectoryInfo diPackageFolder in diRoot.GetDirectories())
-                {
-                    if (File.Exists(Path.Combine(diPackageFolder.FullName, cImsManifest)))
-                    {
-                        Console.WriteLine("Tabulating " + diPackageFolder.Name);
-                        TabulatePackage(diPackageFolder.Name, new FsFolder(diPackageFolder.FullName));
-                    }
-                }
+                Initialize(reportPrefix);
 
-                // Tabulate packed packages
-                foreach (var fiPackageFile in diRoot.GetFiles("*.zip"))
+                foreach (var path in paths)
                 {
-                    var filepath = fiPackageFile.FullName;
-                    Console.WriteLine("Opening " + fiPackageFile.Name);
-                    using (ZipFileTree tree = new ZipFileTree(filepath))
+                    string directory = Path.GetDirectoryName(path);
+                    string pattern = Path.GetFileName(path);
+                    if (pattern.EndsWith(".zip"))
                     {
-                        if (tree.FileExists(cImsManifest))
+                        foreach(var filename in Directory.GetFiles(directory, pattern, SearchOption.TopDirectoryOnly))
                         {
-                            Console.WriteLine("Tabulating " + fiPackageFile.Name);
-                            string packageName = fiPackageFile.Name;
-                            packageName = packageName.Substring(0, packageName.Length - 4) + "/";
-                            TabulatePackage(packageName, tree);
+                            using (var tree = new ZipFileTree(filename))
+                            {
+                                TabulatePackage(Path.GetFileName(filename), tree);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        foreach(var directoryname in Directory.GetDirectories(directory, pattern, SearchOption.TopDirectoryOnly))
+                        {
+                            var tree = new FsFolder(directoryname);
+                            TabulatePackage(Path.GetFileName(directoryname), tree);
                         }
                     }
                 }
@@ -330,12 +300,12 @@ namespace TabulateSmarterTestContentPackage
         public void TabulatePackage(string packageName, FileFolder packageFolder)
         {
             mPackageName = packageName;
+            Console.WriteLine("Tabulating " + packageName);
 
-            FileFolder dummy;
-            if (!packageFolder.FileExists(cImsManifest)
-                && (!packageFolder.TryGetFolder("Items", out dummy) || !packageFolder.TryGetFolder("Stimuli", out dummy)))
+            if (!packageFolder.FileExists(cImsManifest))
             {
-                throw new ArgumentException("Not a valid content package path. Should have 'Items' and 'Stimuli' folders.");
+                Console.WriteLine($"   Not a content package; '{cImsManifest}' must exist in root.");
+                return;
             }
 
             // Initialize package-specific collections
