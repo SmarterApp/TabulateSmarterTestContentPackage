@@ -129,7 +129,7 @@ namespace TabulateSmarterTestContentPackage
                     using (var tree = new ZipFileTree(path))
                     {
                         Initialize(path.Substring(0, path.Length - 4));
-                        TabulatePackage(Path.GetFileNameWithoutExtension(path), tree);
+                        TabulatePackage(Path.GetFileName(path), tree);
                     }
                 }
                 else if (Directory.Exists(path))
