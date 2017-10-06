@@ -81,28 +81,28 @@ namespace TabulateSmarterTestContentPackage.Validators
             var match = Regex.Match(fileName, pattern, RegexOptions.IgnoreCase);
             if (match.Success)
             {
-                if (itemContext.IsPassage &&
+                if (itemContext.IsStimulus &&
                     match.Groups[1].Value.Equals("passage", StringComparison.OrdinalIgnoreCase))
                 {
                     // Should be stim, but is passage
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Benign,
                         "ASL video filename for stim is titled as 'passsage' instead of 'stim'", $"Filename: {fileName}");
                 }
-                if (!match.Groups[5].Value.Equals(itemContext.ItemId, StringComparison.OrdinalIgnoreCase))
+                if (!match.Groups[5].Value.Equals(itemContext.ItemId.ToString(), StringComparison.OrdinalIgnoreCase))
                 {
                     // Incorrect ItemId
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe,
                         "ASL video filename contains an incorrect ID",
                         $"Filename: {fileName} Expected ID: {itemContext.ItemId}");
                 }
-                if (itemContext.IsPassage &&
+                if (itemContext.IsStimulus &&
                     match.Groups[1].Value.Equals("item", StringComparison.OrdinalIgnoreCase))
                 {
                     // Item video in stim
                     ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe,
                         "ASL video filename indicates item, but base folder is a stim", $"Filename: {fileName}");
                 }
-                else if (!itemContext.IsPassage &&
+                else if (!itemContext.IsStimulus &&
                          (match.Groups[1].Value.Equals("stim", StringComparison.OrdinalIgnoreCase)
                           || match.Groups[1].Value.Equals("passage", StringComparison.OrdinalIgnoreCase)))
                 {

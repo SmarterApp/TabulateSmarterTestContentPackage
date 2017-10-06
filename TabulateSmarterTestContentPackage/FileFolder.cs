@@ -399,7 +399,7 @@ namespace TabulateSmarterTestContentPackage
                 ZipFileFolder folder;
                 string name;
                 if (!FollowPath(path, out folder, out name)
-                    || !mFolders.TryGetValue(name, out value))
+                    || !folder.mFolders.TryGetValue(name, out value))
                 {
                     value = null;
                     return false;

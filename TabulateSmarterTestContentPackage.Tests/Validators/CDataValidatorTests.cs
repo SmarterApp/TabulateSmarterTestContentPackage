@@ -64,7 +64,7 @@ namespace TabulateSmarterTestContentPackage.Tests.Validators
             };
 
             // Act
-            var result = CDataValidator.AllMatchingTermsTagged(node, new ItemContext(null, null, null, null),
+            var result = CDataValidator.AllMatchingTermsTagged(node, new ItemContext(null, null, null, null, null),
                 ErrorSeverity.Degraded, dictionary);
 
             // Assert
@@ -155,7 +155,7 @@ namespace TabulateSmarterTestContentPackage.Tests.Validators
 
             // Act
             var result = CDataValidator.CDataGlossaryTagsAreNotIllegallyNested(node,
-                new ItemContext(null, null, null, null), ErrorSeverity.Degraded);
+                new ItemContext(null, null, null, null, null), ErrorSeverity.Degraded);
 
             // Assert
             Assert.IsFalse(result);
@@ -188,7 +188,7 @@ namespace TabulateSmarterTestContentPackage.Tests.Validators
 
             // Act
             var result = CDataValidator.CDataGlossaryTagsAreNotIllegallyNested(node,
-                new ItemContext(null, null, null, null), ErrorSeverity.Degraded);
+                new ItemContext(null, null, null, null, null), ErrorSeverity.Degraded);
 
             // Assert
             Assert.IsTrue(result);
@@ -253,7 +253,7 @@ namespace TabulateSmarterTestContentPackage.Tests.Validators
             };
 
             // Act
-            var result = CDataValidator.AllMatchingTermsTagged(node, new ItemContext(null, null, null, null),
+            var result = CDataValidator.AllMatchingTermsTagged(node, new ItemContext(null, null, null, null, null),
                 ErrorSeverity.Degraded, dictionary);
 
             // Assert
@@ -292,7 +292,7 @@ namespace TabulateSmarterTestContentPackage.Tests.Validators
             };
 
             // Act
-            var result = CDataValidator.AllMatchingTermsTagged(node, new ItemContext(null, null, null, null),
+            var result = CDataValidator.AllMatchingTermsTagged(node, new ItemContext(null, null, null, null, null),
                 ErrorSeverity.Degraded, dictionary);
 
             // Assert
@@ -319,7 +319,7 @@ namespace TabulateSmarterTestContentPackage.Tests.Validators
 
             // Act
             var result =
-                itemCData.Select(x => CDataValidator.IsValid(x, new ItemContext(null, null, null, null))).ToList();
+                itemCData.Select(x => CDataValidator.IsValid(x, new ItemContext(null, null, null, null, null))).ToList();
 
             // Assert
             Assert.IsNotNull(result);
@@ -414,7 +414,7 @@ namespace TabulateSmarterTestContentPackage.Tests.Validators
             var node = XDocument.Parse(nodeText).Root;
 
             // Act
-            var result = CDataValidator.CDataGlossaryTagStartAndEndTagsLineUpAppropriately(node, new ItemContext(null, null, null, null), ErrorSeverity.Benign);
+            var result = CDataValidator.CDataGlossaryTagStartAndEndTagsLineUpAppropriately(node, new ItemContext(null, null, null, null, null), ErrorSeverity.Benign);
 
             // Assert
             Assert.NotNull(result);

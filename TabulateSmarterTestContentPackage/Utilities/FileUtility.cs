@@ -7,7 +7,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
     {
         public static string GetAttachmentFilename(ItemContext it, XmlDocument xml, string attachType)
         {
-            var xp = !it.IsPassage
+            var xp = !it.IsStimulus
                 ? string.Concat("itemrelease/item/content/attachmentlist/attachment[@type='", attachType, "']")
                 : string.Concat("itemrelease/passage/content/attachmentlist/attachment[@type='", attachType, "']");
 

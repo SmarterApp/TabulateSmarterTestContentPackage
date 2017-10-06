@@ -8,47 +8,95 @@ namespace TabulateSmarterTestContentPackage.Utilities
     {
         public static int ErrorCount { get; set; }
         public static string ErrorReportPath { get; set; }
-        public static TextWriter ErrorReport { get; set; }
+        public static string CurrentPackageName { get; set; }
 
-        public static void ReportError(ItemContext it, ErrorCategory category, ErrorSeverity severity, string msg,
-            string detail, params object[] args)
+        static TextWriter m_ErrorReport { get; set; }
+
+        private static void InternalReportError(string folder, string itemType, string bankKey, string itemId, ErrorCategory category, ErrorSeverity severity, string msg, string detail)
         {
-            if (ErrorReport == null)
+            if (m_ErrorReport == null)
             {
-                ErrorReport = new StreamWriter(ErrorReportPath, false, Encoding.UTF8);
-                ErrorReport.WriteLine("Folder,ItemId,ItemType,Category,Severity,ErrorMessage,Detail");
+                m_ErrorReport = new StreamWriter(ErrorReportPath, false, Encoding.UTF8);
+                m_ErrorReport.WriteLine("Folder,ItemType,BankKey,ItemId,Category,Severity,ErrorMessage,Detail");
             }
 
-            msg = string.IsNullOrEmpty(msg) ? string.Empty : Tabulator.CsvEncode(msg);
+            if (CurrentPackageName != null)
+            {
+                folder = string.Concat(CurrentPackageName, "/", folder);
+            }
 
-            detail = string.IsNullOrEmpty(detail) ? string.Empty : Tabulator.CsvEncode(string.Format(detail, args));
-
-            // "Folder,ItemId,ItemType,Category,ErrorMessage"
-            ErrorReport.WriteLine(string.Join(",", Tabulator.CsvEncode(it.Folder), Tabulator.CsvEncode(it.ItemId),
-                Tabulator.CsvEncode(it.ItemType), category.ToString(), severity.ToString(), msg, detail));
+            // "Folder,ItemType,BankKey,ItemId,Category,Severity,ErrorMessage,Detail"
+            m_ErrorReport.WriteLine(string.Join(",", Tabulator.CsvEncode(folder), Tabulator.CsvEncode(itemType),
+                Tabulator.CsvEncode(bankKey), Tabulator.CsvEncode(itemId),
+                category.ToString(), severity.ToString(), Tabulator.CsvEncode(msg), Tabulator.CsvEncode(detail)));
 
             ++ErrorCount;
         }
 
-        public static void ReportError(ItemContext it, ErrorCategory category, ErrorSeverity severity, string msg)
+        public static void ReportError(ItemIdentifier ii, ErrorCategory category, ErrorSeverity severity, string msg, string detail = null)
         {
-            ReportError(it, category, severity, msg, null);
+            InternalReportError(ii.FolderName, ii.ItemType, ii.BankKey.ToString(), ii.ItemId.ToString(), category, severity, msg, detail);
         }
 
-        public static void ReportError(string validationOption, ItemContext it, ErrorCategory category,
+        public static void ReportError(string folder, ErrorCategory category, ErrorSeverity severity, string msg, string detail = null)
+        {
+            InternalReportError(folder, null, null, null, category, severity, msg, detail);
+        }
+
+        public static void ReportError(FileFolder folder, ErrorCategory category, ErrorSeverity severity, string msg, string detail = null)
+        {
+            string folderName = folder.RootedName;
+            if (!string.IsNullOrEmpty(folderName) && folderName[0] == '/')
+            {
+                folderName = folderName.Substring(1);
+            }
+            InternalReportError(folder.RootedName, null, null, null, category, severity, msg, detail);
+        }
+
+        public static void ReportError(ItemIdentifier ii, ErrorCategory category, ErrorSeverity severity, string msg,
+            string detail, params object[] args)
+        {
+            ReportError(ii, category, severity, msg, string.Format(System.Globalization.CultureInfo.InvariantCulture, detail, args));
+        }
+
+        public static void ReportError(string validationOption, ItemIdentifier ii, ErrorCategory category,
             ErrorSeverity severity, string msg, string detail, params object[] args)
         {
             if (Program.gValidationOptions.IsEnabled(validationOption))
             {
-                ReportError(it, category, severity, msg, detail, args);
+                ReportError(ii, category, severity, msg, detail, args);
             }
         }
 
-        public static void ReportWitError(ItemContext it, ItemContext witIt, ErrorSeverity severity, string msg,
-            string detail, params object[] args)
+        public static void ReportError(string validationOption, ItemIdentifier ii, ErrorCategory category,
+            ErrorSeverity severity, string msg, string detail = null)
+        {
+            if (Program.gValidationOptions.IsEnabled(validationOption))
+            {
+                ReportError(ii, category, severity, msg, detail);
+            }
+        }
+
+        public static void ReportWitError(ItemIdentifier ii, ItemIdentifier witIt, ErrorSeverity severity, string msg,
+            string detail = null)
         {
             detail = string.Concat($"wordlistId='{witIt.ItemId}' ", detail);
-            ReportError(it, ErrorCategory.Wordlist, severity, msg, detail, args);
+            ReportError(ii, ErrorCategory.Wordlist, severity, msg, detail);
+        }
+
+        public static void ReportWitError(ItemIdentifier ii, ItemIdentifier witIt, ErrorSeverity severity, string msg,
+            string detail, params object[] args)
+        {
+            ReportWitError(ii, witIt, severity, msg, string.Format(System.Globalization.CultureInfo.InvariantCulture, detail, args));
+        }
+
+        public static void CloseReport()
+        {
+            if (m_ErrorReport != null)
+            {
+                m_ErrorReport.Dispose();
+                m_ErrorReport = null;
+            }
         }
     }
 }
