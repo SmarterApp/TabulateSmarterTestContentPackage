@@ -50,7 +50,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
             {
                 folderName = folderName.Substring(1);
             }
-            InternalReportError(folder.RootedName, null, null, null, category, severity, msg, detail);
+            InternalReportError(folderName, null, null, null, category, severity, msg, detail);
         }
 
         public static void ReportError(ItemIdentifier ii, ErrorCategory category, ErrorSeverity severity, string msg,

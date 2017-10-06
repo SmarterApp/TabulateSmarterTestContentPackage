@@ -64,6 +64,11 @@ namespace TabulateSmarterTestContentPackage
                 throw new ArgumentException("File not found.");
             return file;
         }
+
+        public override string ToString()
+        {
+            return RootedName;
+        }
     }
 
     public abstract class FileFile
@@ -114,6 +119,11 @@ namespace TabulateSmarterTestContentPackage
         /// </summary>
         /// <returns>A read only stream</returns>
         public abstract Stream Open();
+
+        public override string ToString()
+        {
+            return RootedName;
+        }
 
     }
 
