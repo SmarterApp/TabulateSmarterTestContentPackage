@@ -119,60 +119,47 @@ namespace TabulateSmarterTestContentPackage
         TextWriter mGlossaryReport;
         TextWriter mSummaryReport;
 
-        // Tabulate a package in the specified directory
-        public void TabulateOne(string path)
-        {
-            try
-            {
-                if (path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
-                {
-                    using (var tree = new ZipFileTree(path))
-                    {
-                        Initialize(path.Substring(0, path.Length - 4));
-                        TabulatePackage(Path.GetFileName(path), tree);
-                    }
-                }
-                else if (Directory.Exists(path))
-                {
-                    var tree = new FsFolder(path);
-                    Initialize(path);
-                    TabulatePackage(Path.GetFileName(path), tree);
-                }
-                else
-                {
-                    Console.WriteLine($"{path}: Invalid content package: Not a directory or a .zip file.");
-                }
-            }
-            finally
-            {
-                Conclude();
-            }
-        }
-
-        // Individually tabulate each package in subdirectories
+        // Individually tabulate each package in the list
         public void TabulateEach(IReadOnlyCollection<string> paths)
         {
             foreach(var path in paths)
             {
                 string directory = Path.GetDirectoryName(path);
                 string pattern = Path.GetFileName(path);
-                string[] matches;
                 if (pattern.EndsWith(".zip"))
                 {
-                    matches = Directory.GetFiles(directory, pattern, SearchOption.TopDirectoryOnly);
+                    foreach (var filename in Directory.GetFiles(directory, pattern, SearchOption.TopDirectoryOnly))
+                    {
+                        try
+                        {
+                            Initialize(filename.Substring(0, filename.Length - 4));
+                            TabulateZipPackage(filename);
+                        }
+                        finally
+                        {
+                            Conclude();
+                        }
+                    }
                 }
                 else
                 {
-                    matches = Directory.GetDirectories(directory, pattern, SearchOption.TopDirectoryOnly);
-                }
-                foreach(var filename in matches)
-                {
-                    TabulateOne(Path.Combine(directory, filename));
+                    foreach (var filename in Directory.GetDirectories(directory, pattern, SearchOption.TopDirectoryOnly))
+                    {
+                        try
+                        {
+                            Initialize(filename);
+                            TabulateFsPackage(filename);
+                        }
+                        finally
+                        {
+                            Conclude();
+                        }
+                    }
                 }
             }
         }
 
-        // Tabulate packages in subdirectories and aggregate the results
+        // Tabulate packages in the list and aggregate the results
         public void TabulateAggregate(IReadOnlyList<string> paths)
         {
             try
@@ -190,18 +177,14 @@ namespace TabulateSmarterTestContentPackage
                     {
                         foreach(var filename in Directory.GetFiles(directory, pattern, SearchOption.TopDirectoryOnly))
                         {
-                            using (var tree = new ZipFileTree(filename))
-                            {
-                                TabulatePackage(Path.GetFileName(filename), tree);
-                            }
+                            TabulateZipPackage(filename);
                         }
                     }
                     else
                     {
                         foreach(var directoryname in Directory.GetDirectories(directory, pattern, SearchOption.TopDirectoryOnly))
                         {
-                            var tree = new FsFolder(directoryname);
-                            TabulatePackage(Path.GetFileName(directoryname), tree);
+                            TabulateFsPackage(directoryname);
                         }
                     }
                 }
@@ -301,15 +284,49 @@ namespace TabulateSmarterTestContentPackage
             }
         }
 
-        public void TabulatePackage(string packageName, FileFolder packageFolder)
+        void TabulateZipPackage(string path)
+        {
+            string packageName = Path.GetFileName(path);
+            Console.WriteLine("Tabulating " + packageName);
+            try
+            {
+                using (var tree = new ZipFileTree(path))
+                {
+                    TabulatePackage(packageName, tree);
+                }
+            }
+            catch (Exception err)
+            {
+                Console.WriteLine("   Exception: " + err.Message);
+                ReportingUtility.ReportError(new ItemContext(this, null, null, null), ErrorCategory.Exception, ErrorSeverity.Severe, err.Message);
+            }
+        }
+
+        void TabulateFsPackage(string path)
+        {
+            string packageName = Path.GetFileName(path);
+            Console.WriteLine("Tabulating " + packageName);
+            try
+            {
+                var tree = new FsFolder(path);
+                TabulatePackage(packageName, tree);
+            }
+            catch (Exception err)
+            {
+                Console.WriteLine("   Exception: " + err.Message);
+                ReportingUtility.ReportError(new ItemContext(this, null, null, null), ErrorCategory.Exception, ErrorSeverity.Severe, err.Message);
+            }
+        }
+
+        void TabulatePackage(string packageName, FileFolder packageFolder)
         {
             mPackageName = packageName;
-            Console.WriteLine("Tabulating " + packageName);
             var startTicks = Environment.TickCount;
 
             if (!packageFolder.FileExists(cImsManifest))
             {
                 Console.WriteLine($"   Not a content package; '{cImsManifest}' must exist in root.");
+                ReportingUtility.ReportError(new ItemContext(this, null, null, null), ErrorCategory.Exception, ErrorSeverity.Severe, $"Not a content package; '{cImsManifest}' must exist in root.");
                 return;
             }
 
