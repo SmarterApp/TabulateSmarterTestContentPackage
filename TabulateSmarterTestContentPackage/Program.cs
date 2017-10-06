@@ -209,7 +209,7 @@ Error severity definitions:
                 Logger.Error(ex.Message);
             }
 
-            var elapsedTicks = Environment.TickCount - startTicks;
+            var elapsedTicks = unchecked((uint)Environment.TickCount - (uint)startTicks);
             Console.WriteLine("Elapsed time: {0}.{1:d3} seconds", elapsedTicks / 1000, elapsedTicks % 1000);
             Logger.Info("Elapsed time: {0}.{1:d3} seconds", elapsedTicks / 1000, elapsedTicks % 1000);
 

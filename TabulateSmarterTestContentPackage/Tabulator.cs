@@ -112,11 +112,12 @@ namespace TabulateSmarterTestContentPackage
         LinkedList<ItemContext> mStimContexts = new LinkedList<ItemContext>();
 
         // Per report variables
+        int mStartTicks;
         TextWriter mItemReport;
         TextWriter mStimulusReport;
         TextWriter mWordlistReport;
         TextWriter mGlossaryReport;
-        string mSummaryReportPath;
+        TextWriter mSummaryReport;
 
         // Tabulate a package in the specified directory
         public void TabulateOne(string path)
@@ -215,6 +216,8 @@ namespace TabulateSmarterTestContentPackage
         // Initialize all files and collections for a tabulation run
         private void Initialize(string reportPrefix)
         {
+            mStartTicks = Environment.TickCount;
+
             reportPrefix = string.Concat(reportPrefix, "_");
             ReportingUtility.ErrorReportPath = string.Concat(reportPrefix, cErrorReportFn);
             if (File.Exists(ReportingUtility.ErrorReportPath)) File.Delete(ReportingUtility.ErrorReportPath);
@@ -240,8 +243,7 @@ namespace TabulateSmarterTestContentPackage
                 ? "Folder,WIT_ID,ItemId,Index,Term,Language,Length,Audio,AudioSize,Image,ImageSize,Text"
                 : "Folder,WIT_ID,ItemId,Index,Term,Language,Length,Audio,AudioSize,Image,ImageSize");
 
-            mSummaryReportPath = string.Concat(reportPrefix, cSummaryReportFn);
-            if (File.Exists(mSummaryReportPath)) File.Delete(mSummaryReportPath);
+            mSummaryReport = new StreamWriter(string.Concat(reportPrefix, cSummaryReportFn), false, Encoding.UTF8);
 
             ReportingUtility.ErrorCount = 0;
             mItemCount = 0;
@@ -260,12 +262,9 @@ namespace TabulateSmarterTestContentPackage
         {
             try
             {
-                if (mSummaryReportPath != null)
+                if (mSummaryReport != null)
                 {
-                    using (var summaryReport = new StreamWriter(mSummaryReportPath, false, Encoding.UTF8))
-                    {
-                        SummaryReport(summaryReport);
-                    }
+                    SummaryReport(mSummaryReport);
 
                     // Report aggregate results to the console
                     Console.WriteLine("{0} Errors reported.", ReportingUtility.ErrorCount);
@@ -274,6 +273,11 @@ namespace TabulateSmarterTestContentPackage
             }
             finally
             {
+                if (mSummaryReport != null)
+                {
+                    mSummaryReport.Dispose();
+                    mSummaryReport = null;
+                }
                 if (mStimulusReport != null)
                 {
                     mStimulusReport.Dispose();
@@ -301,6 +305,7 @@ namespace TabulateSmarterTestContentPackage
         {
             mPackageName = packageName;
             Console.WriteLine("Tabulating " + packageName);
+            var startTicks = Environment.TickCount;
 
             if (!packageFolder.FileExists(cImsManifest))
             {
@@ -387,6 +392,10 @@ namespace TabulateSmarterTestContentPackage
                     ReportingUtility.ReportError(it, ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
                 }
             }
+
+            var elapsedTicks = unchecked((uint)Environment.TickCount - (uint)startTicks);
+            Console.WriteLine("   Package time: {0}.{1:d3} seconds", elapsedTicks / 1000, elapsedTicks % 1000);
+            mSummaryReport.WriteLine("{0}: {1}.{2:d3} seconds", mPackageName, elapsedTicks / 1000, elapsedTicks % 1000);
         }
 
         private void TabulateItem_Pass1(FileFolder ffItem)
@@ -2617,6 +2626,9 @@ namespace TabulateSmarterTestContentPackage
 
         private void SummaryReport(TextWriter writer)
         {
+            uint elapsed = unchecked((uint)Environment.TickCount - (uint)mStartTicks);
+            writer.WriteLine();
+            writer.WriteLine("Elapsed: {0}.{1:d3}", elapsed / 1000, elapsed % 1000);
             writer.WriteLine("Errors: {0}", ReportingUtility.ErrorCount);
             writer.WriteLine("Items: {0}", mItemCount);
             writer.WriteLine("Word Lists: {0}", mWordlistCount);
