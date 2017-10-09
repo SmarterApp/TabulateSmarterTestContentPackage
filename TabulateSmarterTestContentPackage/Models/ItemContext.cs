@@ -2,7 +2,7 @@
 
 namespace TabulateSmarterTestContentPackage.Models
 {
-    public class ItemIdentifier
+    public class ItemIdentifier : IComparable<ItemIdentifier>
     {
         string m_itemType;
         bool m_isStimulus;
@@ -74,6 +74,15 @@ namespace TabulateSmarterTestContentPackage.Models
             var b = obj as ItemIdentifier;
             if (b == null) return false;
             return b.m_isStimulus == m_isStimulus && b.m_bankKey == m_bankKey && b.ItemId == m_itemId;
+        }
+
+        public int CompareTo(ItemIdentifier other)
+        {
+            int c = m_isStimulus.CompareTo(other.m_isStimulus);
+            if (c != 0) return c;
+            c = m_bankKey.CompareTo(other.m_bankKey);
+            if (c != 0) return c;
+            return m_itemId.CompareTo(other.m_itemId);
         }
     }
 

@@ -108,10 +108,9 @@ namespace TabulateSmarterTestContentPackage
         FileFolder mPackageFolder;
         Dictionary<string, string> mFilenameToResourceId = new Dictionary<string, string>();
         HashSet<string> mResourceDependencies = new HashSet<string>();
-        HashSet<ItemIdentifier> mItemsInQueue = new HashSet<ItemIdentifier>();
-        Queue<ItemIdentifier> mItemQueue = new Queue<ItemIdentifier>();
-        Queue<ItemIdentifier> mStimQueue = new Queue<ItemIdentifier>();
-        Queue<ItemIdentifier> mWordlistQueue = new Queue<ItemIdentifier>();
+        DistinctList<ItemIdentifier> mItemQueue = new DistinctList<ItemIdentifier>();
+        DistinctList<ItemIdentifier> mStimQueue = new DistinctList<ItemIdentifier>();
+        DistinctList<ItemIdentifier> mWordlistQueue = new DistinctList<ItemIdentifier>();
         Dictionary<string, int> mWordlistRefCounts = new Dictionary<string, int>();   // Reference count for wordlist IDs
 
         // Per report variables
@@ -332,7 +331,6 @@ namespace TabulateSmarterTestContentPackage
             mPackageFolder = packageFolder;
             mFilenameToResourceId.Clear();
             mResourceDependencies.Clear();
-            mItemsInQueue.Clear();
             mItemQueue.Clear();
             mStimQueue.Clear();
             mWordlistQueue.Clear();
@@ -352,9 +350,9 @@ namespace TabulateSmarterTestContentPackage
             SelectItems();
 
             // Process Items
-            while (mItemQueue.Count > 0)
+            mItemQueue.Sort();
+            foreach(var ii in mItemQueue)
             {
-                var ii = mItemQueue.Dequeue();
                 try
                 {
                     TabulateItem(ii);
@@ -366,9 +364,9 @@ namespace TabulateSmarterTestContentPackage
             }
 
             // Process stimuli
-            while (mStimQueue.Count > 0)
+            mStimQueue.Sort();
+            foreach (var ii in mStimQueue)
             {
-                var ii = mStimQueue.Dequeue();
                 try
                 {
                     TabulateStimulus(ii);
@@ -380,9 +378,9 @@ namespace TabulateSmarterTestContentPackage
             }
 
             // Process WordLists
-            while (mWordlistQueue.Count > 0)
+            mWordlistQueue.Sort();
+            foreach (var ii in mWordlistQueue)
             {
-                var ii = mWordlistQueue.Dequeue();
                 try
                 {
                     TabulateWordList(ii);
@@ -486,12 +484,6 @@ namespace TabulateSmarterTestContentPackage
             // Create the item identifier
             var ii = new ItemIdentifier(itemType, bankKey, itemId);
 
-            // See if it's already in queue
-            if (!mItemsInQueue.Add(ii))
-            {
-                ReportingUtility.ReportError(ii, ErrorCategory.Item, ErrorSeverity.Tolerable, "Multiple items with the same ID.");
-            }
-
             // Add to the item count and the type count
             ++mItemCount;
             mTypeCounts.Increment(itemType);
@@ -505,15 +497,24 @@ namespace TabulateSmarterTestContentPackage
             // Add to list according to item type
             if (ii.IsStimulus)
             {
-                mStimQueue.Enqueue(ii);
+                if (!mStimQueue.Add(ii))
+                {
+                    ReportingUtility.ReportError(ii, ErrorCategory.Item, ErrorSeverity.Tolerable, "Multiple items with the same ID.");
+                }
             }
             else if (ii.ItemType.Equals(cItemTypeWordlist, StringComparison.OrdinalIgnoreCase))
             {
-                mWordlistQueue.Enqueue(ii);
+                if (!mWordlistQueue.Add(ii))
+                {
+                    ReportingUtility.ReportError(ii, ErrorCategory.Item, ErrorSeverity.Tolerable, "Multiple wordLists with the same ID.");
+                }
             }
             else
             {
-                mItemQueue.Enqueue(ii);
+                if (!mItemQueue.Add(ii))
+                {
+                    ReportingUtility.ReportError(ii, ErrorCategory.Item, ErrorSeverity.Tolerable, "Multiple stimuli with the same ID.");
+                }
             }
 
             // TODO: Recursively add dependencies: WordLists, Stimuli, and Tutorials
