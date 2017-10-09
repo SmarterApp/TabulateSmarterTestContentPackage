@@ -97,6 +97,7 @@ namespace TabulateSmarterTestContentPackage
 
         int mItemCount = 0;
         int mWordlistCount = 0;
+        int mStimCount = 0;
         int mGlossaryTermCount = 0;
         Dictionary<string, int> mTypeCounts = new Dictionary<string, int>();
         Dictionary<string, int> mTermCounts = new Dictionary<string, int>();
@@ -233,6 +234,7 @@ namespace TabulateSmarterTestContentPackage
             ReportingUtility.ErrorCount = 0;
             mItemCount = 0;
             mWordlistCount = 0;
+            mStimCount = 0;
             mGlossaryTermCount = 0;
 
             mTypeCounts.Clear();
@@ -436,6 +438,65 @@ namespace TabulateSmarterTestContentPackage
 
         private void SelectItem(FileFolder ffItem)
         {
+            ItemIdentifier ii;
+            if (ItemIdentifier.TryParse(ffItem.Name, out ii))
+            {
+                if (ii.IsStimulus)
+                {
+                    if (!mStimQueue.Add(ii))
+                    {
+                        ReportingUtility.ReportError(ii, ErrorCategory.Item, ErrorSeverity.Benign, "Stimulus ID is repeated multiple time in input.");
+                    }
+                }
+                else
+                {
+                    if (!mItemQueue.Add(ii))
+                    {
+                        ReportingUtility.ReportError(ii, ErrorCategory.Item, ErrorSeverity.Benign, "Item ID is repeated multiple time in input.");
+                    }
+                }
+            }
+            else
+            {
+                ReportingUtility.ReportError(ffItem, ErrorCategory.Item, ErrorSeverity.Benign, "Non-item folder in package.", $"folderName='{ffItem.Name}'");
+            }
+        }
+
+        private void TabulateItem(ItemIdentifier ii)
+        {
+            /* Handling wordList items.
+             * 
+             * To begin with, we don't know if an item is an actual interaction item so wordList
+             * items will come into this function. However, wordLists need to be processed after
+             * items so they have their own queue. WordLists get into that queue in one two ways.
+             * 
+             * 1) When an item is processed that references a wordList then the ID of that wordlist
+             * is added into the wordList queue.
+             * 
+             * 2) In this function, when the item is read and it's type is wordList then it will be
+             * added to the queue.
+             * 
+             * We avoid reading and parsing the wordList XML unnecessarily by checkign whether the
+             * item ID is in the wordlist queue before ever reading it in. That will happen if the
+             * referencing item comes before the wordlist item in the queue.
+             */
+
+            // Skip the item if it's already in the wordlist queue.
+            if (mWordlistQueue.Contains(ii))
+            {
+                // TODO: Remove this debug
+                System.Diagnostics.Debug.WriteLine($"{ii} is already in the wordList queue.");
+                return;
+            }
+
+            // Get the item folder
+            FileFolder ffItem;
+            if (!mPackageFolder.TryGetFolder(ii.FolderName, out ffItem))
+            {
+                ReportingUtility.ReportError(ii, ErrorCategory.Item, ErrorSeverity.Severe, "Item not found in package.");
+                return;
+            }
+
             // Read the item XML
             var xml = new XmlDocument(sXmlNt);
             if (!TryLoadXml(ffItem, ffItem.Name + ".xml", xml))
@@ -444,86 +505,35 @@ namespace TabulateSmarterTestContentPackage
                 return;
             }
 
-            // Get the item type
+            // Get the actual item type
             string itemType = null;
             var xmlItem = xml.SelectSingleNode("itemrelease/item") as XmlElement;
             if (xmlItem != null)
             {
                 itemType = xmlItem.XpEval("@format") ?? xmlItem.XpEval("@type");
             }
-            else
-            {
-                xmlItem = xml.SelectSingleNode("itemrelease/passage") as XmlElement;
-                if (xmlItem == null)
-                {
-                    ReportingUtility.ReportError(ffItem, ErrorCategory.Item, ErrorSeverity.Severe, "Unrecognized content in item or stimulus.", LoadXmlErrorDetail);
-                    return;
-                }
-                itemType = cItemTypeStim;
-            }
             if (string.IsNullOrEmpty(itemType))
             {
                 ReportingUtility.ReportError(ffItem, ErrorCategory.Item, ErrorSeverity.Severe, "Item type not specified.", LoadXmlErrorDetail);
                 return;
             }
+            ii.ItemType = itemType;
 
-            // Get the id and bankKey
-            var itemId = xmlItem.XpEval("@id");
-            if (string.IsNullOrEmpty(itemId))
+            // If wordlist, transfer to the wordList queue
+            if (ii.ItemType.Equals(cItemTypeWordlist, StringComparison.Ordinal))
             {
-                ReportingUtility.ReportError(ffItem, ErrorCategory.Item, ErrorSeverity.Severe, "Item ID not specified.", LoadXmlErrorDetail);
-                return;
-            }
-            var bankKey = xmlItem.XpEval("@bankkey");
-            if (string.IsNullOrEmpty(bankKey))
-            {
-                ReportingUtility.ReportError(ffItem, ErrorCategory.Item, ErrorSeverity.Severe, "Item bankkey not specified.", LoadXmlErrorDetail);
+                mWordlistQueue.Add(ii);
                 return;
             }
 
-            // Create the item identifier
-            var ii = new ItemIdentifier(itemType, bankKey, itemId);
-
-            // Add to the item count and the type count
+            // Count the item
             ++mItemCount;
             mTypeCounts.Increment(itemType);
 
-            // Check for filename match
-            if (!ffItem.Name.Equals(ii.FullId, StringComparison.OrdinalIgnoreCase))
-            {
-                ReportingUtility.ReportError(ii, ErrorCategory.Item, ErrorSeverity.Severe, "Item ID doesn't match file/folder name", $"foldername='{ffItem}' expected='{ii.FullId}");
-            }
+            // Build the item context
+            var it = new ItemContext(mPackageName, ffItem, ii);
 
-            // Add to list according to item type
-            if (ii.IsStimulus)
-            {
-                if (!mStimQueue.Add(ii))
-                {
-                    ReportingUtility.ReportError(ii, ErrorCategory.Item, ErrorSeverity.Tolerable, "Multiple items with the same ID.");
-                }
-            }
-            else if (ii.ItemType.Equals(cItemTypeWordlist, StringComparison.OrdinalIgnoreCase))
-            {
-                if (!mWordlistQueue.Add(ii))
-                {
-                    ReportingUtility.ReportError(ii, ErrorCategory.Item, ErrorSeverity.Tolerable, "Multiple wordLists with the same ID.");
-                }
-            }
-            else
-            {
-                if (!mItemQueue.Add(ii))
-                {
-                    ReportingUtility.ReportError(ii, ErrorCategory.Item, ErrorSeverity.Tolerable, "Multiple stimuli with the same ID.");
-                }
-            }
-
-            // TODO: Recursively add dependencies: WordLists, Stimuli, and Tutorials
-        }
-
-        private void TabulateItem(ItemIdentifier ii)
-        {
-            var it = new ItemContext(mPackageName, mPackageFolder, ii);
-
+            // Handle the item according to type
             switch (it.ItemType)
             {
                 case "EBSR":        // Evidence-Based Selected Response
@@ -1143,6 +1153,9 @@ namespace TabulateSmarterTestContentPackage
 
         void TabulateStimulus(ItemIdentifier ii)
         {
+            // Count the stimulus
+            ++mStimCount;
+
             var it = new ItemContext(mPackageName, mPackageFolder, ii);
 
             // Read the item XML
@@ -2659,9 +2672,10 @@ namespace TabulateSmarterTestContentPackage
             writer.WriteLine("Elapsed: {0}.{1:d3}", elapsed / 1000, elapsed % 1000);
             writer.WriteLine("Errors: {0}", ReportingUtility.ErrorCount);
             writer.WriteLine("Items: {0}", mItemCount);
+            writer.WriteLine("Stimuli: {0}", mStimCount);
             writer.WriteLine("Word Lists: {0}", mWordlistCount);
             writer.WriteLine("Glossary Terms: {0}", mGlossaryTermCount);
-            writer.WriteLine("Unique Glossary Terms: {0}", mTermCounts.Count);
+            writer.WriteLine("Distinct Glossary Terms: {0}", mTermCounts.Count);
             writer.WriteLine();
             writer.WriteLine("Item Type Counts:");
             mTypeCounts.Dump(writer);

@@ -4,6 +4,9 @@ namespace TabulateSmarterTestContentPackage.Models
 {
     public class ItemIdentifier : IComparable<ItemIdentifier>
     {
+        const string c_itemPrefix = "item";
+        const string c_stimPrefix = "stim";
+
         string m_itemType;
         bool m_isStimulus;
         int m_bankKey;
@@ -13,7 +16,7 @@ namespace TabulateSmarterTestContentPackage.Models
         {
             if (itemType == null) throw new ArgumentException("itemType may not be null");
             m_itemType = itemType;
-            m_isStimulus = itemType.Equals("stim", StringComparison.OrdinalIgnoreCase);
+            m_isStimulus = itemType.Equals(c_stimPrefix, StringComparison.OrdinalIgnoreCase);
             m_bankKey = bankKey;
             m_itemId = itemId;
         }
@@ -22,7 +25,7 @@ namespace TabulateSmarterTestContentPackage.Models
         {
             if (itemType == null) throw new ArgumentException("itemType may not be null");
             m_itemType = itemType;
-            m_isStimulus = itemType.Equals("stim", StringComparison.OrdinalIgnoreCase);
+            m_isStimulus = itemType.Equals(c_stimPrefix, StringComparison.OrdinalIgnoreCase);
             if (!int.TryParse(bankKey, out m_bankKey)) throw new ArgumentException("bankKey must be integer");
             if (!int.TryParse(itemId, out m_itemId)) throw new ArgumentException("itemId must be integer");
         }
@@ -30,6 +33,17 @@ namespace TabulateSmarterTestContentPackage.Models
         public string ItemType
         {
             get { return m_itemType; }
+            set
+            {
+                if (m_itemType.Equals(value, StringComparison.OrdinalIgnoreCase)) return;
+                // Can only change from generic "item" to a specific item type and cannot change to "stim"
+                if (!m_itemType.Equals(c_itemPrefix, StringComparison.OrdinalIgnoreCase)
+                    || value.Equals(c_stimPrefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new ArgumentException($"Cannot change item type from '{m_itemType}' to '{value}'.");
+                }
+                m_itemType = value;
+            }
         }
         public int BankKey
         {
@@ -47,7 +61,7 @@ namespace TabulateSmarterTestContentPackage.Models
         {
             get
             {
-                return $"{(m_isStimulus ? "stim" : "item")}-{BankKey}-{ItemId}";
+                return $"{(m_isStimulus ? c_stimPrefix : c_itemPrefix)}-{BankKey}-{ItemId}";
             }
         }
         public string FolderName
@@ -84,6 +98,39 @@ namespace TabulateSmarterTestContentPackage.Models
             if (c != 0) return c;
             return m_itemId.CompareTo(other.m_itemId);
         }
+
+        #region Static methods
+
+        public static bool TryParse(string value, out ItemIdentifier ii)
+        {
+            ii = null;
+            string[] parts = value.Split('-');
+            if (parts.Length != 3) return false;
+
+            string itemType = parts[0].ToLowerInvariant();
+            if (!itemType.Equals(c_itemPrefix, StringComparison.Ordinal) && !itemType.Equals(c_stimPrefix)) return false;
+
+            int bankKey;
+            if (!int.TryParse(parts[1], out bankKey)) return false;
+
+            int itemId;
+            if (!int.TryParse(parts[2], out itemId)) return false;
+
+            ii = new ItemIdentifier(itemType, bankKey, itemId);
+            return true;
+        }
+
+        public static ItemIdentifier Parse(string value)
+        {
+            ItemIdentifier ii;
+            if (!TryParse(value, out ii))
+            {
+                throw new ArgumentException("Invalid value, failed to parse ItemIdentifier.");
+            }
+            return ii;
+        }
+
+        #endregion // Static methods
     }
 
     public class ItemContext : ItemIdentifier
@@ -91,17 +138,33 @@ namespace TabulateSmarterTestContentPackage.Models
         FileFolder m_ff;
         string m_folderDescription;
 
-        public ItemContext(string packageName, FileFolder packageFolder, ItemIdentifier ii)
+        public ItemContext(string packageName, FileFolder folder, ItemIdentifier ii)
             : base(ii.ItemType, ii.BankKey, ii.ItemId)
         {
-            m_ff = packageFolder.GetFolder(FolderName);
+            if (folder.RootedName.Equals("/", StringComparison.Ordinal))
+            {
+                folder = folder.GetFolder(FolderName);
+            }
+            if (!folder.Name.Equals(FullId, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException("Folder name doesn't match ID");
+            }
+            m_ff = folder;
             m_folderDescription = string.Concat(packageName, "/", FolderName);
         }
 
-        public ItemContext(string packageName, FileFolder packageFolder, string itemType, string bankKey, string itemId)
+        public ItemContext(string packageName, FileFolder folder, string itemType, string bankKey, string itemId)
             : base(itemType, bankKey, itemId)
         {
-            m_ff = packageFolder.GetFolder(FolderName);
+            if (folder.RootedName.Equals("/", StringComparison.Ordinal))
+            {
+                folder = folder.GetFolder(FolderName);
+            }
+            if (!folder.Name.Equals(FullId, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException("Folder name doesn't match ID");
+            }
+            m_ff = folder;
             m_folderDescription = string.Concat(packageName, "/", FolderName);
         }
 
