@@ -25,6 +25,7 @@ namespace TabulateSmarterTestContentPackage
         const string cImsManifest = "imsmanifest.xml";
         const string cItemTypeStim = "stim";
         const string cItemTypeWordlist = "wordList";
+        const string cItemTypeTutorial = "tut";
 
         static NameTable sXmlNt;
         static XmlNamespaceManager sXmlNs;
@@ -112,6 +113,7 @@ namespace TabulateSmarterTestContentPackage
         DistinctList<ItemIdentifier> mItemQueue = new DistinctList<ItemIdentifier>();
         DistinctList<ItemIdentifier> mStimQueue = new DistinctList<ItemIdentifier>();
         DistinctList<ItemIdentifier> mWordlistQueue = new DistinctList<ItemIdentifier>();
+        DistinctList<ItemIdentifier> mTutorialQueue = new DistinctList<ItemIdentifier>();
         Dictionary<string, int> mWordlistRefCounts = new Dictionary<string, int>();   // Reference count for wordlist IDs
 
         // Per report variables
@@ -336,6 +338,7 @@ namespace TabulateSmarterTestContentPackage
             mItemQueue.Clear();
             mStimQueue.Clear();
             mWordlistQueue.Clear();
+            mTutorialQueue.Clear();
             mWordlistRefCounts.Clear();
 
             // Validate manifest
@@ -386,6 +389,20 @@ namespace TabulateSmarterTestContentPackage
                 try
                 {
                     TabulateWordList(ii);
+                }
+                catch (Exception err)
+                {
+                    ReportingUtility.ReportError(ii, ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
+                }
+            }
+
+            // Process Tutorials (we handle these separately because they are dependent on items)
+            mTutorialQueue.Sort();
+            foreach (var ii in mTutorialQueue)
+            {
+                try
+                {
+                    TabulateTutorial(ii);
                 }
                 catch (Exception err)
                 {
@@ -484,8 +501,6 @@ namespace TabulateSmarterTestContentPackage
             // Skip the item if it's already in the wordlist queue.
             if (mWordlistQueue.Contains(ii))
             {
-                // TODO: Remove this debug
-                System.Diagnostics.Debug.WriteLine($"{ii} is already in the wordList queue.");
                 return;
             }
 
@@ -556,8 +571,9 @@ namespace TabulateSmarterTestContentPackage
                     TabulateInteraction(it);
                     break;
 
-                case "tut":         // Tutorial
-                    TabulateTutorial(it);
+                case cItemTypeTutorial:         // Tutorial
+                    ii.ItemType = cItemTypeTutorial;
+                    mTutorialQueue.Add(ii);
                     break;
 
                 default:
@@ -597,9 +613,6 @@ namespace TabulateSmarterTestContentPackage
             var metaItemType = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:InteractionType", sXmlNs);
             if (!string.Equals(metaItemType, it.ItemType.ToUpperInvariant(), StringComparison.Ordinal))
                 ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Incorrect metadata <InteractionType>.", "InteractionType='{0}' Expected='{1}'", metaItemType, it.ItemType.ToUpperInvariant());
-
-            // DepthOfKnowledge
-            var depthOfKnowledge = DepthOfKnowledgeFromMetadata(xmlMetadata, sXmlNs);
 
             // Get the version
             var version = xml.XpEvalE("itemrelease/item/@version");
@@ -889,7 +902,8 @@ namespace TabulateSmarterTestContentPackage
                     }
                 )
             ;
-            
+
+            var standardClaimTarget = new ReportingStandard(primaryStandards, secondaryStandards);
 
             // Validate content segments
             var wordlistId = ValidateContentAndWordlist(it, xml);
@@ -922,7 +936,8 @@ namespace TabulateSmarterTestContentPackage
             // Size
             var size = GetItemSize(it);
 
-            var standardClaimTarget = new ReportingStandard(primaryStandards, secondaryStandards);
+            // DepthOfKnowledge
+            var depthOfKnowledge = DepthOfKnowledgeFromMetadata(xmlMetadata, sXmlNs);
 
             // Check for silencing tags
             if (Program.gValidationOptions.IsEnabled("tss"))
@@ -1058,9 +1073,45 @@ namespace TabulateSmarterTestContentPackage
                 }
             }
 
+            // Retrieve the stimulus ID (and record the dependency)
+            var stimId = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='stm_pass_id']/val");
+            if (stimId == null)
+            {
+                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "PT Item missing associated passage ID (stm_pass_id).");
+            }
+
+            if (!string.IsNullOrEmpty(stimId))
+            {
+                var metaStimId = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:AssociatedStimulus", sXmlNs);
+                if (!string.Equals(stimId, metaStimId, StringComparison.OrdinalIgnoreCase))
+                {
+                    ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Item stimulus ID doesn't match metadata AssociatedStimulus.", "Item stm_pass_id='{0}' Metadata AssociatedStimulus='{1}'", stimId, metaStimId);
+                }
+
+                // Look for the stimulus
+                var stimulusFilename = string.Format(@"Stimuli\stim-{0}-{1}\stim-{0}-{1}.xml", it.BankKey, stimId);
+                if (!mPackageFolder.FileExists(stimulusFilename))
+                {
+                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Item stimulus not found.", "StimulusId='{0}'", stimId);
+                }
+                else
+                {
+                    // Queue up the stimulus (in case it's not already there)
+                    mStimQueue.Add(new ItemIdentifier(cItemTypeStim, it.BankKey, int.Parse(stimId)));
+
+                    // Make sure dependency is recorded in manifest
+                    CheckDependencyInManifest(it, stimulusFilename, "Stimulus");
+                }
+            }
+
             // Performance Task Details
             if (string.Equals(assessmentType, "PT", StringComparison.OrdinalIgnoreCase))
             {
+                if (string.IsNullOrEmpty(stimId))
+                {
+                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "PT Item missing associated passage ID (stm_pass_id).");
+                }
+
                 // PtSequence
                 int seq;
                 var ptSequence = xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:PtSequence", sXmlNs);
@@ -1093,38 +1144,6 @@ namespace TabulateSmarterTestContentPackage
                         }
                     }
                 }
-
-                // Stimulus (Passage) ID
-                var stimId = xml.XpEval("itemrelease/item/attriblist/attrib[@attid='stm_pass_id']/val");
-                if (stimId == null)
-                {
-                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "PT Item missing associated passage ID (stm_pass_id).");
-                }
-                else
-                {
-                    var metaStimId = xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:AssociatedStimulus", sXmlNs);
-                    if (metaStimId == null)
-                    {
-                        ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "PT Item metatadata missing AssociatedStimulus.");
-                    }
-                    else if (!string.Equals(stimId, metaStimId, StringComparison.OrdinalIgnoreCase))
-                    {
-                        ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "PT Item passage ID doesn't match metadata AssociatedStimulus.", "Item stm_pass_id='{0}' Metadata AssociatedStimulus='{1}'", stimId, metaStimId);
-                    }
-
-                    // Get the bankKey
-                    var bankKey = xml.XpEvalE("itemrelease/item/@bankkey");
-
-                    // Look for the stimulus
-                    var stimulusFilename = string.Format(@"Stimuli\stim-{1}-{0}\stim-{1}-{0}.xml", stimId, bankKey);
-                    if (!mPackageFolder.FileExists(stimulusFilename))
-                    {
-                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "PT item stimulus not found.", "StimulusId='{0}'", stimId);
-                    }
-
-                    // Make sure dependency is recorded in manifest
-                    CheckDependencyInManifest(it, stimulusFilename, "Stimulus");
-                }
             } // if Performance Task
 
             // Check for tutorial
@@ -1143,6 +1162,11 @@ namespace TabulateSmarterTestContentPackage
                     if (!mPackageFolder.FileExists(tutorialFilename))
                     {
                         ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Tutorial not found.", "TutorialId='{0}'", tutorialId);
+                    }
+                    else
+                    {
+                        // Queue this up (if it isn't already)
+                        mItemQueue.Add(new ItemIdentifier(cItemTypeTutorial, bankKey, tutorialId));
                     }
 
                     // Make sure dependency is recorded in manifest
@@ -1243,8 +1267,10 @@ namespace TabulateSmarterTestContentPackage
         } // TabulatePassage
 
         
-        void TabulateTutorial(ItemContext it)
+        void TabulateTutorial(ItemIdentifier ii)
         {
+            var it = new ItemContext(mPackageName, mPackageFolder, ii);
+
             // Read the item XML
             XmlDocument xml = new XmlDocument(sXmlNt);
             if (!TryLoadXml(it.FfItem, it.FfItem.Name + ".xml", xml))
@@ -1699,36 +1725,6 @@ namespace TabulateSmarterTestContentPackage
         // Returns the Wordlist ID
         string ValidateContentAndWordlist(ItemContext it, XmlDocument xml)
         {
-            // Get the wordlist ID (and check for multiple instances)
-            string wordlistId = string.Empty;
-            string wordlistBankkey = string.Empty;
-            string xp = it.IsStimulus
-                ? "itemrelease/passage/resourceslist/resource[@type='wordList']"
-                : "itemrelease/item/resourceslist/resource[@type='wordList']";
-
-            foreach (XmlElement xmlRes in xml.SelectNodes(xp))
-            {
-                string witId = xmlRes.GetAttribute("id");
-                if (string.IsNullOrEmpty(witId))
-                {
-                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, "Item references blank wordList id.");
-                }
-                else
-                {
-                    if (!string.IsNullOrEmpty(wordlistId))
-                    {
-                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, "Item references multiple wordlists.");
-                    }
-                    else
-                    {
-                        wordlistId = witId;
-                        wordlistBankkey = xmlRes.GetAttribute("bankkey");
-                    }
-
-                    mWordlistRefCounts.Increment(witId);
-                }
-            }
-
             // Compose lists of referenced term Indices and Names
             var termIndices = new List<int>();
             var terms = new List<string>();
@@ -1742,7 +1738,7 @@ namespace TabulateSmarterTestContentPackage
                 }
                 else
                 {
-                    foreach(var node in new XmlSubtreeEnumerable(contentNode))
+                    foreach (var node in new XmlSubtreeEnumerable(contentNode))
                     {
                         if (node.NodeType == XmlNodeType.CDATA)
                         {
@@ -1750,6 +1746,39 @@ namespace TabulateSmarterTestContentPackage
                             ValidateContentCData(it, termIndices, terms, html);
                         }
                     }
+                }
+            }
+
+            // Get the wordlist ID (and check for multiple instances)
+            string wordlistId = string.Empty;
+            string wordlistBankkey = string.Empty;
+            string xp = it.IsStimulus
+                ? "itemrelease/passage/resourceslist/resource[@type='wordList']"
+                : "itemrelease/item/resourceslist/resource[@type='wordList']";
+
+            foreach (XmlElement xmlRes in xml.SelectNodes(xp))
+            {
+                string witId = xmlRes.GetAttribute("id");
+                string witBankkey = xmlRes.GetAttribute("bankkey");
+                if (string.IsNullOrEmpty(witId) || string.IsNullOrEmpty(witBankkey))
+                {
+                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, "Item references blank wordList id or bankkey.");
+                }
+                else
+                {
+                    if (!string.IsNullOrEmpty(wordlistId))
+                    {
+                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, "Item references multiple wordlists.");
+                    }
+                    else
+                    {
+                        wordlistId = witId;
+                        wordlistBankkey = witBankkey;
+                    }
+
+                    // TODO: Update this to use an itemIdentifier so that bankKey is a factor
+                    // That will require modifying the extensions (Increment, Count, etc.) to work with key types other than string.
+                    mWordlistRefCounts.Increment(witId);
                 }
             }
 
@@ -2205,11 +2234,25 @@ namespace TabulateSmarterTestContentPackage
                 return;
             }
 
+            // Make sure this is a wordlist
+            if (!string.Equals(xml.XpEvalE("itemrelease/item/@type"), cItemTypeWordlist))
+            {
+                ReportingUtility.ReportError(itemIt, ErrorCategory.Item, ErrorSeverity.Severe, "WordList reference is to a non-wordList item.", $"referencedId='{ii.ItemId}'");
+                return;
+            }
+
             // Sanity check
-            if (!string.Equals(xml.XpEval("itemrelease/item/@id"), ii.ItemId.ToString())) throw new InvalidDataException("Item id mismatch on pass 2");
+            if (!string.Equals(xml.XpEvalE("itemrelease/item/@id"), ii.ItemId.ToString()))
+            {
+                ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Severe, "Wordlist file id mismatch.", $"wordListId='{xml.XpEval("itemrelease/item/@id")}' expected='{ii.ItemId}'");
+                return;
+            }
+
+            // Add this to the wordlist tabulation queue
+            mWordlistQueue.Add(ii);
 
             // Create a dictionary of attachment files
-            Dictionary<string, long> attachmentFiles = new Dictionary<string, long>();
+            Dictionary <string, long> attachmentFiles = new Dictionary<string, long>();
             foreach (FileFile fi in ff.Files)
             {
                 // If Audio or image file
