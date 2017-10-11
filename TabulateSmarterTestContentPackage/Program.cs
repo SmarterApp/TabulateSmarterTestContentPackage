@@ -33,7 +33,7 @@ Command Line Examples:
         Tabulates both ""MyElaPackage.zip"" and ""MyMathPackage.zip"" with
         separate results for each.
 
-    ""D:\Packages\MyElaPackage.zip"" -ids ""mathids.txt"" ""D:\Packages\MyMathPackage.zip""
+    ""D:\Packages\MyElaPackage.zip"" ""D:\Packages\MyMathPackage.zip"" -ids ""mathids.txt""
         Tabulates both ""MyElaPackage.zip"" and ""MyMathPackage.zip"" with
         separate results for each. In ""MyMathPackage.zip"" only the items
         with the ids listed in ""mathids.txt"" are included.
@@ -46,14 +46,16 @@ Command Line Examples:
         Tabulates the package represented by the ""MyElaPackage"" file
         folder.
 
-    -bank https://itembank.org -at hs3kwBlt8sorK9qwp8Wr
+    -bank https://itembank.org -at hs3kwBlt8sorK9qwp8Wr -o ""D:\Tabulations\ItemBank""
         Tabulates the entire contents of the specified item bank using
-        the corresponding access token.
+        the corresponding access token and stores the results in a set
+        of reports at ""D:\Tabulations\ItemBank"".
 
-    -ids ""myPullList.csv"" -bank https://itembank.org -at hs3kwBlt8sorK9qwp8Wr
+    -bank https://itembank.org -at hs3kwBlt8sorK9qwp8Wr -ids ""myPullList.csv"" -o ""ItemBank""
         Tabulates the items identifed by ids in ""myPullList.csv"" and stored
         in the item bank. Includes stimuli, wordlists, and tutorials
-        referenced by the items in the tabulation.
+        referenced by the items in the tabulation. Reports are placed
+        in the current directory with ""ItemBank"" for the prefix.
 
 Arguments:
     -a               Aggregate the results of all tabulations into one set of
@@ -64,10 +66,15 @@ Arguments:
     -bk <id>         The bankkey to use when one is not specfied in an id
                      file (see the -ids argument). If not included, the
                      default bankkey is 200.
-    -ids <filename>  Optional name of a file containing item IDs to be tabulated
-                     in the package that follows. If this file is not specfied
-                     then all items in the package will be tabulated. This
-                     argument may be repeated. (See below for details.)
+    -ids <filename>  Optional name of a file containing item IDs to be
+                     tabulated in the preceding package. If this file is not
+                     specfied then all items in the package will be tabulated.
+                     This argument may be repeated once for each package. (See
+                     below for details.)
+    -o <path>        The path prefix for the output (report) files of the
+                     preceding package. If not specified, defaults to the
+                     package file or directory name. Required when tabulating
+                     an item bank.
     <packageMoniker> The filename of a local package or the identifier of an
                      online item bank. (See below for details.)
     
@@ -87,7 +94,7 @@ Package Moniker
     acceptable in which case all matching packages will be tabulated. The
     package must have an 'imsmanifest.xml' file in the root.
 
-    Item Bank: An item bank moniker consists of four parts of which two are
+    Item Bank: An item bank moniker consists of three parts of which two are
     optional.
     -bank <url>           (Optional) The URL of the GitLab item bank from which
                           the items will be drawn. If not specified, defaults
@@ -97,14 +104,23 @@ Package Moniker
                           If not specified, defaults to ""itemreviewapp"".
     -at <token>           (Required) A GitLab access token valid on the item
                           bank. See below on how to generate the token.
-    -o <path>             (Required) The prefix to the output (report) files.
-                          Unlike .zip and Folder packages, the output
-                          path cannot be derived from the package moniker.
 
     You may specify multiple packages of any type and in any mix of types.
-    Each package may have an an associated Item IDs file (see the -ids
-    argument). If included, the IDs file must precede the moniker of the
+    Each package may have an an associated Item IDs file (-ids argument) and
+    each package may specify an output file prefix (-o argument). When
+    included, the IDs and output arguments must follow the moniker of the
     package.
+
+Access Token
+    To generate an item bank access token, do the following:
+    1. Log into the GitLab item bank.
+    2. Access your user profile (by clicking on your account icon in the upper-
+       right).
+    3. Edit your profile (by clicking on the pencil icon in the upper-right.
+    4. Select ""access tokens"" from the menu.
+    5. Give the token a name and expiration date. We recommend expiration no
+       no longer than 3 months. Select ""API"" for the scope. Then click
+       ""Create personal access token.""
 
 Aggregate Tabulation
     When multiple packages are specified, by default they are tabulated
@@ -150,15 +166,16 @@ Report Output
         <prefix>_GlossaryReport.csv   A comprehensive list of every glossary
                                       term in the package.
     
-    For .zip and Folder packages, the prefix is the name of the .zip file or
-    the folder. For example ""MyPackage_ItemReport.csv"".
+    For .zip and Folder packages, the default prefix is the name of the .zip
+    file or the folder. For example ""MyPackage_ItemReport.csv"". This may be
+    overridden using the -o argument.
 
-    For an item bank, the prefix is specified by the -o argument. For example,
-    ""ItemBank_ItemReport.csv"".
+    For an item bank, the prefix is always specified by the -o argument.
     
-    For aggregate reports, the prefix is the folder of the first package
-    in the list plus the word ""Aggregate"". For example,
-    ""Aggregate_ItemReport.csv"".
+    For aggregate reports, the default prefix is the folder of the first
+    package in the list plus the word ""Aggregate"". For example,
+    ""Aggregate_ItemReport.csv"". This may be overridden using the -o
+    argument.
 
 Validation Options:
     Validation options disable or enable the reporting of certain errors. Only
@@ -214,10 +231,31 @@ Error severity definitions:
 ";
 // 78 character margin                                                       |
 
-        const string cAggregatePrefix = "Aggregate";
+        class Operation
+        {
+            public string PackagePath;
+            public string BankUrl;
+            public string BankNamespace;
+            public string BankAccessToken;
+            public string IdFilename;
+            public string ReportPrefix;
+        }
+
+        const string c_DefaultBankUrl = "https://itembank.smarterbalanced.org";
+        const string c_DefaultBankNamespace = "itemreviewapp";
+        const int c_DefaultBankKey = 200;
+        const string c_AggregatePrefix = "Aggregate";
 
         public static ValidationOptions gValidationOptions = new ValidationOptions();
         public static Logger Logger = LogManager.GetCurrentClassLogger();
+
+        // Parsed command line
+        static List<Operation> s_operations = new List<Operation>();
+        static string s_aggregateReportPrefix = null;
+        static bool s_aggregate = false;
+        static bool s_showHelp = false;
+        static int s_bankKey = c_DefaultBankKey;
+
 
         private static void Main(string[] args)
         {
@@ -237,58 +275,7 @@ Error severity definitions:
 
             try
             {
-                var paths = new List<string>();
-                bool aggregate = false;
-                bool showHelp = false;
-                foreach (var arg in args)
-                {
-                    if (arg[0] == '-') // Option
-                    {
-                        switch (char.ToLower(arg[1]))
-                        {
-                            case 'a':
-                                aggregate = true;
-                                break;
-                            case 'h':
-                                showHelp = true;
-                                break;
-                            case 'v':
-                                if (arg[2] != '+' && arg[2] != '-')
-                                {
-                                    throw new ArgumentException("Invalid command-line option: " + arg);
-                                }
-                            {
-                                var key = arg.Substring(3).ToLowerInvariant();
-                                var value = arg[2] == '+';
-                                if (key.Equals("all", StringComparison.Ordinal))
-                                {
-                                    if (!value)
-                                    {
-                                        throw new ArgumentException(
-                                            "Invalid command-line option '-v-all'. Options must be disabled one at a time.");
-                                    }
-                                    gValidationOptions.EnableAll();
-                                }
-                                else
-                                {
-                                    gValidationOptions[key] = value;
-                                }
-                            }
-                                break;
-                            default:
-                                throw new ArgumentException("Unexpected command-line option: " + arg);
-                        }
-                    }
-                    else
-                    {
-                        string path = arg;
-                        if (!ValidatePath(ref path))
-                        {
-                            throw new ArgumentException("No match for path: " + arg);
-                        }
-                        paths.Add(arg);
-                    }
-                }
+                ParseCommandLine(args);
 
                 if (gValidationOptions.IsEnabled("asl"))
                 {
@@ -306,17 +293,17 @@ Error severity definitions:
                 Console.WriteLine(Enumerable.Repeat("-", 20).Aggregate((x, y) => $"{x}{y}"));
                 Console.WriteLine();
 
-                if (showHelp || paths.Count == 0)
+                if (s_showHelp || s_operations.Count == 0)
                 {
                     Console.WriteLine(cSyntax);
                 }
-                else if (aggregate)
+                else if (s_aggregate)
                 {
-                    TabulateAggregate(paths);
+                    TabulateAggregate();
                 }
                 else
                 {
-                    TabulateEach(paths);
+                    TabulateEach();
                 }
             }
             catch (Exception ex)
@@ -337,46 +324,163 @@ Error severity definitions:
             }
         }
 
-        static void TabulateEach(IReadOnlyList<string> paths)
+        static void ParseCommandLine(string[] args)
         {
-            foreach (var path in paths)
-            {
-                string directory = Path.GetDirectoryName(path);
-                string pattern = Path.GetFileName(path);
-                bool zip = path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
-                string[] packages;
-                if (zip)
-                {
-                    packages = Directory.GetFiles(directory, pattern, SearchOption.TopDirectoryOnly);
-                }
-                else
-                {
-                    packages = Directory.GetDirectories(directory, pattern, SearchOption.TopDirectoryOnly);
-                }
-                foreach (var package in packages)
-                {
-                    string reportPrefix = zip ? package.Substring(0, package.Length - 4) : package;
+            Operation bankOperation = null;
 
-                    using (var tab = new Tabulator(reportPrefix))
-                    {
-                        tab.Tabulate(package);
-                    }
+            for (int i = 0; i < args.Length; ++i)
+            {
+                string arg = args[i];
+                switch (arg)
+                {
+                    case "-a":
+                        s_aggregate = true;
+                        break;
+
+                    case "-h":
+                        s_showHelp = true;
+                        break;
+
+                    case "-bk":
+                        ++i;
+                        if (i > args.Length) throw new ArgumentException("No value specified for '-bk' command-line argument.");
+                        if (!int.TryParse(args[i], out s_bankKey)) throw new ArgumentException($"Value specified for '-bk' argument is not integer. ({args[i]})");
+                        break;
+
+                    case "-ids":
+                        ++i;
+                        if (i > args.Length) throw new ArgumentException("No value specified for '-ids' command-line argument.");
+                        if (!File.Exists(args[i])) throw new ArgumentException($"'-ids' file not found. ({args[i]})");
+                        EnqueueOperation(ref bankOperation); // Does nothing if there is no bank operation;
+                        if (s_operations.Count == 0) throw new ArgumentException("'-ids' argument must follow a package or bank identification.");
+                        if (s_operations.Last().IdFilename != null) throw new ArgumentException("Only one '-ids' argument may be specified per package.");
+                        s_operations.Last().IdFilename = args[i];
+                        break;
+
+                    case "-o":
+                        ++i;
+                        if (i > args.Length) throw new ArgumentException("No value specified for '-o' command-line argument.");
+                        {
+                            string path = args[i];
+                            if (!ValidateOutputPrefix(ref path)) throw new ArgumentException($"'-o' invalid filename or path not found. ({args[i]})");
+                            EnqueueOperation(ref bankOperation); // Does nothing if there is no bank operation;
+                            if (s_operations.Count == 0) throw new ArgumentException("'-o' argument must follow a package or bank identification.");
+                            if (s_operations.Last().ReportPrefix != null) throw new ArgumentException("Only one '-o' argument may be specified per package.");
+                            s_operations.Last().ReportPrefix = path;
+                            if (s_aggregateReportPrefix == null) s_aggregateReportPrefix = path;
+                        }
+                        break;
+
+                    case "-bank":
+                        ++i;
+                        if (i > args.Length) throw new ArgumentException("No value specified for '-bank' command-line argument.");
+                        {
+                            Uri uri;
+                            if (!Uri.TryCreate(args[i], UriKind.Absolute, out uri)) throw new ArgumentException($"Invalid bank URL '{args[i]}");
+                            if (bankOperation != null && bankOperation.BankUrl != null)
+                            {
+                                EnqueueOperation(ref bankOperation);
+                            }
+                            if (bankOperation == null) bankOperation = new Operation();
+                            bankOperation.BankUrl = uri.ToString();
+                        }
+                        break;
+
+                    case "-ns":
+                        ++i;
+                        if (i > args.Length) throw new ArgumentException("No value specified for '-ns' command-line argument.");
+                        if (bankOperation != null && bankOperation.BankNamespace != null)
+                        {
+                            EnqueueOperation(ref bankOperation);
+                        }
+                        if (bankOperation == null) bankOperation = new Operation();
+                        bankOperation.BankNamespace = args[i];
+                        break;
+
+                    case "-at":
+                        ++i;
+                        if (i > args.Length) throw new ArgumentException("No value specified for '-ns' command-line argument.");
+                        if (bankOperation != null && bankOperation.BankAccessToken != null)
+                        {
+                            EnqueueOperation(ref bankOperation);
+                        }
+                        if (bankOperation == null) bankOperation = new Operation();
+                        bankOperation.BankAccessToken = args[i];
+                        break;
+
+                    default:
+                        if (arg.StartsWith("-v", StringComparison.OrdinalIgnoreCase) && (arg[2] == '-' || arg[2] == '+'))
+                        {
+                            var key = arg.Substring(3).ToLowerInvariant();
+                            var value = arg[2] == '+';
+                            if (key.Equals("all", StringComparison.Ordinal))
+                            {
+                                if (!value)
+                                {
+                                    throw new ArgumentException(
+                                        "Invalid command-line option '-v-all'. Options must be disabled one at a time.");
+                                }
+                                gValidationOptions.EnableAll();
+                            }
+                            else
+                            {
+                                gValidationOptions[key] = value;
+                            }
+                        }
+                        else
+                        {
+                            EnqueueOperation(ref bankOperation); // Does nothing if there is no bank operation;
+                            string path = arg;
+                            if (!ValidatePackagePath(ref path))
+                            {
+                                throw new ArgumentException("No match for path: " + arg);
+                            }
+                            Operation operation = new Operation();
+                            operation.PackagePath = arg;
+                            EnqueueOperation(ref operation);
+                        }
+                        break;
                 }
-            }
+            } // for each argument
+
+            // If there's a pending bank operation enqueue it.
+            EnqueueOperation(ref bankOperation);
+
+            if (s_operations.Count == 0) throw new ArgumentException("No packages specified on the command line.");
         }
 
-        static void TabulateAggregate(IReadOnlyList<string> paths)
+        static void EnqueueOperation(ref Operation operation)
         {
-            string reportPrefix = Path.Combine(Path.GetDirectoryName(paths[0]), cAggregatePrefix);
-
-            using (var tab = new Tabulator(reportPrefix))
+            if (operation == null) return;
+            if (operation.PackagePath != null)
             {
-                foreach (var path in paths)
+                System.Diagnostics.Debug.Assert(operation.BankUrl == null);
+                System.Diagnostics.Debug.Assert(operation.BankNamespace == null);
+                System.Diagnostics.Debug.Assert(operation.BankAccessToken == null);
+            }
+            else
+            {
+                System.Diagnostics.Debug.Assert(operation.PackagePath == null);
+                if (operation.BankAccessToken == null) throw new ArgumentException("Item Bank requires '-at' AccessToken argument.");
+                if (operation.BankUrl == null) operation.BankUrl = c_DefaultBankUrl;
+                if (operation.BankNamespace == null) operation.BankNamespace = c_DefaultBankNamespace;
+            }
+            s_operations.Add(operation);
+            operation = null;
+        }
+
+        static void TabulateEach()
+        {
+            foreach (var operation in s_operations)
+            {
+                // Local package
+                if (operation.PackagePath != null)
                 {
-                    string directory = Path.GetDirectoryName(path);
-                    string pattern = Path.GetFileName(path);
+                    string directory = Path.GetDirectoryName(operation.PackagePath);
+                    string pattern = Path.GetFileName(operation.PackagePath);
+                    bool zip = operation.PackagePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
                     string[] packages;
-                    if (path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                    if (zip)
                     {
                         packages = Directory.GetFiles(directory, pattern, SearchOption.TopDirectoryOnly);
                     }
@@ -386,7 +490,86 @@ Error severity definitions:
                     }
                     foreach (var package in packages)
                     {
-                        tab.Tabulate(package);
+                        // Figure out the reporting prefix
+                        string reportPrefix;
+                        if (operation.ReportPrefix != null)
+                        {
+                            if (packages.Length > 1) // Wildcard
+                            {
+                                reportPrefix = string.Concat(operation.ReportPrefix, "_", zip ? Path.GetFileNameWithoutExtension(package) : Path.GetFileName(package));
+                            }
+                            else
+                            {
+                                reportPrefix = operation.ReportPrefix;
+                            }
+                        }
+                        else
+                        {
+                            reportPrefix = zip ? package.Substring(0, package.Length - 4) : package;
+                        }
+
+                        // Tabulate the package
+                        using (var tab = new Tabulator(reportPrefix))
+                        {
+                            tab.Tabulate(package);
+                        }
+                    }
+                }
+
+                // Item bank
+                else
+                {
+                    throw new NotImplementedException("Cannot yet tabulate an item bank.");
+                }
+            }
+        }
+
+        static void TabulateAggregate()
+        {
+            // Figure out the reporting prefix
+            string reportPrefix;
+            if (s_aggregateReportPrefix  != null)
+            {
+                reportPrefix = s_aggregateReportPrefix;
+            }
+            else
+            {
+                string packagePath = s_operations[0].PackagePath;
+                if (packagePath == null)
+                {
+                    throw new ArgumentException("Item bank tabulation must specify '-o' report prefix.");
+                }
+                reportPrefix = Path.Combine(Path.GetDirectoryName(packagePath), c_AggregatePrefix);
+            }
+
+            using (var tab = new Tabulator(reportPrefix))
+            {
+                foreach (var operation in s_operations)
+                {
+                    // Local package
+                    if (operation.PackagePath != null)
+                    {
+                        string directory = Path.GetDirectoryName(operation.PackagePath);
+                        string pattern = Path.GetFileName(operation.PackagePath);
+                        string[] packages;
+                        if (operation.PackagePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                        {
+                            packages = Directory.GetFiles(directory, pattern, SearchOption.TopDirectoryOnly);
+                        }
+                        else
+                        {
+                            packages = Directory.GetDirectories(directory, pattern, SearchOption.TopDirectoryOnly);
+                        }
+                        foreach (var package in packages)
+                        {
+                            tab.Tabulate(package);
+                        }
+                    }
+
+                    // Item bank package
+                    else
+                    {
+                        throw new NotImplementedException("Cannot yet tabulate an item bank.");
                     }
                 }
             }
@@ -394,7 +577,7 @@ Error severity definitions:
 
         // Returns true if at least one file or directory matches the path
         // Updates the path to a full path
-        static bool ValidatePath(ref string path)
+        static bool ValidatePackagePath(ref string path)
         {
             string directory = Path.GetFullPath(Path.GetDirectoryName(path));
             string filename = Path.GetFileName(path);
@@ -402,14 +585,38 @@ Error severity definitions:
             {
                 return false;
             }
-            if (Directory.GetFileSystemEntries(directory, filename, SearchOption.TopDirectoryOnly).Length <= 0)
+            if (filename.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
             {
-                return false;
+                if (Directory.GetFiles(directory, filename, SearchOption.TopDirectoryOnly).Length <= 0)
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                if (Directory.GetDirectories(directory, filename, SearchOption.TopDirectoryOnly).Length <= 0)
+                {
+                    return false;
+                }
             }
 
             path = Path.Combine(directory, filename);
             return true;
         }
+
+        // Returns true if the folder is valid and the file could be created
+        static bool ValidateOutputPrefix(ref string path)
+        {
+            string directory = Path.GetFullPath(Path.GetDirectoryName(path));
+            string fileprefix = Path.GetFileName(path);
+            if (!Directory.Exists(directory))
+            {
+                return false;
+            }
+            path = Path.Combine(directory, fileprefix);
+            return true;
+        }
+
     }
 
     internal class ValidationOptions : Dictionary<string, bool>
