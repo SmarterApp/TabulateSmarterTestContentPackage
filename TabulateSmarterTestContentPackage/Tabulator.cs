@@ -17,7 +17,7 @@ using TabulateSmarterTestContentPackage.Validators;
 
 namespace TabulateSmarterTestContentPackage
 {
-    public class Tabulator
+    public class Tabulator : IDisposable
     {
 
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
@@ -44,23 +44,6 @@ namespace TabulateSmarterTestContentPackage
             "vietnameseGlossary"
         };
         static int sExpectedTranslationsBitflags;
-
-        public Tabulator()
-        {
-            sXmlNt = new NameTable();
-            sXmlNs = new XmlNamespaceManager(sXmlNt);
-            sXmlNs.AddNamespace("sa", "http://www.smarterapp.org/ns/1/assessment_item_metadata");
-            sXmlNs.AddNamespace("xsi", "http://www.w3.org/2001/XMLSchema-instance");
-            sXmlNs.AddNamespace("ims", "http://www.imsglobal.org/xsd/apip/apipv1p0/imscp_v1p1");
-
-            sExpectedTranslationsIndex = new Dictionary<string, int>(sExpectedTranslations.Length);
-            sExpectedTranslationsBitflags = 0;
-            for (var i = 0; i < sExpectedTranslations.Length; ++i)
-            {
-                sExpectedTranslationsIndex.Add(sExpectedTranslations[i], i);
-                sExpectedTranslationsBitflags |= (1 << i);
-            }
-        }
 
         const string cStimulusInteractionType = "Stimulus";
 
@@ -95,16 +78,6 @@ namespace TabulateSmarterTestContentPackage
         const string cGlossaryReportFn = "GlossaryReport.csv";
         const string cErrorReportFn = "ErrorReport.csv";
 
-
-        int mItemCount = 0;
-        int mWordlistCount = 0;
-        int mStimCount = 0;
-        int mGlossaryTermCount = 0;
-        Dictionary<string, int> mTypeCounts = new Dictionary<string, int>();
-        Dictionary<string, int> mTermCounts = new Dictionary<string, int>();
-        Dictionary<string, int> mTranslationCounts = new Dictionary<string, int>();
-        Dictionary<string, int> mAnswerKeyCounts = new Dictionary<string, int>();
-
         // Per Package variables
         string mPackageName { get; set; }
         FileFolder mPackageFolder;
@@ -118,86 +91,69 @@ namespace TabulateSmarterTestContentPackage
 
         // Per report variables
         int mStartTicks;
+        int mItemCount = 0;
+        int mWordlistCount = 0;
+        int mStimCount = 0;
+        int mGlossaryTermCount = 0;
+        Dictionary<string, int> mTypeCounts = new Dictionary<string, int>();
+        Dictionary<string, int> mTermCounts = new Dictionary<string, int>();
+        Dictionary<string, int> mTranslationCounts = new Dictionary<string, int>();
+        Dictionary<string, int> mAnswerKeyCounts = new Dictionary<string, int>();
         TextWriter mItemReport;
         TextWriter mStimulusReport;
         TextWriter mWordlistReport;
         TextWriter mGlossaryReport;
         TextWriter mSummaryReport;
 
-        // Individually tabulate each package in the list
-        public void TabulateEach(IReadOnlyCollection<string> paths)
+        public Tabulator(string reportPathPrefix)
         {
-            foreach(var path in paths)
+            sXmlNt = new NameTable();
+            sXmlNs = new XmlNamespaceManager(sXmlNt);
+            sXmlNs.AddNamespace("sa", "http://www.smarterapp.org/ns/1/assessment_item_metadata");
+            sXmlNs.AddNamespace("xsi", "http://www.w3.org/2001/XMLSchema-instance");
+            sXmlNs.AddNamespace("ims", "http://www.imsglobal.org/xsd/apip/apipv1p0/imscp_v1p1");
+
+            sExpectedTranslationsIndex = new Dictionary<string, int>(sExpectedTranslations.Length);
+            sExpectedTranslationsBitflags = 0;
+            for (var i = 0; i < sExpectedTranslations.Length; ++i)
             {
-                string directory = Path.GetDirectoryName(path);
-                string pattern = Path.GetFileName(path);
-                if (pattern.EndsWith(".zip"))
+                sExpectedTranslationsIndex.Add(sExpectedTranslations[i], i);
+                sExpectedTranslationsBitflags |= (1 << i);
+            }
+
+            Initialize(reportPathPrefix);
+        }
+
+        public void Dispose()
+        {
+            Conclude();
+        }
+
+        public void Tabulate(string path)
+        {
+            string packageName = Path.GetFileName(path);
+
+            Console.WriteLine("Tabulating " + packageName);
+            try
+            {
+                if (path.EndsWith(".zip"))
                 {
-                    foreach (var filename in Directory.GetFiles(directory, pattern, SearchOption.TopDirectoryOnly))
+                    using (var tree = new ZipFileTree(path))
                     {
-                        try
-                        {
-                            Initialize(filename.Substring(0, filename.Length - 4));
-                            TabulateZipPackage(filename);
-                        }
-                        finally
-                        {
-                            Conclude();
-                        }
+                        TabulatePackage(packageName, tree);
                     }
                 }
                 else
                 {
-                    foreach (var filename in Directory.GetDirectories(directory, pattern, SearchOption.TopDirectoryOnly))
-                    {
-                        try
-                        {
-                            Initialize(filename);
-                            TabulateFsPackage(filename);
-                        }
-                        finally
-                        {
-                            Conclude();
-                        }
-                    }
+                    var tree = new FsFolder(path);
+                    TabulatePackage(packageName, tree);
+
                 }
             }
-        }
-
-        // Tabulate packages in the list and aggregate the results
-        public void TabulateAggregate(IReadOnlyList<string> paths)
-        {
-            try
+            catch (Exception err)
             {
-                // The aggregate report goes in the folder of the first package in the list.
-                string reportPrefix = Path.Combine(Path.GetDirectoryName(paths[0]), "Aggregate");
-
-                Initialize(reportPrefix);
-
-                foreach (var path in paths)
-                {
-                    string directory = Path.GetDirectoryName(path);
-                    string pattern = Path.GetFileName(path);
-                    if (pattern.EndsWith(".zip"))
-                    {
-                        foreach(var filename in Directory.GetFiles(directory, pattern, SearchOption.TopDirectoryOnly))
-                        {
-                            TabulateZipPackage(filename);
-                        }
-                    }
-                    else
-                    {
-                        foreach(var directoryname in Directory.GetDirectories(directory, pattern, SearchOption.TopDirectoryOnly))
-                        {
-                            TabulateFsPackage(directoryname);
-                        }
-                    }
-                }
-
-            }
-            finally
-            {
-                Conclude();
+                Console.WriteLine("   Exception: " + err.Message);
+                ReportingUtility.ReportError(string.Empty, ErrorCategory.Exception, ErrorSeverity.Severe, err.Message);
             }
         }
 
@@ -281,40 +237,6 @@ namespace TabulateSmarterTestContentPackage
                     mGlossaryReport = null;
                 }
                 ReportingUtility.CloseReport();
-            }
-        }
-
-        void TabulateZipPackage(string path)
-        {
-            string packageName = Path.GetFileName(path);
-            Console.WriteLine("Tabulating " + packageName);
-            try
-            {
-                using (var tree = new ZipFileTree(path))
-                {
-                    TabulatePackage(packageName, tree);
-                }
-            }
-            catch (Exception err)
-            {
-                Console.WriteLine("   Exception: " + err.Message);
-                ReportingUtility.ReportError(string.Empty, ErrorCategory.Exception, ErrorSeverity.Severe, err.Message);
-            }
-        }
-
-        void TabulateFsPackage(string path)
-        {
-            string packageName = Path.GetFileName(path);
-            Console.WriteLine("Tabulating " + packageName);
-            try
-            {
-                var tree = new FsFolder(path);
-                TabulatePackage(packageName, tree);
-            }
-            catch (Exception err)
-            {
-                Console.WriteLine("   Exception: " + err.Message);
-                ReportingUtility.ReportError(string.Empty, ErrorCategory.Exception, ErrorSeverity.Severe, err.Message);
             }
         }
 

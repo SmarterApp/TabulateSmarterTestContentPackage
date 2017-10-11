@@ -12,43 +12,158 @@ namespace TabulateSmarterTestContentPackage
     {
 // 78 character margin                                                       |
         private const string cSyntax =
-@"Syntax: TabulateSmarterTestContentPackage [options] <path> [path]
+@"Syntax: TabulateSmarterTestContentPackage [options] [-ids <filename>] <packageMoniker> ...
 
-Options:
+Command Line Examples:
+    ""D:\Packages\MyPackage.zip""
+        Tabulates the test package contained in ""MyPackage.zip"" reports are
+        ""MyPackage_SummaryReport.txt"", ""MyPackage_ItemReport.csv"" and so
+        forth.
+
+    ""D:\Packages\*.zip""
+        Tabulates all "".zip"" test packages in the ""D:\Packages"" folder.
+
+    -a ""D:\Packages\*.zip""
+        Tabulates all "".zip"" test packages in teh ""D:\Packages"" folder
+        and aggregates the results into one set of reports. The names being
+        ""Aggregate_SummaryReport.txt"", ""Aggregate_ItemReport.csv"" and so
+        forth.
+
+    ""D:\Packages\MyElaPackage.zip"" ""D:\Packages\MyMathPackage.zip""
+        Tabulates both ""MyElaPackage.zip"" and ""MyMathPackage.zip"" with
+        separate results for each.
+
+    ""D:\Packages\MyElaPackage.zip"" -ids ""mathids.txt"" ""D:\Packages\MyMathPackage.zip""
+        Tabulates both ""MyElaPackage.zip"" and ""MyMathPackage.zip"" with
+        separate results for each. In ""MyMathPackage.zip"" only the items
+        with the ids listed in ""mathids.txt"" are included.
+
+    -a ""D:\Packages\MyElaPackage.zip"" ""D:\Packages\MyMathPackage.zip""
+        Tabulates both packages and aggregates the results into one set
+        of reports.
+
+    ""D:\Packages\MyElaPackage""
+        Tabulates the package represented by the ""MyElaPackage"" file
+        folder.
+
+    -bank https://itembank.org -at hs3kwBlt8sorK9qwp8Wr
+        Tabulates the entire contents of the specified item bank using
+        the corresponding access token.
+
+    -ids ""myPullList.csv"" -bank https://itembank.org -at hs3kwBlt8sorK9qwp8Wr
+        Tabulates the items identifed by ids in ""myPullList.csv"" and stored
+        in the item bank. Includes stimuli, wordlists, and tutorials
+        referenced by the items in the tabulation.
+
+Arguments:
     -a               Aggregate the results of all tabulations into one set of
                      reports.
     -v-<opt>         Disable a particular validation option (see below)
     -v+<opt>         Enable a particular validation option
     -h               Display this help text
+    -bk <id>         The bankkey to use when one is not specfied in an id
+                     file (see the -ids argument). If not included, the
+                     default bankkey is 200.
+    -ids <filename>  Optional name of a file containing item IDs to be tabulated
+                     in the package that follows. If this file is not specfied
+                     then all items in the package will be tabulated. This
+                     argument may be repeated. (See below for details.)
+    <packageMoniker> The filename of a local package or the identifier of an
+                     online item bank. (See below for details.)
+    
+Package Moniker
+    Local Packages may be in .zip format, or unpacked into a folder tree.
+    Tabulating an online item bank using GitLab is also supported.
 
-Packages are typically delivered in .zip format. The tabulator can operate on
-the package in its .zip form or unpacked into a directory tree. In either
-case, the package is recognized by the presence of 'imsmanifest.xml' in the
-root folder of the package. If necessary, an empty file may be used for
-imsmanifest.xml.
+    .zip package: A .zip package is a content package collected into a .zip
+    file. The moniker is the filename (or complete path) of the .zip file.
+    Wildcards (* and ?) are acceptable in which case all matching packages
+    will be tabulated. The .zip package must have an 'imsmanifext.xml' file
+    in the root.
 
-When tabulating a single package, the path should be to the .zip file or to
-the root folder of an unpacked package. When tabulating multiple packages
-you may use wildcards in the path and/or specify multiple paths on the
-commandline.
+    Folder Package: A content package may be unpacked into a file system
+    folder tree and tabulated that way. The moniker is the name (or complete
+    path) of the root folder of the package. Wildcards (* and ?) are
+    acceptable in which case all matching packages will be tabulated. The
+    package must have an 'imsmanifest.xml' file in the root.
 
-If multiple paths are included on the command line, the output filenames
-(using the -s or -a option) the path should be to the folder containing
-the packages (in .zip or unpacked form). When tabulating multiple packages
-the packages are recognized by the presence of imsmanifest.xml.
+    Item Bank: An item bank moniker consists of four parts of which two are
+    optional.
+    -bank <url>           (Optional) The URL of the GitLab item bank from which
+                          the items will be drawn. If not specified, defaults
+                          to ""https://itembank.smarterbalanced.org"".
+    -ns <namespace>       (Optional) The GitLab namespace to which the items
+                          belong. This should be a username or a group name.
+                          If not specified, defaults to ""itemreviewapp"".
+    -at <token>           (Required) A GitLab access token valid on the item
+                          bank. See below on how to generate the token.
+    -o <path>             (Required) The prefix to the output (report) files.
+                          Unlike .zip and Folder packages, the output
+                          path cannot be derived from the package moniker.
 
-Reports are a set of .csv files and one .txt file that are placed in the same
-directory as the .zip or package folder. Names are prefixed with the name of
-the package. For example, 'MyContentPackage_ItemReport.csv'.
+    You may specify multiple packages of any type and in any mix of types.
+    Each package may have an an associated Item IDs file (see the -ids
+    argument). If included, the IDs file must precede the moniker of the
+    package.
 
-When the -a (aggregate) option is used, the reports will be prefixed with
-'Aggregate' and will be placed in teh same folder as the first path specified
-on the command line. For example, 'Aggregate_ItemReport.csv'.
+Aggregate Tabulation
+    When multiple packages are specified, by default they are tabulated
+    individually - each with its own set of reports. The aggregate option
+    (-a) tabulates all of the packages and aggregates the results into one set
+    of reports.
 
-Validation options disable or enable the reporting of certain errors. Only a
-subset of errors can be controlled this way.
+Item ID File:
+    The optional Item ID file, specified by the '-ids' argument, is a list of
+    IDs for items that should be included in the tabulation. It may be a flat
+    list or in CSV format.
+
+    Flat List Format:
+    In this format there is one item ID per line. IDs may be the bare number
+    (e.g. ""12345"") or they may be the full item name including
+    the ""Item-"" prefix(e.g. ""item-200-12345""). If the ID is a bare number
+    than the bank key specified by the ""-bk"" parameter or default of ""200""
+    will be used.
+
+    CSV Format:
+    A CSV file should comply with RFC 4180. The first line should be a list of
+    field names. One column MUST be named ""ItemId"" and it will be the source
+    of the item ids. Another column MAY be named ""BankKey"". If so, it will be
+    the source of bank keys. If not included, the default bank key (either 200
+    or the value specified in the ""-bk"") will be used. As with flat list
+    format, the item ID may be a bare integer or a full name including prefix.
+
+    Specifying a Stimulus:
+    Normally, stimuli are automatically included when an item is specified
+    that depends on that stimulus. However, a stimulus may be explicitly
+    included by using the full name (e.g. ""stim-200-6789"". This applies to
+    both Flat List and CSV formats.
+
+Report Output
+    The tabulator generates six reports:
+        <prefix>_SummaryReport.txt    Summary information including
+                                      counts of items, errors, etc.
+        <prefix>_ItemReport.csv       Items including key metadata.
+        <prefix>_StimulusReport.csv   Stimuli including key metadata.
+        <prefix>_ErrorReport.csv      Item and stimulus validation errors.
+        <prefix>_WordlistReport.csv   All wordLists including glossary term
+                                      counts.
+        <prefix>_GlossaryReport.csv   A comprehensive list of every glossary
+                                      term in the package.
+    
+    For .zip and Folder packages, the prefix is the name of the .zip file or
+    the folder. For example ""MyPackage_ItemReport.csv"".
+
+    For an item bank, the prefix is specified by the -o argument. For example,
+    ""ItemBank_ItemReport.csv"".
+    
+    For aggregate reports, the prefix is the folder of the first package
+    in the list plus the word ""Aggregate"". For example,
+    ""Aggregate_ItemReport.csv"".
 
 Validation Options:
+    Validation options disable or enable the reporting of certain errors. Only
+    a subset of validations can be controlled this way.
+
     -v-pmd  Passage Manifest Dependency: An item that depends on a passage
             should have that dependency represented in the manifest. This
             option disables checking for that dependency.
@@ -98,6 +213,8 @@ Error severity definitions:
                item then it is benign.
 ";
 // 78 character margin                                                       |
+
+        const string cAggregatePrefix = "Aggregate";
 
         public static ValidationOptions gValidationOptions = new ValidationOptions();
         public static Logger Logger = LogManager.GetCurrentClassLogger();
@@ -189,18 +306,17 @@ Error severity definitions:
                 Console.WriteLine(Enumerable.Repeat("-", 20).Aggregate((x, y) => $"{x}{y}"));
                 Console.WriteLine();
 
-                var tab = new Tabulator();
                 if (showHelp || paths.Count == 0)
                 {
                     Console.WriteLine(cSyntax);
                 }
                 else if (aggregate)
                 {
-                    tab.TabulateAggregate(paths);
+                    TabulateAggregate(paths);
                 }
                 else
                 {
-                    tab.TabulateEach(paths);
+                    TabulateEach(paths);
                 }
             }
             catch (Exception ex)
@@ -218,6 +334,61 @@ Error severity definitions:
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.Write("Press any key to exit.");
                 Console.ReadKey(true);
+            }
+        }
+
+        static void TabulateEach(IReadOnlyList<string> paths)
+        {
+            foreach (var path in paths)
+            {
+                string directory = Path.GetDirectoryName(path);
+                string pattern = Path.GetFileName(path);
+                bool zip = path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
+                string[] packages;
+                if (zip)
+                {
+                    packages = Directory.GetFiles(directory, pattern, SearchOption.TopDirectoryOnly);
+                }
+                else
+                {
+                    packages = Directory.GetDirectories(directory, pattern, SearchOption.TopDirectoryOnly);
+                }
+                foreach (var package in packages)
+                {
+                    string reportPrefix = zip ? package.Substring(0, package.Length - 4) : package;
+
+                    using (var tab = new Tabulator(reportPrefix))
+                    {
+                        tab.Tabulate(package);
+                    }
+                }
+            }
+        }
+
+        static void TabulateAggregate(IReadOnlyList<string> paths)
+        {
+            string reportPrefix = Path.Combine(Path.GetDirectoryName(paths[0]), cAggregatePrefix);
+
+            using (var tab = new Tabulator(reportPrefix))
+            {
+                foreach (var path in paths)
+                {
+                    string directory = Path.GetDirectoryName(path);
+                    string pattern = Path.GetFileName(path);
+                    string[] packages;
+                    if (path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                    {
+                        packages = Directory.GetFiles(directory, pattern, SearchOption.TopDirectoryOnly);
+                    }
+                    else
+                    {
+                        packages = Directory.GetDirectories(directory, pattern, SearchOption.TopDirectoryOnly);
+                    }
+                    foreach (var package in packages)
+                    {
+                        tab.Tabulate(package);
+                    }
+                }
             }
         }
 
