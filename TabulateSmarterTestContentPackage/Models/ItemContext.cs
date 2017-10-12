@@ -120,6 +120,19 @@ namespace TabulateSmarterTestContentPackage.Models
             return true;
         }
 
+        public static bool TryParse(string str, int defaultBankKey, out ItemIdentifier value)
+        {
+            int id;
+            if (int.TryParse(str, out id))
+            {
+                value = new ItemIdentifier(c_itemPrefix, defaultBankKey, id);
+                return true;
+            }
+
+            return TryParse(str, out value);
+        }
+
+
         public static ItemIdentifier Parse(string value)
         {
             ItemIdentifier ii;

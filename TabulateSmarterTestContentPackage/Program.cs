@@ -511,6 +511,10 @@ Error severity definitions:
                         // Tabulate the package
                         using (var tab = new Tabulator(reportPrefix))
                         {
+                            if (operation.IdFilename != null)
+                            {
+                                tab.SelectItems(new IdReadable(operation.IdFilename, c_DefaultBankKey));
+                            }
                             tab.Tabulate(package);
                         }
                     }
@@ -562,6 +566,10 @@ Error severity definitions:
                         }
                         foreach (var package in packages)
                         {
+                            if (operation.IdFilename != null)
+                            {
+                                tab.SelectItems(new IdReadable(operation.IdFilename, c_DefaultBankKey));
+                            }
                             tab.Tabulate(package);
                         }
                     }

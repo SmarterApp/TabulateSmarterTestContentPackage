@@ -129,6 +129,21 @@ namespace TabulateSmarterTestContentPackage
             Conclude();
         }
 
+        public void SelectItems(IEnumerable<ItemIdentifier> itemIds)
+        {
+            foreach(var ii in itemIds)
+            {
+                if (ii.IsStimulus)
+                {
+                    mStimQueue.Add(ii);
+                }
+                else
+                {
+                    mItemQueue.Add(ii);
+                }
+            }
+        }
+
         public void Tabulate(string path)
         {
             string packageName = Path.GetFileName(path);
@@ -257,10 +272,6 @@ namespace TabulateSmarterTestContentPackage
             mPackageFolder = packageFolder;
             mFilenameToResourceId.Clear();
             mResourceDependencies.Clear();
-            mItemQueue.Clear();
-            mStimQueue.Clear();
-            mWordlistQueue.Clear();
-            mTutorialQueue.Clear();
             mWordlistRefCounts.Clear();
 
             // Validate manifest
@@ -273,8 +284,15 @@ namespace TabulateSmarterTestContentPackage
                 ReportingUtility.ReportError(string.Empty, ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
             }
 
-            // Select the items to be tablulated
-            SelectItems();
+            // Select the items to be tablulated (if a specific set was not already given)
+            if (mItemQueue.Count == 0 && mStimQueue.Count == 0)
+            {
+                SelectItems();
+            }
+            else
+            {
+                Console.WriteLine($"   Preselected {mItemQueue.Count} items and {mStimQueue.Count} stimuli.");
+            }
 
             // Process Items
             mItemQueue.Sort();
@@ -337,6 +355,12 @@ namespace TabulateSmarterTestContentPackage
             var elapsedTicks = unchecked((uint)Environment.TickCount - (uint)startTicks);
             Console.WriteLine("   Package time: {0}.{1:d3} seconds", elapsedTicks / 1000, elapsedTicks % 1000);
             mSummaryReport.WriteLine("{0}: {1}.{2:d3} seconds", mPackageName, elapsedTicks / 1000, elapsedTicks % 1000);
+
+            // Clear the queues
+            mItemQueue.Clear();
+            mStimQueue.Clear();
+            mWordlistQueue.Clear();
+            mTutorialQueue.Clear();
         }
 
         private void SelectItems()
@@ -463,6 +487,13 @@ namespace TabulateSmarterTestContentPackage
                 return;
             }
 
+            // If tutorial, transfer to the tutorial queue
+            if (ii.ItemType.Equals(cItemTypeTutorial))
+            {
+                mTutorialQueue.Add(ii);
+                return;
+            }
+
             // Count the item
             ++mItemCount;
             mTypeCounts.Increment(itemType);
@@ -491,11 +522,6 @@ namespace TabulateSmarterTestContentPackage
                 case "SIM":         // Simulation
                     ReportingUtility.ReportError(it, ErrorCategory.Unsupported, ErrorSeverity.Severe, "Item type is not fully supported by the open source TDS.", "itemType='{0}'", it.ItemType);
                     TabulateInteraction(it);
-                    break;
-
-                case cItemTypeTutorial:         // Tutorial
-                    ii.ItemType = cItemTypeTutorial;
-                    mTutorialQueue.Add(ii);
                     break;
 
                 default:
@@ -1088,7 +1114,7 @@ namespace TabulateSmarterTestContentPackage
                     else
                     {
                         // Queue this up (if it isn't already)
-                        mItemQueue.Add(new ItemIdentifier(cItemTypeTutorial, bankKey, tutorialId));
+                        mTutorialQueue.Add(new ItemIdentifier(cItemTypeTutorial, bankKey, tutorialId));
                     }
 
                     // Make sure dependency is recorded in manifest
@@ -1191,6 +1217,10 @@ namespace TabulateSmarterTestContentPackage
         
         void TabulateTutorial(ItemIdentifier ii)
         {
+            // Count the item
+            ++mItemCount;
+            mTypeCounts.Increment(cItemTypeTutorial);
+
             var it = new ItemContext(mPackageName, mPackageFolder, ii);
 
             // Read the item XML
