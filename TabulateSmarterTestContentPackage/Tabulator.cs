@@ -79,8 +79,7 @@ namespace TabulateSmarterTestContentPackage
         const string cErrorReportFn = "ErrorReport.csv";
 
         // Per Package variables
-        string mPackageName { get; set; }
-        FileFolder mPackageFolder;
+        TestPackage mPackage;
         Dictionary<string, string> mFilenameToResourceId = new Dictionary<string, string>();
         HashSet<string> mResourceDependencies = new HashSet<string>();
         DistinctList<ItemIdentifier> mItemQueue = new DistinctList<ItemIdentifier>();
@@ -141,34 +140,6 @@ namespace TabulateSmarterTestContentPackage
                 {
                     mItemQueue.Add(ii);
                 }
-            }
-        }
-
-        public void Tabulate(string path)
-        {
-            string packageName = Path.GetFileName(path);
-
-            Console.WriteLine("Tabulating " + packageName);
-            try
-            {
-                if (path.EndsWith(".zip"))
-                {
-                    using (var tree = new ZipFileTree(path))
-                    {
-                        TabulatePackage(packageName, tree);
-                    }
-                }
-                else
-                {
-                    var tree = new FsFolder(path);
-                    TabulatePackage(packageName, tree);
-
-                }
-            }
-            catch (Exception err)
-            {
-                Console.WriteLine("   Exception: " + err.Message);
-                ReportingUtility.ReportError(string.Empty, ErrorCategory.Exception, ErrorSeverity.Severe, err.Message);
             }
         }
 
@@ -255,173 +226,116 @@ namespace TabulateSmarterTestContentPackage
             }
         }
 
-        void TabulatePackage(string packageName, FileFolder packageFolder)
+        public void Tabulate(TestPackage package)
         {
-            var startTicks = Environment.TickCount;
-            mPackageName = packageName;
-            ReportingUtility.CurrentPackageName = mPackageName;
-
-            if (!packageFolder.FileExists(cImsManifest))
-            {
-                Console.WriteLine($"   Not a content package; '{cImsManifest}' must exist in root.");
-                ReportingUtility.ReportError(string.Empty, ErrorCategory.Exception, ErrorSeverity.Severe, $"Not a content package; '{cImsManifest}' must exist in root.");
-                return;
-            }
-
-            // Initialize package-specific collections
-            mPackageFolder = packageFolder;
-            mFilenameToResourceId.Clear();
-            mResourceDependencies.Clear();
-            mWordlistRefCounts.Clear();
-
-            // Validate manifest
+            Console.WriteLine("Tabulating " + package.Name);
             try
             {
-                ValidateManifest();
-            }
-            catch (Exception err)
-            {
-                ReportingUtility.ReportError(string.Empty, ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
-            }
+                var startTicks = Environment.TickCount;
+                ReportingUtility.CurrentPackageName = package.Name;
 
-            // Select the items to be tablulated (if a specific set was not already given)
-            if (mItemQueue.Count == 0 && mStimQueue.Count == 0)
-            {
-                SelectItems();
-            }
-            else
-            {
-                Console.WriteLine($"   Preselected {mItemQueue.Count} items and {mStimQueue.Count} stimuli.");
-            }
+                // Initialize package-specific collections
+                mPackage = package;
+                mFilenameToResourceId.Clear();
+                mResourceDependencies.Clear();
+                mWordlistRefCounts.Clear();
 
-            // Process Items
-            mItemQueue.Sort();
-            foreach(var ii in mItemQueue)
-            {
-                try
+                // Validate the manifest (if it exists)
                 {
-                    TabulateItem(ii);
-                }
-                catch (Exception err)
-                {
-                    ReportingUtility.ReportError(ii, ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
-                }
-            }
-
-            // Process stimuli
-            mStimQueue.Sort();
-            foreach (var ii in mStimQueue)
-            {
-                try
-                {
-                    TabulateStimulus(ii);
-                }
-                catch (Exception err)
-                {
-                    ReportingUtility.ReportError(ii, ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
-                }
-            }
-
-            // Process WordLists
-            mWordlistQueue.Sort();
-            foreach (var ii in mWordlistQueue)
-            {
-                try
-                {
-                    TabulateWordList(ii);
-                }
-                catch (Exception err)
-                {
-                    ReportingUtility.ReportError(ii, ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
-                }
-            }
-
-            // Process Tutorials (we handle these separately because they are dependent on items)
-            mTutorialQueue.Sort();
-            foreach (var ii in mTutorialQueue)
-            {
-                try
-                {
-                    TabulateTutorial(ii);
-                }
-                catch (Exception err)
-                {
-                    ReportingUtility.ReportError(ii, ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
-                }
-            }
-
-            ReportingUtility.CurrentPackageName = null;
-
-            var elapsedTicks = unchecked((uint)Environment.TickCount - (uint)startTicks);
-            Console.WriteLine("   Package time: {0}.{1:d3} seconds", elapsedTicks / 1000, elapsedTicks % 1000);
-            mSummaryReport.WriteLine("{0}: {1}.{2:d3} seconds", mPackageName, elapsedTicks / 1000, elapsedTicks % 1000);
-
-            // Clear the queues
-            mItemQueue.Clear();
-            mStimQueue.Clear();
-            mWordlistQueue.Clear();
-            mTutorialQueue.Clear();
-        }
-
-        private void SelectItems()
-        {
-            // Select items
-            FileFolder ffItems;
-            if (mPackageFolder.TryGetFolder("Items", out ffItems))
-            {
-                foreach (FileFolder ffItem in ffItems.Folders)
-                {
-                    try
+                    FileFolder rootFolder;
+                    if (package.TryGetItem(null, out rootFolder))   // Retrieves the root folder if the package has one
                     {
-                        SelectItem(ffItem);
-                    }
-                    catch (Exception err)
-                    {
-                        ReportingUtility.ReportError(ffItem, ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
+                        // Validate manifest
+                        if (!ValidateManifest(rootFolder))
+                        {
+                            return; // Not a valid package
+                        }
                     }
                 }
-            }
 
-            // Select stimuli
-            if (mPackageFolder.TryGetFolder("Stimuli", out ffItems))
-            {
-                foreach (var ffItem in ffItems.Folders)
+                // Select the items to be tablulated (if a specific set was not already given)
+                if (mItemQueue.Count == 0 && mStimQueue.Count == 0)
                 {
-                    try
-                    {
-                        SelectItem(ffItem);
-                    }
-                    catch (Exception err)
-                    {
-                        ReportingUtility.ReportError(ffItem, ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
-                    }
-                }
-            }
-        }
-
-        private void SelectItem(FileFolder ffItem)
-        {
-            ItemIdentifier ii;
-            if (ItemIdentifier.TryParse(ffItem.Name, out ii))
-            {
-                if (ii.IsStimulus)
-                {
-                    if (!mStimQueue.Add(ii))
-                    {
-                        ReportingUtility.ReportError(ii, ErrorCategory.Item, ErrorSeverity.Benign, "Stimulus ID is repeated multiple time in input.");
-                    }
+                    SelectItems(package.ItemsAndStimuli);
+                    Console.WriteLine($"   Selected {mItemQueue.Count} items and {mStimQueue.Count} stimuli.");
                 }
                 else
                 {
-                    if (!mItemQueue.Add(ii))
+                    Console.WriteLine($"   Preselected {mItemQueue.Count} items and {mStimQueue.Count} stimuli.");
+                }
+
+                // Process Items
+                mItemQueue.Sort();
+                foreach (var ii in mItemQueue)
+                {
+                    try
                     {
-                        ReportingUtility.ReportError(ii, ErrorCategory.Item, ErrorSeverity.Benign, "Item ID is repeated multiple time in input.");
+                        TabulateItem(ii);
+                    }
+                    catch (Exception err)
+                    {
+                        ReportingUtility.ReportError(ii, ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
                     }
                 }
+
+                // Process stimuli
+                mStimQueue.Sort();
+                foreach (var ii in mStimQueue)
+                {
+                    try
+                    {
+                        TabulateStimulus(ii);
+                    }
+                    catch (Exception err)
+                    {
+                        ReportingUtility.ReportError(ii, ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
+                    }
+                }
+
+                // Process WordLists
+                mWordlistQueue.Sort();
+                foreach (var ii in mWordlistQueue)
+                {
+                    try
+                    {
+                        TabulateWordList(ii);
+                    }
+                    catch (Exception err)
+                    {
+                        ReportingUtility.ReportError(ii, ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
+                    }
+                }
+
+                // Process Tutorials (we handle these separately because they are dependent on items)
+                mTutorialQueue.Sort();
+                foreach (var ii in mTutorialQueue)
+                {
+                    try
+                    {
+                        TabulateTutorial(ii);
+                    }
+                    catch (Exception err)
+                    {
+                        ReportingUtility.ReportError(ii, ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
+                    }
+                }
+
+                ReportingUtility.CurrentPackageName = null;
+
+                var elapsedTicks = unchecked((uint)Environment.TickCount - (uint)startTicks);
+                Console.WriteLine("   Package time: {0}.{1:d3} seconds", elapsedTicks / 1000, elapsedTicks % 1000);
+                mSummaryReport.WriteLine("{0}: {1}.{2:d3} seconds", package.Name, elapsedTicks / 1000, elapsedTicks % 1000);
+
+                // Clear the queues
+                mItemQueue.Clear();
+                mStimQueue.Clear();
+                mWordlistQueue.Clear();
+                mTutorialQueue.Clear();
             }
-            else
+            catch (Exception err)
             {
-                ReportingUtility.ReportError(ffItem, ErrorCategory.Item, ErrorSeverity.Benign, "Non-item folder in package.", $"folderName='{ffItem.Name}'");
+                Console.WriteLine("   Exception: " + err.Message);
+                ReportingUtility.ReportError(string.Empty, ErrorCategory.Exception, ErrorSeverity.Severe, err.Message);
             }
         }
 
@@ -452,7 +366,7 @@ namespace TabulateSmarterTestContentPackage
 
             // Get the item folder
             FileFolder ffItem;
-            if (!mPackageFolder.TryGetFolder(ii.FolderName, out ffItem))
+            if (!mPackage.TryGetItem(ii, out ffItem))
             {
                 ReportingUtility.ReportError(ii, ErrorCategory.Item, ErrorSeverity.Severe, "Item not found in package.");
                 return;
@@ -499,7 +413,7 @@ namespace TabulateSmarterTestContentPackage
             mTypeCounts.Increment(itemType);
 
             // Build the item context
-            var it = new ItemContext(mPackageName, ffItem, ii);
+            var it = new ItemContext(mPackage, ffItem, ii);
 
             // Handle the item according to type
             switch (it.ItemType)
@@ -1036,19 +950,28 @@ namespace TabulateSmarterTestContentPackage
                     ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Item stimulus ID doesn't match metadata AssociatedStimulus.", "Item stm_pass_id='{0}' Metadata AssociatedStimulus='{1}'", stimId, metaStimId);
                 }
 
-                // Look for the stimulus
-                var stimulusFilename = string.Format(@"Stimuli\stim-{0}-{1}\stim-{0}-{1}.xml", it.BankKey, stimId);
-                if (!mPackageFolder.FileExists(stimulusFilename))
+                int nStimId;
+                if (!int.TryParse(stimId, out nStimId))
                 {
-                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Item stimulus not found.", "StimulusId='{0}'", stimId);
+                    ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Item stimulus ID is not an integer.", $"Item stm_pass_id='{stimId}'");
                 }
                 else
                 {
-                    // Queue up the stimulus (in case it's not already there)
-                    mStimQueue.Add(new ItemIdentifier(cItemTypeStim, it.BankKey, int.Parse(stimId)));
+                    // Look for the stimulus
+                    var iiStimulus = new ItemIdentifier(cItemTypeStim, it.BankKey, nStimId);
+                    if (!mPackage.ItemExists(iiStimulus))
+                    {
+                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Item stimulus not found.", "StimulusId='{0}'", stimId);
+                    }
+                    else
+                    {
+                        // Queue up the stimulus (if it's not already there)
+                        mStimQueue.Add(iiStimulus);
 
-                    // Make sure dependency is recorded in manifest
-                    CheckDependencyInManifest(it, stimulusFilename, "Stimulus");
+                        // Make sure dependency is recorded in manifest
+                        var stimulusFilename = string.Format(@"Stimuli\stim-{0}-{1}\stim-{0}-{1}.xml", it.BankKey, stimId);
+                        CheckDependencyInManifest(it, stimulusFilename, "Stimulus");
+                    }
                 }
             }
 
@@ -1106,18 +1029,19 @@ namespace TabulateSmarterTestContentPackage
                     var bankKey = xml.XpEval("itemrelease/item/tutorial/@bankkey");
 
                     // Look for the tutorial
-                    var tutorialFilename = string.Format(@"Items\item-{1}-{0}\item-{1}-{0}.xml", tutorialId, bankKey);
-                    if (!mPackageFolder.FileExists(tutorialFilename))
+                    var iiTutorial = new ItemIdentifier(cItemTypeTutorial, bankKey, tutorialId);
+                    if (!mPackage.ItemExists(iiTutorial))
                     {
                         ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Tutorial not found.", "TutorialId='{0}'", tutorialId);
                     }
                     else
                     {
                         // Queue this up (if it isn't already)
-                        mTutorialQueue.Add(new ItemIdentifier(cItemTypeTutorial, bankKey, tutorialId));
+                        mTutorialQueue.Add(iiTutorial);
                     }
 
                     // Make sure dependency is recorded in manifest
+                    var tutorialFilename = string.Format(@"Items\item-{1}-{0}\item-{1}-{0}.xml", tutorialId, bankKey);
                     CheckDependencyInManifest(it, tutorialFilename, "Tutorial");
                 }
             }
@@ -1125,10 +1049,16 @@ namespace TabulateSmarterTestContentPackage
 
         void TabulateStimulus(ItemIdentifier ii)
         {
+            // Get the item context
+            ItemContext it;
+            if (!ItemContext.TryCreate(mPackage, ii, out it))
+            {
+                ReportingUtility.ReportError(ii, ErrorCategory.Item, ErrorSeverity.Severe, "Stimulus not found in package.");
+                return;
+            }
+
             // Count the stimulus
             ++mStimCount;
-
-            var it = new ItemContext(mPackageName, mPackageFolder, ii);
 
             // Read the item XML
             XmlDocument xml = new XmlDocument(sXmlNt);
@@ -1212,16 +1142,22 @@ namespace TabulateSmarterTestContentPackage
             // Folder,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,Media,Size,WordCount
             mStimulusReport.WriteLine(string.Join(",", CsvEncode(it.FolderDescription), it.ItemId.ToString(), CsvEncode(version), CsvEncode(subject), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), CsvEncode(media), size.ToString(), wordCount.ToString()));
 
-        } // TabulatePassage
+        } // TabulateStimulus
 
         
         void TabulateTutorial(ItemIdentifier ii)
         {
+            // Get the item context
+            ItemContext it;
+            if (!ItemContext.TryCreate(mPackage, ii, out it))
+            {
+                ReportingUtility.ReportError(ii, ErrorCategory.Item, ErrorSeverity.Severe, "Tutorial not found in package.");
+                return;
+            }
+
             // Count the item
             ++mItemCount;
             mTypeCounts.Increment(cItemTypeTutorial);
-
-            var it = new ItemContext(mPackageName, mPackageFolder, ii);
 
             // Read the item XML
             XmlDocument xml = new XmlDocument(sXmlNt);
@@ -2107,7 +2043,13 @@ namespace TabulateSmarterTestContentPackage
 
         private void TabulateWordList(ItemIdentifier ii)
         {
-            var it = new ItemContext(mPackageName, mPackageFolder, ii);
+            // Get the item context
+            ItemContext it;
+            if (!ItemContext.TryCreate(mPackage, ii, out it))
+            {
+                ReportingUtility.ReportError(ii, ErrorCategory.Item, ErrorSeverity.Severe, "WordList not found in package.");
+                return;
+            }
 
             // Read the item XML
             XmlDocument xml = new XmlDocument(sXmlNt);
@@ -2172,7 +2114,7 @@ namespace TabulateSmarterTestContentPackage
             // Make sure the wordlist exists
             ItemIdentifier ii = new ItemIdentifier(cItemTypeWordlist, bankKey, wordlistId);
             FileFolder ff;
-            if (!mPackageFolder.TryGetFolder(ii.FolderName, out ff))
+            if (!mPackage.TryGetItem(ii, out ff))
             {
                 ReportingUtility.ReportError(itemIt, ErrorCategory.Item, ErrorSeverity.Degraded, "Item references non-existent wordlist (WIT)", "wordlistId='{0}'", wordlistId);
                 return;
@@ -2372,7 +2314,7 @@ namespace TabulateSmarterTestContentPackage
                         ProcessGlossaryAttachment(filename, itemIt, ii, index, listType, termReferenced, wordlistTerms, attachmentFiles, attachmentToReference, ref imageType, ref imageSize);
                     }
 
-                    string folderDescription = string.Concat(mPackageName, "/", ii.FolderName);
+                    string folderDescription = string.Concat(mPackage.Name, "/", ii.FolderName);
 
                     // Folder,WIT_ID,ItemId,Index,Term,Language,Length,Audio,AudioSize,Image,ImageSize
                     if (Program.gValidationOptions.IsEnabled("gtr"))
@@ -2514,92 +2456,108 @@ namespace TabulateSmarterTestContentPackage
             }
         }
 
-        void ValidateManifest()
+        bool ValidateManifest(FileFolder rootFolder)
         {
-            // Load the manifest
-            XmlDocument xmlManifest = new XmlDocument(sXmlNt);
-            if (!TryLoadXml(mPackageFolder, cImsManifest, xmlManifest))
+            try
             {
-                ReportingUtility.ReportError(string.Empty, ErrorCategory.Manifest, ErrorSeverity.Benign, "Invalid manifest.", LoadXmlErrorDetail);
-                return;
-            }
-
-            // Keep track of every resource id mentioned in the manifest
-            HashSet<string> ids = new HashSet<string>();
-
-            // Enumerate all resources in the manifest
-            foreach (XmlElement xmlRes in xmlManifest.SelectNodes("ims:manifest/ims:resources/ims:resource", sXmlNs))
-            {
-                string id = xmlRes.GetAttribute("identifier");
-                if (string.IsNullOrEmpty(id))
-                    ReportingUtility.ReportError(cImsManifest, ErrorCategory.Manifest, ErrorSeverity.Benign, "Resource in manifest is missing id.", $"Filename='{xmlRes.XpEvalE("ims: file / @href", sXmlNs)}'");
-                string filename = xmlRes.XpEval("ims:file/@href", sXmlNs);
-                if (string.IsNullOrEmpty(filename))
+                if (!rootFolder.FileExists(cImsManifest))
                 {
-                    ReportingUtility.ReportError(cImsManifest, ErrorCategory.Manifest, ErrorSeverity.Benign, "Resource specified in manifest has no filename.", $"ResourceId='{id}'");
-                }
-                else if (!mPackageFolder.FileExists(filename))
-                {
-                    ReportingUtility.ReportError(cImsManifest, ErrorCategory.Manifest, ErrorSeverity.Benign, "Resource specified in manifest does not exist.", $"ResourceId='{id}' Filename='{filename}'");
+                    Console.WriteLine($"   Not a content package; '{cImsManifest}' must exist in root.");
+                    ReportingUtility.ReportError(string.Empty, ErrorCategory.Exception, ErrorSeverity.Severe, $"Not a content package; '{cImsManifest}' must exist in root.");
+                    return false;
                 }
 
-                if (ids.Contains(id))
+                // Load the manifest
+                XmlDocument xmlManifest = new XmlDocument(sXmlNt);
+                if (!TryLoadXml(rootFolder, cImsManifest, xmlManifest))
                 {
-                    ReportingUtility.ReportError(cImsManifest, ErrorCategory.Manifest, ErrorSeverity.Benign, "Resource listed multiple times in manifest.", $"ResourceId='{id}'");
-                }
-                else
-                {
-                    ids.Add(id);
-                }
-
-                // Normalize the filename
-                filename = NormalizeFilenameInManifest(filename);
-                if (mFilenameToResourceId.ContainsKey(filename))
-                {
-                    ReportingUtility.ReportError(cImsManifest, ErrorCategory.Manifest, ErrorSeverity.Benign, "File listed multiple times in manifest.", $"ResourceId='{id}' Filename='{filename}'");
-                }
-                else
-                {
-                    mFilenameToResourceId.Add(filename, id);
+                    ReportingUtility.ReportError(string.Empty, ErrorCategory.Manifest, ErrorSeverity.Benign, "Invalid manifest.", LoadXmlErrorDetail);
+                    return true;
                 }
 
-                // Index any dependencies
-                foreach (XmlElement xmlDep in xmlRes.SelectNodes("ims:dependency", sXmlNs))
+                // Keep track of every resource id mentioned in the manifest
+                HashSet<string> ids = new HashSet<string>();
+
+                // Enumerate all resources in the manifest
+                foreach (XmlElement xmlRes in xmlManifest.SelectNodes("ims:manifest/ims:resources/ims:resource", sXmlNs))
                 {
-                    string dependsOnId = xmlDep.GetAttribute("identifierref");
-                    if (string.IsNullOrEmpty(dependsOnId))
+                    string id = xmlRes.GetAttribute("identifier");
+                    if (string.IsNullOrEmpty(id))
+                        ReportingUtility.ReportError(cImsManifest, ErrorCategory.Manifest, ErrorSeverity.Benign, "Resource in manifest is missing id.", $"Filename='{xmlRes.XpEvalE("ims: file / @href", sXmlNs)}'");
+                    string filename = xmlRes.XpEval("ims:file/@href", sXmlNs);
+                    if (string.IsNullOrEmpty(filename))
                     {
-                        ReportingUtility.ReportError(cImsManifest, ErrorCategory.Manifest, ErrorSeverity.Benign, "Dependency in manifest is missing identifierref attribute.", $"ResourceId='{id}'");
+                        ReportingUtility.ReportError(cImsManifest, ErrorCategory.Manifest, ErrorSeverity.Benign, "Resource specified in manifest has no filename.", $"ResourceId='{id}'");
+                    }
+                    else if (!rootFolder.FileExists(filename))
+                    {
+                        ReportingUtility.ReportError(cImsManifest, ErrorCategory.Manifest, ErrorSeverity.Benign, "Resource specified in manifest does not exist.", $"ResourceId='{id}' Filename='{filename}'");
+                    }
+
+                    if (ids.Contains(id))
+                    {
+                        ReportingUtility.ReportError(cImsManifest, ErrorCategory.Manifest, ErrorSeverity.Benign, "Resource listed multiple times in manifest.", $"ResourceId='{id}'");
                     }
                     else
                     {
-                        string dependency = ToDependsOnString(id, dependsOnId);
-                        if (mResourceDependencies.Contains(dependency))
+                        ids.Add(id);
+                    }
+
+                    // Normalize the filename
+                    filename = NormalizeFilenameInManifest(filename);
+                    if (mFilenameToResourceId.ContainsKey(filename))
+                    {
+                        ReportingUtility.ReportError(cImsManifest, ErrorCategory.Manifest, ErrorSeverity.Benign, "File listed multiple times in manifest.", $"ResourceId='{id}' Filename='{filename}'");
+                    }
+                    else
+                    {
+                        mFilenameToResourceId.Add(filename, id);
+                    }
+
+                    // Index any dependencies
+                    foreach (XmlElement xmlDep in xmlRes.SelectNodes("ims:dependency", sXmlNs))
+                    {
+                        string dependsOnId = xmlDep.GetAttribute("identifierref");
+                        if (string.IsNullOrEmpty(dependsOnId))
                         {
-                            ReportingUtility.ReportError(cImsManifest, ErrorCategory.Manifest, ErrorSeverity.Benign, "Dependency in manifest repeated multiple times.", $"ResourceId='{id}' DependsOnId='{dependsOnId}'");
+                            ReportingUtility.ReportError(cImsManifest, ErrorCategory.Manifest, ErrorSeverity.Benign, "Dependency in manifest is missing identifierref attribute.", $"ResourceId='{id}'");
                         }
                         else
                         {
-                            mResourceDependencies.Add(dependency);
-                         }
+                            string dependency = ToDependsOnString(id, dependsOnId);
+                            if (mResourceDependencies.Contains(dependency))
+                            {
+                                ReportingUtility.ReportError(cImsManifest, ErrorCategory.Manifest, ErrorSeverity.Benign, "Dependency in manifest repeated multiple times.", $"ResourceId='{id}' DependsOnId='{dependsOnId}'");
+                            }
+                            else
+                            {
+                                mResourceDependencies.Add(dependency);
+                            }
+                        }
+
                     }
-
                 }
-            }
 
-            if (mFilenameToResourceId.Count == 0)
-            {
-                ReportingUtility.ReportError(cImsManifest, ErrorCategory.Manifest, ErrorSeverity.Benign, "Manifest is empty.");
-                return;
-            }
-
-            // Enumerate all files and check for them in the manifest
-            {
-                foreach (FileFolder ff in mPackageFolder.Folders)
+                if (mFilenameToResourceId.Count == 0)
                 {
-                    ValidateDirectoryInManifest(ff);
+                    ReportingUtility.ReportError(cImsManifest, ErrorCategory.Manifest, ErrorSeverity.Benign, "Manifest is empty.");
+                    return true;
+                }
+
+                // Enumerate all files and check for them in the manifest
+                {
+                    foreach (FileFolder ff in rootFolder.Folders)
+                    {
+                        ValidateDirectoryInManifest(ff);
+                    }
                 }
             }
+            catch (Exception err)
+            {
+                ReportingUtility.ReportError(string.Empty, ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
+            }
+
+            return true;
         }
 
         // Recursively check that files exist in the manifest

@@ -151,34 +151,20 @@ namespace TabulateSmarterTestContentPackage.Models
         FileFolder m_ff;
         string m_folderDescription;
 
-        public ItemContext(string packageName, FileFolder folder, ItemIdentifier ii)
+        public ItemContext(TestPackage package, ItemIdentifier ii)
             : base(ii.ItemType, ii.BankKey, ii.ItemId)
         {
-            if (folder.RootedName.Equals("/", StringComparison.Ordinal))
-            {
-                folder = folder.GetFolder(FolderName);
-            }
-            if (!folder.Name.Equals(FullId, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new ArgumentException("Folder name doesn't match ID");
-            }
-            m_ff = folder;
-            m_folderDescription = string.Concat(packageName, "/", FolderName);
+            m_ff = package.GetItem(ii);
+            m_folderDescription = string.Concat(package.Name, "/", FolderName);
         }
 
-        public ItemContext(string packageName, FileFolder folder, string itemType, string bankKey, string itemId)
-            : base(itemType, bankKey, itemId)
+        // This is more efficient when the folder has already been retrieved
+        public ItemContext(TestPackage package, FileFolder folder, ItemIdentifier ii)
+            : base(ii.ItemType, ii.BankKey, ii.ItemId)
         {
-            if (folder.RootedName.Equals("/", StringComparison.Ordinal))
-            {
-                folder = folder.GetFolder(FolderName);
-            }
-            if (!folder.Name.Equals(FullId, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new ArgumentException("Folder name doesn't match ID");
-            }
+            System.Diagnostics.Debug.Assert(folder.Name.Equals(ii.FullId, StringComparison.OrdinalIgnoreCase));
             m_ff = folder;
-            m_folderDescription = string.Concat(packageName, "/", FolderName);
+            m_folderDescription = string.Concat(package.Name, "/", FolderName);
         }
 
         public FileFolder FfItem
@@ -191,5 +177,16 @@ namespace TabulateSmarterTestContentPackage.Models
             get { return m_folderDescription; }
         }
 
+        public static bool TryCreate(TestPackage package, ItemIdentifier ii, out ItemContext it)
+        {
+            FileFolder folder;
+            if (!package.TryGetItem(ii, out folder))
+            {
+                it = null;
+                return false;
+            }
+            it = new ItemContext(package, folder, ii);
+            return true;
+        }
     }
 }

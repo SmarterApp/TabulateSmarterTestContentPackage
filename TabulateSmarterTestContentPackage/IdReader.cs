@@ -30,7 +30,7 @@ namespace TabulateSmarterTestContentPackage
         }
     }
 
-    class IdReader : IEnumerator<ItemIdentifier>, IDisposable
+    class IdReader : IEnumerator<ItemIdentifier>
     {
         string m_filename;
         CsvReader m_csvReader;

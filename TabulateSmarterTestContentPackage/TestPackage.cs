@@ -4,9 +4,98 @@ using System.Text;
 using System.IO;
 using System.IO.Compression;
 using System.Diagnostics;
+using TabulateSmarterTestContentPackage.Models;
+using System.Collections;
 
 namespace TabulateSmarterTestContentPackage
 {
+
+    /// <summary>
+    /// An abstract class that manages access to a test package.
+    /// Implementations are on the conventional file system (unpacked package),
+    /// a .zip file (typical package), and GitLab item bank.
+    /// </summary>
+    public abstract class TestPackage : IDisposable
+    {
+        ItemsEnumerable m_itemsEnumerable;
+
+        public TestPackage()
+        {
+            m_itemsEnumerable = new ItemsEnumerable(this);
+        }
+
+        public abstract string Name { get; }
+
+        /// <summary>
+        /// An enumerable collection of the IDs of all items and stimuli in the package.
+        /// </summary>
+        public IEnumerable<ItemIdentifier> ItemsAndStimuli
+        {
+            get { return m_itemsEnumerable; }
+        }
+
+        /// <summary>
+        /// Returns an enumerator for Items and Stimuli. Must be implemented be a derived class.
+        /// </summary>
+        /// <returns></returns>
+        protected abstract IEnumerator<ItemIdentifier> GetItemEnumerator();
+
+        /// <summary>
+        /// Indicates whether the package contains a particular item.
+        /// </summary>
+        /// <param name="">The item ID to look for.</param>
+        /// <returns>True if the item exists, false if it doesn't.</returns>
+        /// <remarks>The default implementation calls <see cref="TryGetItem"/>. Override if a more efficient method exists.</remarks>
+        public virtual bool ItemExists(ItemIdentifier ii)
+        {
+            FileFolder ff;
+            return TryGetItem(ii, out ff);
+        }
+
+        /// <summary>
+        /// Gets an item or stimulus in the form of a <see cref="FileFolder`"/>
+        /// </summary>
+        /// <param name="ii">The item ID or null if seeking the root folder.</param>
+        /// <param name="value">Returns the folder if it is found.</param>
+        /// <returns>True if the folder is found. Otherwise, false.</returns>
+        public abstract bool TryGetItem(ItemIdentifier ii, out FileFolder ff);
+
+        /// <summary>
+        /// Gets an item or stimulus in the form of a <see cref="FileFolder"/>
+        /// </summary>
+        /// <param name="ii">The item ID or null if seeking the root folder.</param>
+        /// <returns>Returns the folder.</returns>
+        public FileFolder GetItem(ItemIdentifier ii)
+        {
+            FileFolder ff;
+            if (!TryGetItem(ii, out ff))
+                throw new ArgumentException($"Item not found ({ii}).");
+            return ff;
+        }
+
+        public abstract void Dispose();
+
+        private class ItemsEnumerable : IEnumerable<ItemIdentifier>
+        {
+            TestPackage m_package;
+
+            public ItemsEnumerable(TestPackage package)
+            {
+                m_package = package;
+            }
+
+            public IEnumerator<ItemIdentifier> GetEnumerator()
+            {
+                return m_package.GetItemEnumerator();
+            }
+
+            IEnumerator IEnumerable.GetEnumerator()
+            {
+                return GetEnumerator();
+            }
+        }
+
+    }
 
     /// <summary>
     /// An abstract class that manages a subtree of files
@@ -43,7 +132,27 @@ namespace TabulateSmarterTestContentPackage
         public abstract bool TryGetFolder(string path, out FileFolder value);
         public abstract bool TryGetFile(string path, out FileFile value);
 
-        public bool FileExists(string path)
+        /// <summary>
+        /// Indicates whether a subfolder exists in the folder
+        /// </summary>
+        /// <param name="path">Path to the file to check for existence</param>
+        /// <returns>True if the folder exists, false if it doesn't.</returns>
+        /// <remarks>The default implementation calls <see cref="TryGetFolder"/>. Override if a more efficient approach exists.
+        /// </remarks>
+        public virtual bool FolderExists(string path)
+        {
+            FileFolder folder;
+            return TryGetFolder(path, out folder);
+        }
+
+        /// <summary>
+        /// Indicates whether a file exists in the folder
+        /// </summary>
+        /// <param name="path">Path to the file to check for existence</param>
+        /// <returns>True if the file exists, false if it doesn't.</returns>
+        /// <remarks>The default implementation calls <see cref="TryGetFile"/>. Override if a more efficient approach exists.
+        /// </remarks>
+        public virtual bool FileExists(string path)
         {
             FileFile file;
             return TryGetFile(path, out file);
@@ -127,20 +236,137 @@ namespace TabulateSmarterTestContentPackage
 
     }
 
+    /// <summary>
+    /// Item enumerator for packages that implement a conventional folder hierarchy
+    /// </summary>
+    class FolderItemEnumerator : IEnumerator<ItemIdentifier>
+    {
+        const string c_itemsFolder = "Items";
+        const string c_stimuliFolder = "Stimuli";
+
+        FileFolder m_rootFolder;
+        ItemIdentifier m_current;
+        int m_status; // 0=pre-start, 1=Items, 2=Stimuli, 3=done
+        IEnumerator<FileFolder> m_enumerator;
+
+        public FolderItemEnumerator(FileFolder rootFolder)
+        {
+            m_rootFolder = rootFolder;
+        }
+
+        public ItemIdentifier Current => m_current;
+
+        object IEnumerator.Current => m_current;
+
+        public bool MoveNext()
+        {
+            if (m_status >= 3) return false;
+
+            for (; ; )
+            {
+                if (m_enumerator != null)
+                {
+                    if (m_enumerator.MoveNext())
+                    {
+                        if (ItemIdentifier.TryParse(m_enumerator.Current.Name, out m_current))
+                        {
+                            return true;
+                        }
+                        else
+                        {
+                            continue; // Not an item folder, cycle again.
+                        }
+                    }
+                    else
+                    {
+                        m_enumerator.Dispose();
+                        m_enumerator = null;
+                    }
+                }
+
+                // Advance to the next status level
+                ++m_status;
+                if (m_status >= 3) return false;
+
+                // Load up the next enumerator and recycle
+                FileFolder folder;
+                if (m_rootFolder.TryGetFolder((m_status == 1) ? c_itemsFolder : c_stimuliFolder, out folder))
+                {
+                    m_enumerator = folder.Folders.GetEnumerator();
+                }
+            }
+        }
+
+        public void Reset()
+        {
+            if (m_enumerator != null)
+            {
+                m_enumerator.Dispose();
+            }
+            m_enumerator = null;
+            m_status = 0;
+            m_current = null;
+        }
+
+        public void Dispose()
+        {
+            if (m_enumerator != null)
+            {
+                m_enumerator.Dispose();
+            }
+            m_enumerator = null;
+        }
+    }
+
+
+    public class FsPackage : TestPackage
+    {
+        string m_name;
+        FsFolder m_rootFolder;
+
+        public FsPackage(string physicalRoot)
+        {
+            m_name = Path.GetFileName(physicalRoot);
+            m_rootFolder = new FsFolder(physicalRoot);
+        }
+
+        public override string Name => m_name;
+
+        public override bool TryGetItem(ItemIdentifier ii, out FileFolder ff)
+        {
+            if (ii == null)
+            {
+                ff = m_rootFolder;
+                return true;
+            }
+            return m_rootFolder.TryGetFolder(ii.FolderName, out ff);
+        }
+
+        protected override IEnumerator<ItemIdentifier> GetItemEnumerator()
+        {
+            return new FolderItemEnumerator(m_rootFolder);
+        }
+
+        public override void Dispose()
+        {
+            // Nothing to do here.
+        }
+    }
+
     public class FsFolder : FileFolder
     {
-        public string mPhysicalPath { get; set; }
+        string m_PhysicalPath;
 
         public FsFolder(string physicalRoot)
             : base("/", string.Empty)
         {
-            mPhysicalPath = physicalRoot;
+            m_PhysicalPath = physicalRoot;
         }
 
         private FsFolder(string physicalPath, string rootedName, string name)
             : base(rootedName, name)
         {
-            mPhysicalPath = physicalPath;
+            m_PhysicalPath = physicalPath;
         }
 
         List<FileFolder> mFolders;
@@ -152,7 +378,7 @@ namespace TabulateSmarterTestContentPackage
                 {
                     mFolders = new List<FileFolder>();
                     var rootedNamePrefix = (RootedName.Length <= 1) ? RootedName : string.Concat(RootedName, "/");
-                    var diThis = new DirectoryInfo(mPhysicalPath);
+                    var diThis = new DirectoryInfo(m_PhysicalPath);
                     foreach (var di in diThis.EnumerateDirectories())
                     {
                         mFolders.Add(new FsFolder(di.FullName, string.Concat(rootedNamePrefix, di.Name), di.Name));
@@ -171,7 +397,7 @@ namespace TabulateSmarterTestContentPackage
                 {
                     mFiles = new List<FileFile>();
                     string rootedNamePrefix = (RootedName.Length <= 1) ? RootedName : string.Concat(RootedName, "/");
-                    DirectoryInfo diThis = new DirectoryInfo(mPhysicalPath);
+                    DirectoryInfo diThis = new DirectoryInfo(m_PhysicalPath);
                     foreach (FileInfo fi in diThis.EnumerateFiles())
                     {
                         mFiles.Add(new FsFile(fi.FullName, string.Concat(rootedNamePrefix, fi.Name), fi.Name));
@@ -205,7 +431,7 @@ namespace TabulateSmarterTestContentPackage
 
         private string ToPhysicalPath(string relativePath)
         {
-            return Path.Combine(mPhysicalPath, relativePath.Replace('/', '\\'));
+            return Path.Combine(m_PhysicalPath, relativePath.Replace('/', '\\'));
         }
 
         private string ToRootedName(string path)
@@ -251,6 +477,44 @@ namespace TabulateSmarterTestContentPackage
             {
                 return new FileStream(mPhysicalPath, FileMode.Open, FileAccess.Read, FileShare.Read);
             }
+        }
+    }
+
+    public class ZipPackage : TestPackage
+    {
+        string m_name;
+        ZipFileTree m_tree;
+
+        public ZipPackage(string zipFileName)
+        {
+            m_name = Path.GetFileNameWithoutExtension(zipFileName);
+            m_tree = new ZipFileTree(zipFileName);
+        }
+
+        public override string Name => m_name;
+
+        public override bool TryGetItem(ItemIdentifier ii, out FileFolder ff)
+        {
+            if (ii == null)
+            {
+                ff = m_tree;
+                return true;
+            }
+            return m_tree.TryGetFolder(ii.FolderName, out ff);
+        }
+
+        protected override IEnumerator<ItemIdentifier> GetItemEnumerator()
+        {
+            return new FolderItemEnumerator(m_tree);
+        }
+
+        public override void Dispose()
+        {
+            if (m_tree != null)
+            {
+                m_tree.Dispose();
+            }
+            m_tree = null;
         }
     }
 

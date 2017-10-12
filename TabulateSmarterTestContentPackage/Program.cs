@@ -476,9 +476,9 @@ Error severity definitions:
                 // Local package
                 if (operation.PackagePath != null)
                 {
+                    bool zip = operation.PackagePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
                     string directory = Path.GetDirectoryName(operation.PackagePath);
                     string pattern = Path.GetFileName(operation.PackagePath);
-                    bool zip = operation.PackagePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
                     string[] packages;
                     if (zip)
                     {
@@ -488,34 +488,38 @@ Error severity definitions:
                     {
                         packages = Directory.GetDirectories(directory, pattern, SearchOption.TopDirectoryOnly);
                     }
-                    foreach (var package in packages)
+                    foreach (var packagePath in packages)
                     {
-                        // Figure out the reporting prefix
-                        string reportPrefix;
-                        if (operation.ReportPrefix != null)
+                        using (TestPackage package = zip ? (TestPackage)new ZipPackage(packagePath) : (TestPackage)new FsPackage(packagePath))
                         {
-                            if (packages.Length > 1) // Wildcard
+
+                            // Figure out the reporting prefix
+                            string reportPrefix;
+                            if (operation.ReportPrefix != null)
                             {
-                                reportPrefix = string.Concat(operation.ReportPrefix, "_", zip ? Path.GetFileNameWithoutExtension(package) : Path.GetFileName(package));
+                                if (packages.Length > 1) // Wildcard
+                                {
+                                    reportPrefix = string.Concat(operation.ReportPrefix, "_", package.Name);
+                                }
+                                else
+                                {
+                                    reportPrefix = operation.ReportPrefix;
+                                }
                             }
                             else
                             {
-                                reportPrefix = operation.ReportPrefix;
+                                reportPrefix = zip ? packagePath.Substring(0, packagePath.Length-4) : packagePath;
                             }
-                        }
-                        else
-                        {
-                            reportPrefix = zip ? package.Substring(0, package.Length - 4) : package;
-                        }
 
-                        // Tabulate the package
-                        using (var tab = new Tabulator(reportPrefix))
-                        {
-                            if (operation.IdFilename != null)
+                            // Tabulate the package
+                            using (var tab = new Tabulator(reportPrefix))
                             {
-                                tab.SelectItems(new IdReadable(operation.IdFilename, c_DefaultBankKey));
+                                if (operation.IdFilename != null)
+                                {
+                                    tab.SelectItems(new IdReadable(operation.IdFilename, c_DefaultBankKey));
+                                }
+                                tab.Tabulate(package);
                             }
-                            tab.Tabulate(package);
                         }
                     }
                 }
@@ -553,10 +557,11 @@ Error severity definitions:
                     // Local package
                     if (operation.PackagePath != null)
                     {
+                        bool zip = operation.PackagePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
                         string directory = Path.GetDirectoryName(operation.PackagePath);
                         string pattern = Path.GetFileName(operation.PackagePath);
                         string[] packages;
-                        if (operation.PackagePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                        if (zip)
                         {
                             packages = Directory.GetFiles(directory, pattern, SearchOption.TopDirectoryOnly);
                         }
@@ -564,13 +569,16 @@ Error severity definitions:
                         {
                             packages = Directory.GetDirectories(directory, pattern, SearchOption.TopDirectoryOnly);
                         }
-                        foreach (var package in packages)
+                        foreach (var packageName in packages)
                         {
-                            if (operation.IdFilename != null)
+                            using (TestPackage package = zip ? (TestPackage)new ZipPackage(packageName) : (TestPackage)new FsPackage(packageName))
                             {
-                                tab.SelectItems(new IdReadable(operation.IdFilename, c_DefaultBankKey));
+                                if (operation.IdFilename != null)
+                                {
+                                    tab.SelectItems(new IdReadable(operation.IdFilename, c_DefaultBankKey));
+                                }
+                                tab.Tabulate(package);
                             }
-                            tab.Tabulate(package);
                         }
                     }
 

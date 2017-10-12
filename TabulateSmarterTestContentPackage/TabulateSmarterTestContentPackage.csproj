@@ -59,7 +59,7 @@
     <Compile Include="Extractors\CDataExtractor.cs" />
     <Compile Include="Extractors\IrtExtractor.cs" />
     <Compile Include="Extractors\ItemStandardExtractor.cs" />
-    <Compile Include="FileFolder.cs" />
+    <Compile Include="TestPackage.cs" />
     <Compile Include="HtmlReader.cs" />
     <Compile Include="IdReader.cs" />
     <Compile Include="Mappers\XmlMapper.cs" />
