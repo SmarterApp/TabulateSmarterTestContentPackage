@@ -87,6 +87,7 @@ namespace TabulateSmarterTestContentPackage
         DistinctList<ItemIdentifier> mWordlistQueue = new DistinctList<ItemIdentifier>();
         DistinctList<ItemIdentifier> mTutorialQueue = new DistinctList<ItemIdentifier>();
         Dictionary<string, int> mWordlistRefCounts = new Dictionary<string, int>();   // Reference count for wordlist IDs
+        int mProgressCount = 0;
 
         // Per report variables
         int mStartTicks;
@@ -268,9 +269,11 @@ namespace TabulateSmarterTestContentPackage
                 mItemQueue.Sort();
                 foreach (var ii in mItemQueue)
                 {
+                    ++mProgressCount;
                     try
                     {
                         TabulateItem(ii);
+                        ReportProgress();
                     }
                     catch (Exception err)
                     {
@@ -282,9 +285,11 @@ namespace TabulateSmarterTestContentPackage
                 mStimQueue.Sort();
                 foreach (var ii in mStimQueue)
                 {
+                    ++mProgressCount;
                     try
                     {
                         TabulateStimulus(ii);
+                        ReportProgress();
                     }
                     catch (Exception err)
                     {
@@ -296,9 +301,11 @@ namespace TabulateSmarterTestContentPackage
                 mWordlistQueue.Sort();
                 foreach (var ii in mWordlistQueue)
                 {
+                    ++mProgressCount;
                     try
                     {
                         TabulateWordList(ii);
+                        ReportProgress();
                     }
                     catch (Exception err)
                     {
@@ -310,9 +317,11 @@ namespace TabulateSmarterTestContentPackage
                 mTutorialQueue.Sort();
                 foreach (var ii in mTutorialQueue)
                 {
+                    ++mProgressCount;
                     try
                     {
                         TabulateTutorial(ii);
+                        ReportProgress();
                     }
                     catch (Exception err)
                     {
@@ -331,12 +340,18 @@ namespace TabulateSmarterTestContentPackage
                 mStimQueue.Clear();
                 mWordlistQueue.Clear();
                 mTutorialQueue.Clear();
+                mProgressCount = 0;
             }
             catch (Exception err)
             {
                 Console.WriteLine("   Exception: " + err.Message);
                 ReportingUtility.ReportError(string.Empty, ErrorCategory.Exception, ErrorSeverity.Severe, err.Message);
             }
+        }
+
+        private void ReportProgress()
+        {
+            Console.Error.Write($"   {mProgressCount} of {mItemQueue.Count + mStimQueue.Count + mTutorialQueue.Count + mWordlistQueue.Count}\r");
         }
 
         private void TabulateItem(ItemIdentifier ii)
