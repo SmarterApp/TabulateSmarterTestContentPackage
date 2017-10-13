@@ -527,7 +527,21 @@ Error severity definitions:
                 // Item bank
                 else
                 {
-                    throw new NotImplementedException("Cannot yet tabulate an item bank.");
+                    using (TestPackage package = new ItemBankPackage(operation.BankUrl, operation.BankAccessToken, operation.BankNamespace))
+                    {
+                        if (operation.ReportPrefix == null)
+                        {
+                            throw new ArgumentException("Item bank tabulation must specify '-o' report prefix.");
+                        }
+                        using (var tab = new Tabulator(operation.ReportPrefix))
+                        {
+                            if (operation.IdFilename != null)
+                            {
+                                tab.SelectItems(new IdReadable(operation.IdFilename, c_DefaultBankKey));
+                            }
+                            tab.Tabulate(package);
+                        }
+                    }
                 }
             }
         }
@@ -585,7 +599,14 @@ Error severity definitions:
                     // Item bank package
                     else
                     {
-                        throw new NotImplementedException("Cannot yet tabulate an item bank.");
+                        using (TestPackage package = new ItemBankPackage(operation.BankUrl, operation.BankAccessToken, operation.BankNamespace))
+                        {
+                            if (operation.IdFilename != null)
+                            {
+                                tab.SelectItems(new IdReadable(operation.IdFilename, c_DefaultBankKey));
+                            }
+                            tab.Tabulate(package);
+                        }
                     }
                 }
             }

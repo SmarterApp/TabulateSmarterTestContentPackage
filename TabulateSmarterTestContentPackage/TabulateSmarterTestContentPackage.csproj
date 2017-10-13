@@ -45,6 +45,8 @@
     <Reference Include="System.Core" />
     <Reference Include="System.IO.Compression" />
     <Reference Include="System.IO.Compression.FileSystem" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -59,6 +61,8 @@
     <Compile Include="Extractors\CDataExtractor.cs" />
     <Compile Include="Extractors\IrtExtractor.cs" />
     <Compile Include="Extractors\ItemStandardExtractor.cs" />
+    <Compile Include="GitLab.cs" />
+    <Compile Include="ItemBankPackage.cs" />
     <Compile Include="TestPackage.cs" />
     <Compile Include="HtmlReader.cs" />
     <Compile Include="IdReader.cs" />
