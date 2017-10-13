@@ -1,10 +1,12 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using TabulateSmarterTestContentPackage.Models;
+using System.Xml.Linq;
 
 namespace TabulateSmarterTestContentPackage
 {
@@ -47,13 +49,62 @@ namespace TabulateSmarterTestContentPackage
 
         protected override IEnumerator<ItemIdentifier> GetItemEnumerator()
         {
-            throw new NotImplementedException();
+            return new PackageItemEnumerator(m_gitLab.GetProjectsInNamespace(m_namespace).GetEnumerator());
         }
 
         public override void Dispose()
         {
             // Nothing to do.
         }
+
+        private class PackageItemEnumerator : IEnumerator<ItemIdentifier>
+        {
+            IEnumerator<XElement> m_enum;
+            ItemIdentifier m_current;
+
+            public PackageItemEnumerator(IEnumerator<XElement> enumerator)
+            {
+                m_enum = enumerator;
+            }
+
+            public ItemIdentifier Current => m_current;
+
+            object IEnumerator.Current => m_current;
+
+            public bool MoveNext()
+            {
+                for (; ; )
+                {
+                    if (!m_enum.MoveNext())
+                    {
+                        m_current = null;
+                        return false;
+                    }
+
+                    var ele = m_enum.Current.Element("name");
+                    if (ele == null) continue;
+
+                    if (!ItemIdentifier.TryParse(ele.Value, out m_current)) continue;
+
+                    return true;
+                }
+            }
+
+            public void Reset()
+            {
+                throw new NotImplementedException();
+            }
+
+            public void Dispose()
+            {
+                if (m_enum != null)
+                {
+                    m_enum.Dispose();
+                }
+                m_enum = null;
+            }
+        }
+
 
         private class ItemBankProject : FileFolder
         {
@@ -222,7 +273,8 @@ namespace TabulateSmarterTestContentPackage
                     {
                         if (m_length < 0)
                         {
-                            m_length = m_project.m_package.m_gitLab.GetBlobSize(m_project.m_projectId, m_blobId);
+                            //m_length = m_project.m_package.m_gitLab.GetBlobSize(m_project.m_projectId, m_blobId);
+                            m_length = 0;   // The call to GetBlobSize is expensive. Until we find a better answer, just set it to zero.
                         }
                         return m_length;
                     }
@@ -234,9 +286,7 @@ namespace TabulateSmarterTestContentPackage
                 }
             } // ItemBankProject.ItemBankFile
 
-        }
-
-
+        } // ItemBankProject
 
     }
 }

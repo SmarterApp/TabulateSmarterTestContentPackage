@@ -1,12 +1,26 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
-using System.Net.Http;
 using System.Text;
 using System.Xml.Linq;
+using System.Linq;
 
 // From GitLab API Documentation Here: https://docs.gitlab.com/ce/api/
+
+/* API Notes
+A user has a namespace ID and a user ID, both numeric, that are different.
+Likewise, a group has a namespace ID and a group ID, both numeric, that seem to be the samet.
+When you look up a namespace, the ID that's returned is the namespace ID and does not
+correspond to the user ID.
+
+The get projects by user API doesn't seem to work (/users/:id/projects). It returns a 404.
+
+To get projects by user, have to know the user's namespace ID, then get all projects and
+then filter by the namespace ID.
+
+*/
 
 namespace TabulateSmarterTestContentPackage
 {
@@ -18,7 +32,7 @@ namespace TabulateSmarterTestContentPackage
         const string c_GitLabApiPath = "/api/v4/";
 
         // GitLab API max items per page is 100.
-        const int c_filesPerPage = 100;
+        const int c_elementsPerPage = 100;
 
         Uri m_baseAddress;
         string m_accessToken;
@@ -27,6 +41,31 @@ namespace TabulateSmarterTestContentPackage
         {
             m_baseAddress = new Uri(serverUrl);
             m_accessToken = accessToken;
+        }
+
+        public IEnumerable<XElement> GetProjectsInNamespace(string ns)
+        {
+            string nsId;
+            bool isGroup;
+            GetNamespaceIdAndType(ns, out nsId, out isGroup);
+
+            var uri = new UriBuilder(m_baseAddress);
+            if (isGroup)
+            {
+                uri.Path = string.Concat(c_GitLabApiPath, "groups/", Uri.EscapeDataString(nsId), "/projects");
+            }
+            else
+            {
+                // Will retrieve all projects the logged-in user can see which may be more than those
+                // actually owned by user specified as namespace. This means we have to filter the results which
+                // may be inefficient if the user has access to a lot of projects.
+                // Unfortunately, the API doesn't seem to offer a way to filter by user as owner.
+                // (/users/:id/projects is in the API docs but it doesn't work.)
+                uri.Path = string.Concat(c_GitLabApiPath, "projects");
+            }
+            uri.Query = "per_page=" + c_elementsPerPage.ToString();
+
+            return new ProjectsEnumerable(this, uri.Uri, nsId);
         }
 
         /// <summary>
@@ -55,7 +94,7 @@ namespace TabulateSmarterTestContentPackage
 
             UriBuilder ub = new UriBuilder(m_baseAddress);
             ub.Path = string.Concat(c_GitLabApiPath, "projects/", Uri.EscapeDataString(projectId), "/repository/tree");
-            ub.Query = $"recursive=true&per_page={c_filesPerPage}";
+            ub.Query = $"recursive=true&per_page={c_elementsPerPage}";
 
             // This API is paginated, it may require multiple requests to retrieve all items.
             Uri uri = ub.Uri;
@@ -155,6 +194,29 @@ namespace TabulateSmarterTestContentPackage
             }
         }
 
+        // Determines whether a namespace is a group (as opposed to a user)
+        private void GetNamespaceIdAndType(string ns, out string id, out bool isGroup)
+        {
+            // Determine whether namespace is a username or a group name
+            UriBuilder uri = new UriBuilder(m_baseAddress);
+            uri.Path = c_GitLabApiPath + "namespaces";
+            uri.Query = "search=" + Uri.EscapeDataString(ns);
+            var doc = HttpReceiveJson(uri.Uri);
+            //DumpXml(doc);
+
+            foreach (var el in doc.Elements("item"))
+            {
+                if (el.Element("name").Value.Equals(ns, StringComparison.Ordinal))
+                {
+                    id = el.Element("id").Value;
+                    isGroup = el.Element("kind").Value.Equals("group", StringComparison.OrdinalIgnoreCase);
+                    return;
+                }
+            }
+
+            throw new ApplicationException($"Namespace '{ns}' not found in GitLab item bank.");
+        }
+
         private HttpWebRequest HttpPrepareRequest(Uri uri)
         {
             HttpWebRequest request = WebRequest.CreateHttp(uri);
@@ -196,7 +258,7 @@ namespace TabulateSmarterTestContentPackage
             }
         }
 
-        private Uri HttpNextPageUri(HttpWebResponse response)
+        private static Uri HttpNextPageUri(HttpWebResponse response)
         {
             var parser = new HttpLinkHeaderParser(response);
             while (parser.MoveNext())
@@ -254,6 +316,111 @@ namespace TabulateSmarterTestContentPackage
                 xml.WriteTo(writer);
             }
             Console.Error.WriteLine();
+        }
+
+        private class ProjectsEnumerable : IEnumerable<XElement>
+        {
+            GitLab m_gitlab;
+            Uri m_url;
+            string m_nsId;
+
+            public ProjectsEnumerable(GitLab gitlab, Uri url, string nsId)
+            {
+                m_gitlab = gitlab;
+                m_url = url;
+                m_nsId = nsId;
+            }
+
+            public IEnumerator<XElement> GetEnumerator()
+            {
+                return new ProjectsEnumerator(m_gitlab, m_url, m_nsId);
+            }
+
+            IEnumerator IEnumerable.GetEnumerator()
+            {
+                return GetEnumerator();
+            }
+
+            private class ProjectsEnumerator : IEnumerator<XElement>
+            {
+                GitLab m_gitlab;
+                string m_nsId;
+                Uri m_url;
+                Uri m_nextUrl;
+                IEnumerator<XElement> m_projects;
+                XElement m_current;
+
+                public ProjectsEnumerator(GitLab gitlab, Uri url, string nsId)
+                {
+                    m_gitlab = gitlab;
+                    m_url = url;
+                    m_nsId = nsId;
+                    m_nextUrl = m_url;
+                }
+
+                public XElement Current => m_current;
+
+                object IEnumerator.Current => m_current;
+
+                public bool MoveNext()
+                {
+                    for (; ; )
+                    {
+                        if (m_projects == null)
+                        {
+                            if (m_nextUrl == null)
+                            {
+                                return false;
+                            }
+
+                            XElement doc;
+                            HttpWebRequest request = m_gitlab.HttpPrepareRequest(m_nextUrl);
+                            using (var response = HttpGetResponseHandleErrors(request))
+                            {
+                                m_nextUrl = HttpNextPageUri(response);
+                                doc = HttpReceiveJson(response);
+                            }
+
+                            m_projects = doc.Elements("item").GetEnumerator();
+                        }
+
+                        System.Diagnostics.Debug.Assert(m_projects != null);
+                        if (!m_projects.MoveNext())
+                        {
+                            m_projects.Dispose();
+                            m_projects = null;
+                            continue;
+                        }
+
+                        m_current = m_projects.Current;
+                        {
+                            // There's an elegant Linq to XML way of doing this but it throws null reference exceptions if an element isn't found.
+                            var el1 = m_current.Element("namespace");
+                            if (el1 == null) continue;
+                            var el2 = el1.Element("id");
+                            if (el2 == null) continue;
+                            if (!el2.Value.Equals(m_nsId, StringComparison.Ordinal)) continue;
+                        }
+                        return true;
+                    }
+                }
+
+                public void Reset()
+                {
+                    m_projects = null;
+                    m_current = null;
+                    m_nextUrl = m_url;
+                }
+
+                public void Dispose()
+                {
+                    if (m_projects != null)
+                    {
+                        m_projects.Dispose();
+                    }
+                    m_projects = null;
+                }
+            }
         }
     }
 

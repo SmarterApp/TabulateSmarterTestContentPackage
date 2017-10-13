@@ -141,6 +141,11 @@ namespace TabulateSmarterTestContentPackage
                 {
                     mItemQueue.Add(ii);
                 }
+                int count = mItemQueue.Count + mStimQueue.Count;
+                if (count % 100 == 0)
+                {
+                    Console.Error.Write($"   Selected {count}\r");
+                }
             }
         }
 
