@@ -282,19 +282,23 @@ namespace TabulateSmarterTestContentPackage
                     string detail;
                     using (var reader = new System.IO.StreamReader(response.GetResponseStream(), Encoding.UTF8))
                     {
-                        detail = reader.ReadToEnd();
+                        detail = reader.ReadToEnd().Trim();
                     }
 
                     if (response.StatusCode == HttpStatusCode.NotFound)
                     {
                         return new HttpNotFoundException(string.Concat("HTTP Resource Not Found: ", response.ResponseUri, "\r\n", detail));
                     }
+                    else if (detail.Length > 0)
+                    {
+                        return new HttpErrorException(string.Concat(ex.Message, "\r\n", detail));
+                    }
                     else
                     {
-                        return new ApplicationException(string.Concat("HTTP ERROR\r\n", detail));
+                        return ex;
                     }
                 }
-                return new ApplicationException("HTTP ERROR", ex);
+                return ex;
             }
             finally
             {
@@ -432,6 +436,19 @@ namespace TabulateSmarterTestContentPackage
         }
 
         public HttpNotFoundException(string message, Exception innerException)
+            : base(message, innerException)
+        {
+        }
+    }
+
+    class HttpErrorException : Exception
+    {
+        public HttpErrorException(string message)
+            : base(message)
+        {
+        }
+
+        public HttpErrorException(string message, Exception innerException)
             : base(message, innerException)
         {
         }

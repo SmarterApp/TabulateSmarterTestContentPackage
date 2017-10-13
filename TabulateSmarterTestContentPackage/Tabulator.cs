@@ -282,7 +282,7 @@ namespace TabulateSmarterTestContentPackage
                     }
                     catch (Exception err)
                     {
-                        ReportingUtility.ReportError(ii, ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
+                        ReportingUtility.ReportError(ii, ErrorCategory.Exception, ErrorSeverity.Severe, err.GetType().Name, err.ToString());
                     }
                 }
 
@@ -298,7 +298,7 @@ namespace TabulateSmarterTestContentPackage
                     }
                     catch (Exception err)
                     {
-                        ReportingUtility.ReportError(ii, ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
+                        ReportingUtility.ReportError(ii, ErrorCategory.Exception, ErrorSeverity.Severe, err.GetType().Name, err.ToString());
                     }
                 }
 
@@ -314,7 +314,7 @@ namespace TabulateSmarterTestContentPackage
                     }
                     catch (Exception err)
                     {
-                        ReportingUtility.ReportError(ii, ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
+                        ReportingUtility.ReportError(ii, ErrorCategory.Exception, ErrorSeverity.Severe, err.GetType().Name, err.ToString());
                     }
                 }
 
@@ -330,7 +330,7 @@ namespace TabulateSmarterTestContentPackage
                     }
                     catch (Exception err)
                     {
-                        ReportingUtility.ReportError(ii, ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
+                        ReportingUtility.ReportError(ii, ErrorCategory.Exception, ErrorSeverity.Severe, err.GetType().Name, err.ToString());
                     }
                 }
 
@@ -350,7 +350,7 @@ namespace TabulateSmarterTestContentPackage
             catch (Exception err)
             {
                 Console.WriteLine("   Exception: " + err.Message);
-                ReportingUtility.ReportError(string.Empty, ErrorCategory.Exception, ErrorSeverity.Severe, err.Message);
+                ReportingUtility.ReportError(string.Empty, ErrorCategory.Exception, ErrorSeverity.Severe, err.GetType().Name, err.ToString());
             }
         }
 
@@ -2483,7 +2483,7 @@ namespace TabulateSmarterTestContentPackage
                 if (!rootFolder.FileExists(cImsManifest))
                 {
                     Console.WriteLine($"   Not a content package; '{cImsManifest}' must exist in root.");
-                    ReportingUtility.ReportError(string.Empty, ErrorCategory.Exception, ErrorSeverity.Severe, $"Not a content package; '{cImsManifest}' must exist in root.");
+                    ReportingUtility.ReportError(string.Empty, ErrorCategory.Manifest, ErrorSeverity.Severe, $"Not a content package; '{cImsManifest}' must exist in root.");
                     return false;
                 }
 
@@ -2574,7 +2574,7 @@ namespace TabulateSmarterTestContentPackage
             }
             catch (Exception err)
             {
-                ReportingUtility.ReportError(string.Empty, ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
+                ReportingUtility.ReportError(string.Empty, ErrorCategory.Exception, ErrorSeverity.Severe, err.GetType().Name, err.ToString());
             }
 
             return true;
