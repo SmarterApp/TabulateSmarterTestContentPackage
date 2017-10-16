@@ -345,6 +345,8 @@ namespace TabulateSmarterTestContentPackage
                 return GetEnumerator();
             }
 
+            const int c_MaxRetriesEnumProjects = 5;
+
             private class ProjectsEnumerator : IEnumerator<XElement>
             {
                 GitLab m_gitlab;
@@ -377,12 +379,32 @@ namespace TabulateSmarterTestContentPackage
                                 return false;
                             }
 
+                            // Try this up to five times - with the large count of projects, this sometimes times out.
                             XElement doc;
-                            HttpWebRequest request = m_gitlab.HttpPrepareRequest(m_nextUrl);
-                            using (var response = HttpGetResponseHandleErrors(request))
+                            for (int iteration = 0; ; ++iteration)
                             {
-                                m_nextUrl = HttpNextPageUri(response);
-                                doc = HttpReceiveJson(response);
+                                try
+                                {
+                                    HttpWebRequest request = m_gitlab.HttpPrepareRequest(m_nextUrl);
+                                    using (var response = HttpGetResponseHandleErrors(request))
+                                    {
+                                        m_nextUrl = HttpNextPageUri(response);
+                                        doc = HttpReceiveJson(response);
+                                    }
+                                }
+                                catch (Exception err)
+                                {
+                                    if (iteration >= c_MaxRetriesEnumProjects)
+                                    {
+                                        throw err;
+                                    }
+#if DEBUG
+                                    Console.WriteLine();
+                                    Console.WriteLine($"Retry: {err.Message}");
+#endif
+                                    continue;
+                                }
+                                break;
                             }
 
                             m_projects = doc.Elements("item").GetEnumerator();
