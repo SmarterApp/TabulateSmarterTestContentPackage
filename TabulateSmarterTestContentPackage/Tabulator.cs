@@ -443,7 +443,10 @@ namespace TabulateSmarterTestContentPackage
             // If tutorial, transfer to the tutorial queue
             if (ii.ItemType.Equals(cItemTypeTutorial))
             {
-                mTutorialQueue.Add(ii);
+                if (mTutorialQueue.Add(ii))
+                {
+                    ++mTransferCount;
+                }
                 return;
             }
 
@@ -1075,8 +1078,11 @@ namespace TabulateSmarterTestContentPackage
                     }
                     else
                     {
-                        // Queue this up (if it isn't already)
-                        mTutorialQueue.Add(iiTutorial);
+                        // Queue this up (if it isn't already) and manage progress counts
+                        if (mTutorialQueue.Add(iiTutorial))
+                        {
+                            if (mItemQueue.Contains(iiTutorial)) ++mTransferCount;
+                        }
                     }
 
                     // Make sure dependency is recorded in manifest
