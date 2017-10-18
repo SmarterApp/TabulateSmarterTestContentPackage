@@ -17,7 +17,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
             if (m_ErrorReport == null)
             {
                 m_ErrorReport = new StreamWriter(ErrorReportPath, false, Encoding.UTF8);
-                m_ErrorReport.WriteLine("Folder,ItemType,BankKey,ItemId,Category,Severity,ErrorMessage,Detail");
+                m_ErrorReport.WriteLine("Folder,BankKey,ItemId,ItemType,Category,Severity,ErrorMessage,Detail");
             }
 
             if (CurrentPackageName != null)
@@ -26,8 +26,8 @@ namespace TabulateSmarterTestContentPackage.Utilities
             }
 
             // "Folder,ItemType,BankKey,ItemId,Category,Severity,ErrorMessage,Detail"
-            m_ErrorReport.WriteLine(string.Join(",", Tabulator.CsvEncode(folder), Tabulator.CsvEncode(itemType),
-                Tabulator.CsvEncode(bankKey), Tabulator.CsvEncode(itemId),
+            m_ErrorReport.WriteLine(string.Join(",", Tabulator.CsvEncode(folder),
+                Tabulator.CsvEncode(bankKey), Tabulator.CsvEncode(itemId), Tabulator.CsvEncode(itemType),
                 category.ToString(), severity.ToString(), Tabulator.CsvEncode(msg), Tabulator.CsvEncode(detail)));
 
             ++ErrorCount;

@@ -88,6 +88,7 @@ namespace TabulateSmarterTestContentPackage
         DistinctList<ItemIdentifier> mTutorialQueue = new DistinctList<ItemIdentifier>();
         Dictionary<string, int> mWordlistRefCounts = new Dictionary<string, int>();   // Reference count for wordlist IDs
         int mProgressCount = 0;
+        int mTransferCount = 0;
 
         // Per report variables
         int mStartTicks;
@@ -162,22 +163,22 @@ namespace TabulateSmarterTestContentPackage
             // DOK is "Depth of Knowledge"
             // In the case of multiple standards/claims/targets, these headers will not be sufficient
             // TODO: Add CsvHelper library to allow expandable headers
-            mItemReport.WriteLine("Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL," +
+            mItemReport.WriteLine("Folder,BankKey,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL," +
                                   "BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice,MaxPoints," +
                                   "CommonCore,ClaimContentTarget,SecondaryCommonCore,SecondaryClaimContentTarget, CAT_MeasurementModel," +
                                   "CAT_ScorePoints,CAT_Dimension,CAT_Weight,CAT_Parameters, PP_MeasurementModel," +
                                   "PP_ScorePoints,PP_Dimension,PP_Weight,PP_Parameters");
 
             mStimulusReport = new StreamWriter(string.Concat(reportPrefix, cStimulusReportFn), false, Encoding.UTF8);
-            mStimulusReport.WriteLine("Folder,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,Media,Size,WordCount");
+            mStimulusReport.WriteLine("Folder,BankKey,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,Media,Size,WordCount");
 
             mWordlistReport = new StreamWriter(string.Concat(reportPrefix, cWordlistReportFn), false, Encoding.UTF8);
-            mWordlistReport.WriteLine("Folder,WIT_ID,RefCount,TermCount,MaxGloss,MinGloss,AvgGloss");
+            mWordlistReport.WriteLine("Folder,BankKey,WIT_ID,RefCount,TermCount,MaxGloss,MinGloss,AvgGloss");
 
             mGlossaryReport = new StreamWriter(string.Concat(reportPrefix, cGlossaryReportFn), false, Encoding.UTF8);
             mGlossaryReport.WriteLine(Program.gValidationOptions.IsEnabled("gtr")
-                ? "Folder,WIT_ID,ItemId,Index,Term,Language,Length,Audio,AudioSize,Image,ImageSize,Text"
-                : "Folder,WIT_ID,ItemId,Index,Term,Language,Length,Audio,AudioSize,Image,ImageSize");
+                ? "Folder,BankKey,WIT_ID,ItemId,Index,Term,Language,Length,Audio,AudioSize,Image,ImageSize,Text"
+                : "Folder,BankKey,WIT_ID,ItemId,Index,Term,Language,Length,Audio,AudioSize,Image,ImageSize");
 
             mSummaryReport = new StreamWriter(string.Concat(reportPrefix, cSummaryReportFn), false, Encoding.UTF8);
 
@@ -212,6 +213,11 @@ namespace TabulateSmarterTestContentPackage
                 {
                     mSummaryReport.Dispose();
                     mSummaryReport = null;
+                }
+                if (mWordlistReport != null)
+                {
+                    mWordlistReport.Dispose();
+                    mWordlistReport = null;
                 }
                 if (mStimulusReport != null)
                 {
@@ -346,6 +352,7 @@ namespace TabulateSmarterTestContentPackage
                 mWordlistQueue.Clear();
                 mTutorialQueue.Clear();
                 mProgressCount = 0;
+                mTransferCount = 0;
             }
             catch (Exception err)
             {
@@ -354,9 +361,18 @@ namespace TabulateSmarterTestContentPackage
             }
         }
 
+        static readonly char[] c_progressChars = new char[] { '|', '/', '-', '\\' };
+        static int s_progressSpin;
+        static int s_lastProgressTicks;
         private void ReportProgress()
         {
-            Console.Error.Write($"   {mProgressCount} of {mItemQueue.Count + mStimQueue.Count + mTutorialQueue.Count + mWordlistQueue.Count}\r");
+            uint elapsedTicks = unchecked((uint)Environment.TickCount - (uint)s_lastProgressTicks);
+            if (elapsedTicks > 150) // milliseconds
+            {
+                ++s_progressSpin;
+                s_lastProgressTicks = Environment.TickCount;
+            }
+            Console.Error.Write($"   {mProgressCount - mTransferCount} of {mItemQueue.Count + mStimQueue.Count + mTutorialQueue.Count + mWordlistQueue.Count - mTransferCount} {c_progressChars[s_progressSpin & 3]}\r");
         }
 
         private void TabulateItem(ItemIdentifier ii)
@@ -417,7 +433,10 @@ namespace TabulateSmarterTestContentPackage
             // If wordlist, transfer to the wordList queue
             if (ii.ItemType.Equals(cItemTypeWordlist, StringComparison.Ordinal))
             {
-                mWordlistQueue.Add(ii);
+                if (mWordlistQueue.Add(ii))
+                {
+                    ++mTransferCount;
+                }
                 return;
             }
 
@@ -844,10 +863,10 @@ namespace TabulateSmarterTestContentPackage
             var scoringSeparation = scoringInformation.GroupBy(
                 x => !string.IsNullOrEmpty(x.Domain) && x.Domain.Equals("paper", StringComparison.OrdinalIgnoreCase)).ToList();
 
-            // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,
+            // Folder,BankKey,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,
             // MathematicalPractice, MaxPoints, CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget, measurementmodel, scorepoints,
             // dimension, weight, parameters
-            mItemReport.WriteLine(string.Join(",", CsvEncode(it.FolderDescription), it.ItemId.ToString(), CsvEncode(it.ItemType), CsvEncode(version), CsvEncode(subject), 
+            mItemReport.WriteLine(string.Join(",", CsvEncode(it.FolderDescription), it.BankKey.ToString(), it.ItemId.ToString(), CsvEncode(it.ItemType), CsvEncode(version), CsvEncode(subject), 
                 CsvEncode(grade), CsvEncode(answerKey), CsvEncode(assessmentType), CsvEncode(wordlistId), 
                 CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), CsvEncode(media), size.ToString(), CsvEncode(depthOfKnowledge), CsvEncode(allowCalculator), 
                 CsvEncode(mathematicalPractice), CsvEncode(maximumNumberOfPoints), CsvEncode(standardClaimTarget.PrimaryCommonCore), CsvEncode(standardClaimTarget.PrimaryClaimsContentTargets),
@@ -1159,8 +1178,8 @@ namespace TabulateSmarterTestContentPackage
             // WordCount
             long wordCount = GetWordCount(it, xml);
 
-            // Folder,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,Media,Size,WordCount
-            mStimulusReport.WriteLine(string.Join(",", CsvEncode(it.FolderDescription), it.ItemId.ToString(), CsvEncode(version), CsvEncode(subject), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), CsvEncode(media), size.ToString(), wordCount.ToString()));
+            // Folder,BankKey,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,Media,Size,WordCount
+            mStimulusReport.WriteLine(string.Join(",", CsvEncode(it.FolderDescription), it.BankKey.ToString(), it.ItemId.ToString(), CsvEncode(version), CsvEncode(subject), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), CsvEncode(media), size.ToString(), wordCount.ToString()));
 
         } // TabulateStimulus
 
@@ -1239,11 +1258,11 @@ namespace TabulateSmarterTestContentPackage
             // Translation
             var translation = GetTranslation(it, xml, xmlMetadata);
 
-            // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,MathematicalPractice, MaxPoints, 
+            // Folder,BankKey,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,MathematicalPractice, MaxPoints, 
             // CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget, CAT_MeasurementModel,
             // CAT_ScorePoints, CAT_Dimension, CAT_Weight,CAT_Parameters, PP_MeasurementModel
             // PP_ScorePoints,PP_Dimension,PP_Weight,PP_Parameters
-            mItemReport.WriteLine(string.Join(",", CsvEncode(it.FolderDescription), it.ItemId.ToString(), CsvEncode(it.ItemType), CsvEncode(version),
+            mItemReport.WriteLine(string.Join(",", CsvEncode(it.FolderDescription), it.BankKey.ToString(), it.ItemId.ToString(), CsvEncode(it.ItemType), CsvEncode(version),
                 CsvEncode(subject), CsvEncode(grade), CsvEncode(answerKey), CsvEncode(assessmentType), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation),
                 string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty,
                 string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty));
@@ -2119,7 +2138,7 @@ namespace TabulateSmarterTestContentPackage
             if (mingloss == int.MaxValue) mingloss = 0;
 
             //Folder,WIT_ID,RefCount,TermCount,MaxGloss,MinGloss,AvgGloss
-            mWordlistReport.WriteLine(string.Join(",", CsvEncode(it.FolderDescription), it.ItemId.ToString(), refCount.ToString(), termcount.ToString(), maxgloss.ToString(), mingloss.ToString(), (termcount > 0) ? (((double)totalgloss)/((double)termcount)).ToString("f2") : "0" ));
+            mWordlistReport.WriteLine(string.Join(",", CsvEncode(it.FolderDescription), it.BankKey.ToString(), it.ItemId.ToString(), refCount.ToString(), termcount.ToString(), maxgloss.ToString(), mingloss.ToString(), (termcount > 0) ? (((double)totalgloss)/((double)termcount)).ToString("f2") : "0" ));
         }
 
         static readonly Regex sRxAudioAttachment = new Regex(@"<a[^>]*href=""([^""]*)""[^>]*>", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
@@ -2162,8 +2181,11 @@ namespace TabulateSmarterTestContentPackage
                 return;
             }
 
-            // Add this to the wordlist tabulation queue
-            mWordlistQueue.Add(ii);
+            // Add this to the wordlist tabulation queue (while keeping counts clean)
+            if (mWordlistQueue.Add(ii))
+            {
+                if (mItemQueue.Contains(ii)) ++mTransferCount;
+            };
 
             // Create a dictionary of attachment files
             Dictionary <string, long> attachmentFiles = new Dictionary<string, long>();
@@ -2338,9 +2360,9 @@ namespace TabulateSmarterTestContentPackage
 
                     // Folder,WIT_ID,ItemId,Index,Term,Language,Length,Audio,AudioSize,Image,ImageSize
                     if (Program.gValidationOptions.IsEnabled("gtr"))
-                        mGlossaryReport.WriteLine(string.Join(",", CsvEncode(folderDescription), ii.ItemId.ToString(), itemIt.ItemId.ToString(), index.ToString(), CsvEncodeExcel(term), CsvEncode(listType), html.Length.ToString(), audioType, audioSize.ToString(), imageType, imageSize.ToString(), CsvEncode(html)));
+                        mGlossaryReport.WriteLine(string.Join(",", CsvEncode(folderDescription), ii.BankKey.ToString(), ii.ItemId.ToString(), itemIt.ItemId.ToString(), index.ToString(), CsvEncodeExcel(term), CsvEncode(listType), html.Length.ToString(), audioType, audioSize.ToString(), imageType, imageSize.ToString(), CsvEncode(html)));
                     else
-                        mGlossaryReport.WriteLine(string.Join(",", CsvEncode(folderDescription), ii.ItemId.ToString(), itemIt.ItemId.ToString(), index.ToString(), CsvEncodeExcel(term), CsvEncode(listType), html.Length.ToString(), audioType, audioSize.ToString(), imageType, imageSize.ToString()));
+                        mGlossaryReport.WriteLine(string.Join(",", CsvEncode(folderDescription), ii.BankKey.ToString(), ii.ItemId.ToString(), itemIt.ItemId.ToString(), index.ToString(), CsvEncodeExcel(term), CsvEncode(listType), html.Length.ToString(), audioType, audioSize.ToString(), imageType, imageSize.ToString()));
                 }
 
                 // Report any expected translations that weren't found
