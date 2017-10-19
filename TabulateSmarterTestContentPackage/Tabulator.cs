@@ -77,6 +77,7 @@ namespace TabulateSmarterTestContentPackage
         const string cWordlistReportFn = "WordlistReport.csv";
         const string cGlossaryReportFn = "GlossaryReport.csv";
         const string cErrorReportFn = "ErrorReport.csv";
+        const string cIdReportFn = "IdReport.csv";
 
         // Per Package variables
         TestPackage mPackage;
@@ -91,6 +92,7 @@ namespace TabulateSmarterTestContentPackage
         int mTransferCount = 0;
 
         // Per report variables
+        bool mInitialized;
         int mStartTicks;
         int mItemCount = 0;
         int mWordlistCount = 0;
@@ -100,13 +102,15 @@ namespace TabulateSmarterTestContentPackage
         Dictionary<string, int> mTermCounts = new Dictionary<string, int>();
         Dictionary<string, int> mTranslationCounts = new Dictionary<string, int>();
         Dictionary<string, int> mAnswerKeyCounts = new Dictionary<string, int>();
+        string mReportPathPrefix;
         TextWriter mItemReport;
         TextWriter mStimulusReport;
         TextWriter mWordlistReport;
         TextWriter mGlossaryReport;
         TextWriter mSummaryReport;
+        TextWriter mIdReport;
 
-        public Tabulator(string reportPathPrefix)
+        static Tabulator()
         {
             sXmlNt = new NameTable();
             sXmlNs = new XmlNamespaceManager(sXmlNt);
@@ -121,14 +125,20 @@ namespace TabulateSmarterTestContentPackage
                 sExpectedTranslationsIndex.Add(sExpectedTranslations[i], i);
                 sExpectedTranslationsBitflags |= (1 << i);
             }
+        }
 
-            Initialize(reportPathPrefix);
+        public Tabulator(string reportPathPrefix)
+        {
+            mReportPathPrefix = string.Concat(reportPathPrefix, "_");
         }
 
         public void Dispose()
         {
             Conclude();
         }
+
+        public bool ReportIds { get; set; }
+        public bool ExitAfterSelect { get; set; }
 
         public void SelectItems(IEnumerable<ItemIdentifier> itemIds)
         {
@@ -150,37 +160,67 @@ namespace TabulateSmarterTestContentPackage
             }
         }
 
+        void ReportSelectedItems()
+        {
+            if (mIdReport == null)
+            {
+                mIdReport = new StreamWriter(string.Concat(mReportPathPrefix, cIdReportFn), false, Encoding.UTF8);
+                mIdReport.WriteLine("BankKey,ItemId,ItemType");
+            }
+            foreach (ItemIdentifier ii in mItemQueue)
+            {
+                mIdReport.WriteLine(string.Join(",", ii.BankKey, ii.ItemId, ii.ItemType));
+            }
+
+            foreach (ItemIdentifier ii in mStimQueue)
+            {
+                mIdReport.WriteLine(string.Join(",", ii.BankKey, ii.ItemId, ii.ItemType));
+            }
+        }
+
         // Initialize all files and collections for a tabulation run
-        private void Initialize(string reportPrefix)
+        private void Initialize()
         {
             mStartTicks = Environment.TickCount;
 
-            reportPrefix = string.Concat(reportPrefix, "_");
-            ReportingUtility.ErrorReportPath = string.Concat(reportPrefix, cErrorReportFn);
-            if (File.Exists(ReportingUtility.ErrorReportPath)) File.Delete(ReportingUtility.ErrorReportPath);
+            // Prep the error report
+            ReportingUtility.ErrorReportPath = string.Concat(mReportPathPrefix, cErrorReportFn);
+            File.Delete(ReportingUtility.ErrorReportPath); // Delete does not throw exception if file does not exist.
 
-            mItemReport = new StreamWriter(string.Concat(reportPrefix, cItemReportFn), false, Encoding.UTF8); 
-            // DOK is "Depth of Knowledge"
-            // In the case of multiple standards/claims/targets, these headers will not be sufficient
-            // TODO: Add CsvHelper library to allow expandable headers
-            mItemReport.WriteLine("Folder,BankKey,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL," +
-                                  "BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice,MaxPoints," +
-                                  "CommonCore,ClaimContentTarget,SecondaryCommonCore,SecondaryClaimContentTarget, CAT_MeasurementModel," +
-                                  "CAT_ScorePoints,CAT_Dimension,CAT_Weight,CAT_Parameters, PP_MeasurementModel," +
-                                  "PP_ScorePoints,PP_Dimension,PP_Weight,PP_Parameters");
+            // Delete any existing reports
+            File.Delete(mReportPathPrefix + cIdReportFn);
+            File.Delete(mReportPathPrefix + cItemReportFn);
+            File.Delete(mReportPathPrefix + cStimulusReportFn);
+            File.Delete(mReportPathPrefix + cWordlistReportFn);
+            File.Delete(mReportPathPrefix + cGlossaryReportFn);
 
-            mStimulusReport = new StreamWriter(string.Concat(reportPrefix, cStimulusReportFn), false, Encoding.UTF8);
-            mStimulusReport.WriteLine("Folder,BankKey,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,Media,Size,WordCount");
+            // Prep the summary report
+            mSummaryReport = new StreamWriter(string.Concat(mReportPathPrefix, cSummaryReportFn), false, Encoding.UTF8);
 
-            mWordlistReport = new StreamWriter(string.Concat(reportPrefix, cWordlistReportFn), false, Encoding.UTF8);
-            mWordlistReport.WriteLine("Folder,BankKey,WIT_ID,RefCount,TermCount,MaxGloss,MinGloss,AvgGloss");
+            // If tabulation not being suppressed, open the other reports
+            if (!ExitAfterSelect)
+            {
+                mItemReport = new StreamWriter(string.Concat(mReportPathPrefix, cItemReportFn), false, Encoding.UTF8);
+                // DOK is "Depth of Knowledge"
+                // In the case of multiple standards/claims/targets, these headers will not be sufficient
+                // TODO: Add CsvHelper library to allow expandable headers
+                mItemReport.WriteLine("Folder,BankKey,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL," +
+                                      "BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice,MaxPoints," +
+                                      "CommonCore,ClaimContentTarget,SecondaryCommonCore,SecondaryClaimContentTarget, CAT_MeasurementModel," +
+                                      "CAT_ScorePoints,CAT_Dimension,CAT_Weight,CAT_Parameters, PP_MeasurementModel," +
+                                      "PP_ScorePoints,PP_Dimension,PP_Weight,PP_Parameters");
 
-            mGlossaryReport = new StreamWriter(string.Concat(reportPrefix, cGlossaryReportFn), false, Encoding.UTF8);
-            mGlossaryReport.WriteLine(Program.gValidationOptions.IsEnabled("gtr")
-                ? "Folder,BankKey,WIT_ID,ItemId,Index,Term,Language,Length,Audio,AudioSize,Image,ImageSize,Text"
-                : "Folder,BankKey,WIT_ID,ItemId,Index,Term,Language,Length,Audio,AudioSize,Image,ImageSize");
+                mStimulusReport = new StreamWriter(string.Concat(mReportPathPrefix, cStimulusReportFn), false, Encoding.UTF8);
+                mStimulusReport.WriteLine("Folder,BankKey,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,Media,Size,WordCount");
 
-            mSummaryReport = new StreamWriter(string.Concat(reportPrefix, cSummaryReportFn), false, Encoding.UTF8);
+                mWordlistReport = new StreamWriter(string.Concat(mReportPathPrefix, cWordlistReportFn), false, Encoding.UTF8);
+                mWordlistReport.WriteLine("Folder,BankKey,WIT_ID,RefCount,TermCount,MaxGloss,MinGloss,AvgGloss");
+
+                mGlossaryReport = new StreamWriter(string.Concat(mReportPathPrefix, cGlossaryReportFn), false, Encoding.UTF8);
+                mGlossaryReport.WriteLine(Program.gValidationOptions.IsEnabled("gtr")
+                    ? "Folder,BankKey,WIT_ID,ItemId,Index,Term,Language,Length,Audio,AudioSize,Image,ImageSize,Text"
+                    : "Folder,BankKey,WIT_ID,ItemId,Index,Term,Language,Length,Audio,AudioSize,Image,ImageSize");
+            }
 
             ReportingUtility.ErrorCount = 0;
             mItemCount = 0;
@@ -192,6 +232,8 @@ namespace TabulateSmarterTestContentPackage
             mTermCounts.Clear();
             mTranslationCounts.Clear();
             mAnswerKeyCounts.Clear();
+
+            mInitialized = true;
         }
 
         private void Conclude()
@@ -209,6 +251,11 @@ namespace TabulateSmarterTestContentPackage
             }
             finally
             {
+                if (mIdReport != null)
+                {
+                    mIdReport.Dispose();
+                    mIdReport = null;
+                }
                 if (mSummaryReport != null)
                 {
                     mSummaryReport.Dispose();
@@ -240,6 +287,12 @@ namespace TabulateSmarterTestContentPackage
 
         public void Tabulate(TestPackage package)
         {
+            if (!mInitialized)
+            {
+                Initialize();
+            }
+
+
             Console.WriteLine("Tabulating " + package.Name);
             try
             {
@@ -266,77 +319,89 @@ namespace TabulateSmarterTestContentPackage
                 }
 
                 // Select the items to be tablulated (if a specific set was not already given)
+                string label;
                 if (mItemQueue.Count == 0 && mStimQueue.Count == 0)
                 {
                     SelectItems(package.ItemsAndStimuli);
-                    Console.WriteLine($"   Selected {mItemQueue.Count} items and {mStimQueue.Count} stimuli.");
+                    label = "Selected";
                 }
                 else
                 {
-                    Console.WriteLine($"   Preselected {mItemQueue.Count} items and {mStimQueue.Count} stimuli.");
+                    label = "Preselected";
                 }
 
-                // Process Items
-                mItemQueue.Sort();
-                foreach (var ii in mItemQueue)
+                // Report
+                if (ReportIds)
                 {
-                    ++mProgressCount;
-                    try
-                    {
-                        TabulateItem(ii);
-                        ReportProgress();
-                    }
-                    catch (Exception err)
-                    {
-                        ReportingUtility.ReportError(ii, ErrorCategory.Exception, ErrorSeverity.Severe, err.GetType().Name, err.ToString());
-                    }
+                    ReportSelectedItems();
                 }
+                Console.WriteLine($"   {label} {mItemQueue.Count} items and {mStimQueue.Count} stimuli.");
 
-                // Process stimuli
-                mStimQueue.Sort();
-                foreach (var ii in mStimQueue)
+                // Tabulate the selected items
+                if (!ExitAfterSelect)
                 {
-                    ++mProgressCount;
-                    try
+                    // Process Items
+                    mItemQueue.Sort();
+                    foreach (var ii in mItemQueue)
                     {
-                        TabulateStimulus(ii);
-                        ReportProgress();
+                        ++mProgressCount;
+                        try
+                        {
+                            TabulateItem(ii);
+                            ReportProgress();
+                        }
+                        catch (Exception err)
+                        {
+                            ReportingUtility.ReportError(ii, ErrorCategory.Exception, ErrorSeverity.Severe, err.GetType().Name, err.ToString());
+                        }
                     }
-                    catch (Exception err)
-                    {
-                        ReportingUtility.ReportError(ii, ErrorCategory.Exception, ErrorSeverity.Severe, err.GetType().Name, err.ToString());
-                    }
-                }
 
-                // Process WordLists
-                mWordlistQueue.Sort();
-                foreach (var ii in mWordlistQueue)
-                {
-                    ++mProgressCount;
-                    try
+                    // Process stimuli
+                    mStimQueue.Sort();
+                    foreach (var ii in mStimQueue)
                     {
-                        TabulateWordList(ii);
-                        ReportProgress();
+                        ++mProgressCount;
+                        try
+                        {
+                            TabulateStimulus(ii);
+                            ReportProgress();
+                        }
+                        catch (Exception err)
+                        {
+                            ReportingUtility.ReportError(ii, ErrorCategory.Exception, ErrorSeverity.Severe, err.GetType().Name, err.ToString());
+                        }
                     }
-                    catch (Exception err)
-                    {
-                        ReportingUtility.ReportError(ii, ErrorCategory.Exception, ErrorSeverity.Severe, err.GetType().Name, err.ToString());
-                    }
-                }
 
-                // Process Tutorials (we handle these separately because they are dependent on items)
-                mTutorialQueue.Sort();
-                foreach (var ii in mTutorialQueue)
-                {
-                    ++mProgressCount;
-                    try
+                    // Process WordLists
+                    mWordlistQueue.Sort();
+                    foreach (var ii in mWordlistQueue)
                     {
-                        TabulateTutorial(ii);
-                        ReportProgress();
+                        ++mProgressCount;
+                        try
+                        {
+                            TabulateWordList(ii);
+                            ReportProgress();
+                        }
+                        catch (Exception err)
+                        {
+                            ReportingUtility.ReportError(ii, ErrorCategory.Exception, ErrorSeverity.Severe, err.GetType().Name, err.ToString());
+                        }
                     }
-                    catch (Exception err)
+
+                    // Process Tutorials (we handle these separately because they are dependent on items)
+                    mTutorialQueue.Sort();
+                    foreach (var ii in mTutorialQueue)
                     {
-                        ReportingUtility.ReportError(ii, ErrorCategory.Exception, ErrorSeverity.Severe, err.GetType().Name, err.ToString());
+                        ++mProgressCount;
+                        try
+                        {
+                            TabulateTutorial(ii);
+                            ReportProgress();
+                        }
+                        catch (Exception err)
+                        {
+                            ReportingUtility.ReportError(ii, ErrorCategory.Exception, ErrorSeverity.Severe, err.GetType().Name, err.ToString());
+                        }
                     }
                 }
 
@@ -2671,28 +2736,35 @@ namespace TabulateSmarterTestContentPackage
             uint elapsed = unchecked((uint)Environment.TickCount - (uint)mStartTicks);
             writer.WriteLine();
             writer.WriteLine("Elapsed: {0}.{1:d3}", elapsed / 1000, elapsed % 1000);
-            writer.WriteLine("Errors: {0}", ReportingUtility.ErrorCount);
-            writer.WriteLine("Items: {0}", mItemCount);
-            writer.WriteLine("Stimuli: {0}", mStimCount);
-            writer.WriteLine("Word Lists: {0}", mWordlistCount);
-            writer.WriteLine("Glossary Terms: {0}", mGlossaryTermCount);
-            writer.WriteLine("Distinct Glossary Terms: {0}", mTermCounts.Count);
-            writer.WriteLine();
-            writer.WriteLine("Item Type Counts:");
-            mTypeCounts.Dump(writer);
-            writer.WriteLine();
-            writer.WriteLine("Translation Counts:");
-            mTranslationCounts.Dump(writer);
-            writer.WriteLine();
-            writer.WriteLine("Answer Key Counts:");
-            mAnswerKeyCounts.Dump(writer);
-            writer.WriteLine();
-            writer.WriteLine("Glossary Terms Used in Wordlists:");
-            mTermCounts.Dump(writer);
+
+            if (ExitAfterSelect)
+            {
+                writer.WriteLine("Items: {0}", mItemQueue.Count);
+                writer.WriteLine("Stimuli: {0}", mStimQueue.Count);
+            }
+            else
+            {
+                writer.WriteLine("Errors: {0}", ReportingUtility.ErrorCount);
+                writer.WriteLine("Items: {0}", mItemCount);
+                writer.WriteLine("Stimuli: {0}", mStimCount);
+                writer.WriteLine("Word Lists: {0}", mWordlistCount);
+                writer.WriteLine("Glossary Terms: {0}", mGlossaryTermCount);
+                writer.WriteLine("Distinct Glossary Terms: {0}", mTermCounts.Count);
+                writer.WriteLine();
+                writer.WriteLine("Item Type Counts:");
+                mTypeCounts.Dump(writer);
+                writer.WriteLine();
+                writer.WriteLine("Translation Counts:");
+                mTranslationCounts.Dump(writer);
+                writer.WriteLine();
+                writer.WriteLine("Answer Key Counts:");
+                mAnswerKeyCounts.Dump(writer);
+                writer.WriteLine();
+                writer.WriteLine("Glossary Terms Used in Wordlists:");
+                mTermCounts.Dump(writer);
+            }
             writer.WriteLine();
         }
-
-        
 
         private static readonly char[] cCsvEscapeChars = {',', '"', '\'', '\r', '\n'};
 

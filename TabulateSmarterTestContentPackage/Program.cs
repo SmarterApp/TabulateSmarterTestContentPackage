@@ -75,6 +75,11 @@ Arguments:
                      preceding package. If not specified, defaults to the
                      package file or directory name. Required when tabulating
                      an item bank.
+    -lid             Indicates that a list of IDs should be reported during
+                     the item selection pass.
+    -lidx            Indicates that a list of IDs should be reported and that
+                     the tabulation should exit after the selection pass - not
+                     generating the other reports.
     <packageMoniker> The filename of a local package or the identifier of an
                      online item bank. (See below for details.)
     
@@ -255,6 +260,8 @@ Error severity definitions:
         static bool s_aggregate = false;
         static bool s_showHelp = false;
         static int s_bankKey = c_DefaultBankKey;
+        static bool s_reportIds;
+        static bool s_exitAfterIds;
 
 
         private static void Main(string[] args)
@@ -355,6 +362,15 @@ Error severity definitions:
                         if (s_operations.Count == 0) throw new ArgumentException("'-ids' argument must follow a package or bank identification.");
                         if (s_operations.Last().IdFilename != null) throw new ArgumentException("Only one '-ids' argument may be specified per package.");
                         s_operations.Last().IdFilename = args[i];
+                        break;
+
+                    case "-lid":
+                        s_reportIds = true;
+                        break;
+
+                    case "-lidx":
+                        s_reportIds = true;
+                        s_exitAfterIds = true;
                         break;
 
                     case "-o":
@@ -514,6 +530,8 @@ Error severity definitions:
                             // Tabulate the package
                             using (var tab = new Tabulator(reportPrefix))
                             {
+                                tab.ReportIds = s_reportIds;
+                                tab.ExitAfterSelect = s_exitAfterIds;
                                 if (operation.IdFilename != null)
                                 {
                                     tab.SelectItems(new IdReadable(operation.IdFilename, c_DefaultBankKey));
@@ -535,6 +553,8 @@ Error severity definitions:
                         }
                         using (var tab = new Tabulator(operation.ReportPrefix))
                         {
+                            tab.ReportIds = s_reportIds;
+                            tab.ExitAfterSelect = s_exitAfterIds;
                             if (operation.IdFilename != null)
                             {
                                 tab.SelectItems(new IdReadable(operation.IdFilename, c_DefaultBankKey));
@@ -566,6 +586,9 @@ Error severity definitions:
 
             using (var tab = new Tabulator(reportPrefix))
             {
+                tab.ReportIds = s_reportIds;
+                tab.ExitAfterSelect = s_exitAfterIds;
+
                 foreach (var operation in s_operations)
                 {
                     // Local package
