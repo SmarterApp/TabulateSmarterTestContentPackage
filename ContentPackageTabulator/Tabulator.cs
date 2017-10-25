@@ -345,7 +345,7 @@ namespace ContentPackageTabulator
                 // In the case of multiple standards/claims/targets, these headers will not be sufficient
                 // TODO: Add CsvHelper library to allow expandable headers
                 mItemReport.WriteLine(
-                    "Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL," +
+                    "Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,NumberOfAnswerOptions,AsmtType,WordlistId,ASL," +
                     "BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice,MaxPoints," +
                     "CommonCore,ClaimContentTarget,SecondaryCommonCore,SecondaryClaimContentTarget, CAT_MeasurementModel," +
                     "CAT_ScorePoints,CAT_Dimension,CAT_Weight,CAT_Parameters, PP_MeasurementModel," +
@@ -1118,6 +1118,9 @@ namespace ContentPackageTabulator
             // Size
             var size = GetItemSize(it);
 
+            // Answer Options
+            var numberOfAnswerOptions = CountAnswerOptions(it, xml);
+
             var standardClaimTarget = new ReportingStandard(primaryStandards, secondaryStandards);
 
             // Check for silencing tags
@@ -1148,13 +1151,14 @@ namespace ContentPackageTabulator
 
             if (Program.gValidationOptions.IsEnabled("dsk") && write)
             {
-                // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,
+                // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,NumberOfAnswerOptions,AsmtType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,
                 // MathematicalPractice, MaxPoints, CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget, measurementmodel, scorepoints,
                 // dimension, weight, parameters
                 mItemReport.WriteLine(string.Join(",", ReportingUtility.CsvEncode(it.Folder),
                     ReportingUtility.CsvEncode(it.ItemId), ReportingUtility.CsvEncode(it.ItemType),
                     ReportingUtility.CsvEncode(version), ReportingUtility.CsvEncode(subject),
                     ReportingUtility.CsvEncode(grade), ReportingUtility.CsvEncode(answerKey),
+                    numberOfAnswerOptions,
                     ReportingUtility.CsvEncode(assessmentType), ReportingUtility.CsvEncode(wordlistId),
                     ReportingUtility.CsvEncode(asl), ReportingUtility.CsvEncode(brailleType),
                     ReportingUtility.CsvEncode(translation), ReportingUtility.CsvEncode(media), size.ToString(),
@@ -2102,6 +2106,13 @@ namespace ContentPackageTabulator
         {
             return xml.SelectNodes("//readAloud/textToSpeechPronunciation").Cast<XElement>()
                 .Any(node => node.InnerText().Length == 0);
+        }
+
+        private int CountAnswerOptions(ItemContext it, XDocument xml)
+        {
+            // TODO: add validation to make sure that there are options when the item type is MC or MS
+
+            return xml.SelectNodes("itemRelease/item/content/optionlist/option").Count();
         }
 
         // Returns the Wordlist ID
