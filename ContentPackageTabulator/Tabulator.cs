@@ -2112,7 +2112,7 @@ namespace ContentPackageTabulator
         {
             // TODO: add validation to make sure that there are options when the item type is MC or MS
 
-            return xml.SelectNodes("itemRelease/item/content/optionlist/option").Count();
+            return xml.SelectNodes("itemrelease/item/content[@language='ENU']/optionlist/option/val").Count();
         }
 
         // Returns the Wordlist ID
