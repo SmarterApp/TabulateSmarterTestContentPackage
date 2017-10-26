@@ -2110,9 +2110,16 @@ namespace ContentPackageTabulator
 
         private int CountAnswerOptions(ItemContext it, XDocument xml)
         {
-            // TODO: add validation to make sure that there are options when the item type is MC or MS
+            var numberOfAnswerOptions = xml.SelectNodes("itemrelease/item/content[@language='ENU']/optionlist/option/val").Count();
 
-            return xml.SelectNodes("itemrelease/item/content[@language='ENU']/optionlist/option/val").Count();
+            // multiple choice and multiple select must have at least one option
+            if (numberOfAnswerOptions == 0 && (it.ItemType.ToUpper() == "MS" || it.ItemType.ToUpper() == "MC"))
+            {
+                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
+                            "Multiple choice or multiple select item does not include any answer options.");
+            }
+            
+            return numberOfAnswerOptions;
         }
 
         // Returns the Wordlist ID
