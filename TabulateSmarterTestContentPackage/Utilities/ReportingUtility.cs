@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Text;
 using TabulateSmarterTestContentPackage.Models;
 
@@ -35,7 +36,25 @@ namespace TabulateSmarterTestContentPackage.Utilities
 
         public static void ReportError(ItemIdentifier ii, ErrorCategory category, ErrorSeverity severity, string msg, string detail = null)
         {
-            InternalReportError(ii.FolderName, ii.ItemType, ii.BankKey.ToString(), ii.ItemId.ToString(), category, severity, msg, detail);
+            string folderName;
+            string itemType;
+            string bankKey;
+            string itemId;
+            if (ii != null)
+            {
+                folderName = ii.FolderName;
+                itemType = ii.ItemType;
+                bankKey = ii.BankKey.ToString();
+                itemId = ii.ItemId.ToString();
+            }
+            else
+            {
+                folderName = string.Empty;
+                itemType = null;
+                bankKey = null;
+                itemId = null;
+            }
+            InternalReportError(folderName, itemType, bankKey, itemId, category, severity, msg, detail);
         }
 
         public static void ReportError(string folder, ErrorCategory category, ErrorSeverity severity, string msg, string detail = null)
@@ -57,6 +76,11 @@ namespace TabulateSmarterTestContentPackage.Utilities
             string detail, params object[] args)
         {
             ReportError(ii, category, severity, msg, string.Format(System.Globalization.CultureInfo.InvariantCulture, detail, args));
+        }
+
+        public static void ReportError(ItemIdentifier ii, ErrorSeverity severity, Exception err)
+        {
+            ReportError(ii, ErrorCategory.Exception, severity, err.GetType().Name, err.ToString());
         }
 
         public static void ReportError(string validationOption, ItemIdentifier ii, ErrorCategory category,

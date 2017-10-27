@@ -78,6 +78,7 @@ namespace TabulateSmarterTestContentPackage
         const string cGlossaryReportFn = "GlossaryReport.csv";
         const string cErrorReportFn = "ErrorReport.csv";
         const string cIdReportFn = "IdReport.csv";
+        const string cRubricExportFn = "Rubrics";
 
         static ItemIdentifier cBlankItemId = new ItemIdentifier(string.Empty, 0, 0);
 
@@ -142,6 +143,7 @@ namespace TabulateSmarterTestContentPackage
 
         public bool ReportIds { get; set; }
         public bool ExitAfterSelect { get; set; }
+        public bool ExportRubrics { get; set; }
 
         public void SelectItems(IEnumerable<ItemIdentifier> itemIds)
         {
@@ -223,6 +225,12 @@ namespace TabulateSmarterTestContentPackage
                 mGlossaryReport.WriteLine(Program.gValidationOptions.IsEnabled("gtr")
                     ? "Folder,BankKey,WIT_ID,ItemId,Index,Term,Language,Length,Audio,AudioSize,Image,ImageSize,Text"
                     : "Folder,BankKey,WIT_ID,ItemId,Index,Term,Language,Length,Audio,AudioSize,Image,ImageSize");
+
+                // If rubrics being exported, ensure the directory exists
+                if (ExportRubrics)
+                {
+                    Directory.CreateDirectory(string.Concat(mReportPathPrefix, cRubricExportFn));
+                }
             }
 
             ReportingUtility.ErrorCount = 0;
@@ -355,7 +363,7 @@ namespace TabulateSmarterTestContentPackage
                         }
                         catch (Exception err)
                         {
-                            ReportingUtility.ReportError(ii, ErrorCategory.Exception, ErrorSeverity.Severe, err.GetType().Name, err.ToString());
+                            ReportingUtility.ReportError(ii, ErrorSeverity.Severe, err);
                         }
                     }
 
@@ -371,7 +379,7 @@ namespace TabulateSmarterTestContentPackage
                         }
                         catch (Exception err)
                         {
-                            ReportingUtility.ReportError(ii, ErrorCategory.Exception, ErrorSeverity.Severe, err.GetType().Name, err.ToString());
+                            ReportingUtility.ReportError(ii, ErrorSeverity.Severe, err);
                         }
                     }
 
@@ -387,7 +395,7 @@ namespace TabulateSmarterTestContentPackage
                         }
                         catch (Exception err)
                         {
-                            ReportingUtility.ReportError(ii, ErrorCategory.Exception, ErrorSeverity.Severe, err.GetType().Name, err.ToString());
+                            ReportingUtility.ReportError(ii, ErrorSeverity.Severe, err);
                         }
                     }
 
@@ -403,7 +411,7 @@ namespace TabulateSmarterTestContentPackage
                         }
                         catch (Exception err)
                         {
-                            ReportingUtility.ReportError(ii, ErrorCategory.Exception, ErrorSeverity.Severe, err.GetType().Name, err.ToString());
+                            ReportingUtility.ReportError(ii, ErrorSeverity.Severe, err);
                         }
                     }
                 }
@@ -425,7 +433,7 @@ namespace TabulateSmarterTestContentPackage
             catch (Exception err)
             {
                 Console.WriteLine("   Exception: " + err.Message);
-                ReportingUtility.ReportError(string.Empty, ErrorCategory.Exception, ErrorSeverity.Severe, err.GetType().Name, err.ToString());
+                ReportingUtility.ReportError(null, ErrorSeverity.Severe, err);
             }
         }
 
@@ -857,6 +865,25 @@ namespace TabulateSmarterTestContentPackage
                         {
                             mRubrics.Add(hash, new ItemIdentifier(it));
                         }
+
+                        // Export the rubric if specified
+                        if (ExportRubrics)
+                        {
+                            try
+                            {
+                                string rubricFn = Path.Combine(string.Concat(mReportPathPrefix, cRubricExportFn), $"rubric-{it.BankKey}-{it.ItemId}.html");
+                                using (var outStream = new FileStream(rubricFn, FileMode.Create, FileAccess.Write, FileShare.Read))
+                                {
+                                    rubricStream.Position = 0;
+                                    rubricStream.CopyTo(outStream);
+                                }
+                            }
+                            catch(Exception err)
+                            {
+                                ReportingUtility.ReportError(it, ErrorSeverity.Tolerable, err);
+                            }
+                        }
+
                     }
                 }
             }
@@ -2704,7 +2731,7 @@ namespace TabulateSmarterTestContentPackage
             }
             catch (Exception err)
             {
-                ReportingUtility.ReportError(string.Empty, ErrorCategory.Exception, ErrorSeverity.Severe, err.GetType().Name, err.ToString());
+                ReportingUtility.ReportError(null, ErrorSeverity.Severe, err);
             }
 
             return true;

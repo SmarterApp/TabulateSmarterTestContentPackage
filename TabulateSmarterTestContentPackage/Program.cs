@@ -80,6 +80,9 @@ Arguments:
     -lidx            Indicates that a list of IDs should be reported and that
                      the tabulation should exit after the selection pass - not
                      generating the other reports.
+    -rbrk            Export rubrics into HTML files so that they can be
+                     examined. The rubrics will be in a folder located in the
+                     same place as the reports.
     <packageMoniker> The filename of a local package or the identifier of an
                      online item bank. (See below for details.)
     
@@ -262,6 +265,7 @@ Error severity definitions:
         static int s_bankKey = c_DefaultBankKey;
         static bool s_reportIds;
         static bool s_exitAfterIds;
+        static bool s_exportRubrics;
 
 
         private static void Main(string[] args)
@@ -371,6 +375,10 @@ Error severity definitions:
                     case "-lidx":
                         s_reportIds = true;
                         s_exitAfterIds = true;
+                        break;
+
+                    case "-rbrk":
+                        s_exportRubrics = true;
                         break;
 
                     case "-o":
@@ -532,6 +540,7 @@ Error severity definitions:
                             {
                                 tab.ReportIds = s_reportIds;
                                 tab.ExitAfterSelect = s_exitAfterIds;
+                                tab.ExportRubrics = s_exportRubrics;
                                 if (operation.IdFilename != null)
                                 {
                                     tab.SelectItems(new IdReadable(operation.IdFilename, c_DefaultBankKey));
@@ -555,6 +564,7 @@ Error severity definitions:
                         {
                             tab.ReportIds = s_reportIds;
                             tab.ExitAfterSelect = s_exitAfterIds;
+                            tab.ExportRubrics = s_exportRubrics;
                             if (operation.IdFilename != null)
                             {
                                 tab.SelectItems(new IdReadable(operation.IdFilename, c_DefaultBankKey));
@@ -588,6 +598,7 @@ Error severity definitions:
             {
                 tab.ReportIds = s_reportIds;
                 tab.ExitAfterSelect = s_exitAfterIds;
+                tab.ExportRubrics = s_exportRubrics;
 
                 foreach (var operation in s_operations)
                 {
