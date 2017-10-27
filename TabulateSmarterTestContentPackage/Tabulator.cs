@@ -79,6 +79,8 @@ namespace TabulateSmarterTestContentPackage
         const string cErrorReportFn = "ErrorReport.csv";
         const string cIdReportFn = "IdReport.csv";
 
+        static ItemIdentifier cBlankItemId = new ItemIdentifier(string.Empty, 0, 0);
+
         // Per Package variables
         TestPackage mPackage;
         Dictionary<string, string> mFilenameToResourceId = new Dictionary<string, string>();
@@ -102,6 +104,7 @@ namespace TabulateSmarterTestContentPackage
         Dictionary<string, int> mTermCounts = new Dictionary<string, int>();
         Dictionary<string, int> mTranslationCounts = new Dictionary<string, int>();
         Dictionary<string, int> mAnswerKeyCounts = new Dictionary<string, int>();
+        Dictionary<ShaHash, ItemIdentifier> mRubrics = new Dictionary<ShaHash, ItemIdentifier>();
         string mReportPathPrefix;
         TextWriter mItemReport;
         TextWriter mStimulusReport;
@@ -644,10 +647,11 @@ namespace TabulateSmarterTestContentPackage
                     ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Grade mismatch between item and metadata.", "ItemGrade='{0}', MetadataGrade='{1}'", grade, metaGrade);
             }
 
-            // Answer Key and Rubric
+            // Answer Key
             var answerKey = string.Empty;
+            ScoringType scoringType;
             {
-                
+
                 var answerKeyValue = string.Empty;
                 var xmlEle = xml.SelectSingleNode("itemrelease/item/attriblist/attrib[@attid='itm_att_Answer Key']") as XmlElement;
                 if (xmlEle != null)
@@ -668,8 +672,8 @@ namespace TabulateSmarterTestContentPackage
 
                 var metadataScoringEngine = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:ScoringEngine", sXmlNs);
 
-                // Annswer key type is dictated by item type
-                ScoringType scoringType = ScoringType.Basic;
+                // Answer key type is dictated by item type
+                scoringType = ScoringType.Basic;
                 string metadataExpected = null;
                 switch (it.ItemType)
                 {
@@ -811,18 +815,51 @@ namespace TabulateSmarterTestContentPackage
                     }
                 }
 
-                // If non-embedded answer key (either hand-scored or QRX scoring but not EBSR type check for a rubric (human scoring guidance)
-                // We only care about english rubrics (at least for the present)
-                if (scoringType != ScoringType.Basic && !it.ItemType.Equals("EBSR", StringComparison.OrdinalIgnoreCase))
+            } // Answer key
+
+            // Rubric
+            // If non-embedded answer key (either hand-scored or QRX scoring but not EBSR type check for a rubric (human scoring guidance)
+            // We only care about english rubrics (at least for the present)
+            if (scoringType != ScoringType.Basic && !it.ItemType.Equals("EBSR", StringComparison.OrdinalIgnoreCase))
+            {
+                using (var rubricStream = new MemoryStream())
                 {
-                    if (!(xml.SelectSingleNode("itemrelease/item/content[@language='ENU']/rubriclist/rubric/val") is XmlElement))
+                    if (!RubricExtractor.ExtractRubric(xml, rubricStream))
                     {
                         ReportingUtility.ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Tolerable,
-                            "Hand-scored or QRX-scored item lacks a human-readable rubric",
+                            "Rubric is missing for Hand-scored or QRX-scored item.",
                             $"AnswerKey: '{answerKey}'");
                     }
+                    else
+                    {
+                        rubricStream.Position = 0;
+                        var hash = new ShaHash(rubricStream);
+
+                        // See if we've aready encountered an identical rubric
+                        ItemIdentifier otherId;
+                        if (mRubrics.TryGetValue(hash, out otherId))
+                        {
+                            // If the dictionary shows a non-blank itemId, report the error on the other item with a matching hash.
+                            if (!otherId.Equals(cBlankItemId))
+                            {
+                                ReportingUtility.ReportError(otherId, ErrorCategory.Item, ErrorSeverity.Tolerable,
+                                    "Rubric is likely to be a blank template. Identical to the rubric of at least one other item.", $"rubricHash={hash}");
+
+                                // Set the id to blanks so that we don't report repeated errors on the prior item
+                                mRubrics[hash] = cBlankItemId;
+                            }
+
+                            // Report the error on the current item.
+                            ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable,
+                                "Rubric is likely to be a blank template. Identical to the rubric of at least one other item.", $"rubricHash={hash}");
+                        }
+                        else
+                        {
+                            mRubrics.Add(hash, new ItemIdentifier(it));
+                        }
+                    }
                 }
-            } // Answer key and rubric
+            }
 
             // AssessmentType (PT or CAT)
             string assessmentType;
@@ -2995,4 +3032,51 @@ namespace TabulateSmarterTestContentPackage
         }
 
     }
+
+    /*
+    class Timer
+    {
+        static TextWriter s_writer;
+
+        public static void Init(string prefix)
+        {
+            s_writer = new StreamWriter(prefix + "Timings.csv");
+        }
+
+        public static void Conclude()
+        {
+            if (s_writer != null)
+            {
+                s_writer.Dispose();
+                s_writer = null;
+            }
+        }
+
+        List<int> m_ticks = new List<int>();
+        string m_type;
+
+        public Timer(string type)
+        {
+            m_type = type;
+            Lap();
+        }
+
+        public void Lap()
+        {
+            m_ticks.Add(Environment.TickCount);
+        }
+
+        public void Report()
+        {
+            s_writer.Write(m_type);
+            for (int i = 0; i < m_ticks.Count - 1; ++i)
+            {
+                uint elapsed = unchecked((uint)m_ticks[i + 1] - (uint)m_ticks[i]);
+                s_writer.Write(",{0}.{1:d3}", elapsed / 1000, elapsed % 1000);
+            }
+            s_writer.WriteLine();
+        }
+    }
+    */
+
 }

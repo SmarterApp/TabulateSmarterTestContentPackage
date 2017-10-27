@@ -30,6 +30,14 @@ namespace TabulateSmarterTestContentPackage.Models
             if (!int.TryParse(itemId, out m_itemId)) throw new ArgumentException("itemId must be integer");
         }
 
+        public ItemIdentifier(ItemIdentifier toClone)
+        {
+            m_itemType = toClone.m_itemType;
+            m_isStimulus = toClone.m_isStimulus;
+            m_bankKey = toClone.m_bankKey;
+            m_itemId = toClone.m_itemId;
+        }
+
         public string ItemType
         {
             get { return m_itemType; }
