@@ -112,7 +112,6 @@ namespace TabulateSmarterTestContentPackage
         TextWriter mWordlistReport;
         TextWriter mGlossaryReport;
         TextWriter mSummaryReport;
-        TextWriter mIdReport;
 
         static Tabulator()
         {
@@ -167,19 +166,22 @@ namespace TabulateSmarterTestContentPackage
 
         void ReportSelectedItems()
         {
-            if (mIdReport == null)
+            // File gets deleted at init so we can do append for each set of items.
+            using (var report = new StreamWriter(string.Concat(mReportPathPrefix, cIdReportFn), true, Encoding.UTF8))
             {
-                mIdReport = new StreamWriter(string.Concat(mReportPathPrefix, cIdReportFn), false, Encoding.UTF8);
-                mIdReport.WriteLine("BankKey,ItemId,ItemType");
-            }
-            foreach (ItemIdentifier ii in mItemQueue)
-            {
-                mIdReport.WriteLine(string.Join(",", ii.BankKey, ii.ItemId, ii.ItemType));
-            }
+                if (report.BaseStream.Length == 0)
+                {
+                    report.WriteLine("BankKey,ItemId,ItemType");
+                }
+                foreach (ItemIdentifier ii in mItemQueue)
+                {
+                    report.WriteLine(string.Join(",", ii.BankKey, ii.ItemId, ii.ItemType));
+                }
 
-            foreach (ItemIdentifier ii in mStimQueue)
-            {
-                mIdReport.WriteLine(string.Join(",", ii.BankKey, ii.ItemId, ii.ItemType));
+                foreach (ItemIdentifier ii in mStimQueue)
+                {
+                    report.WriteLine(string.Join(",", ii.BankKey, ii.ItemId, ii.ItemType));
+                }
             }
         }
 
@@ -262,11 +264,6 @@ namespace TabulateSmarterTestContentPackage
             }
             finally
             {
-                if (mIdReport != null)
-                {
-                    mIdReport.Dispose();
-                    mIdReport = null;
-                }
                 if (mSummaryReport != null)
                 {
                     mSummaryReport.Dispose();
@@ -341,6 +338,10 @@ namespace TabulateSmarterTestContentPackage
                     label = "Preselected";
                 }
 
+                // Sort the queues before reporting IDs
+                mItemQueue.Sort();
+                mStimQueue.Sort();
+
                 // Report
                 if (ReportIds)
                 {
@@ -352,7 +353,6 @@ namespace TabulateSmarterTestContentPackage
                 if (!ExitAfterSelect)
                 {
                     // Process Items
-                    mItemQueue.Sort();
                     foreach (var ii in mItemQueue)
                     {
                         ++mProgressCount;
@@ -368,7 +368,7 @@ namespace TabulateSmarterTestContentPackage
                     }
 
                     // Process stimuli
-                    mStimQueue.Sort();
+                    mStimQueue.Sort(); // Sort again - stimuli may have been added while processing items
                     foreach (var ii in mStimQueue)
                     {
                         ++mProgressCount;

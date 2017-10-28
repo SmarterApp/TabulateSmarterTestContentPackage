@@ -469,8 +469,6 @@ Error severity definitions:
 
             // If there's a pending bank operation enqueue it.
             EnqueueOperation(ref bankOperation);
-
-            if (s_operations.Count == 0) throw new ArgumentException("No packages specified on the command line.");
         }
 
         static void EnqueueOperation(ref Operation operation)
