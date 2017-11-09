@@ -448,7 +448,7 @@ namespace TabulateSmarterTestContentPackage
                 ++s_progressSpin;
                 s_lastProgressTicks = Environment.TickCount;
             }
-            Console.Error.Write($"   {mProgressCount - mTransferCount} of {mItemQueue.Count + mStimQueue.Count + mTutorialQueue.Count + mWordlistQueue.Count - mTransferCount} {c_progressChars[s_progressSpin & 3]}\r");
+            Console.Error.Write($"   {mProgressCount} of {mItemQueue.Count + mStimQueue.Count + mTutorialQueue.Count + mWordlistQueue.Count - mTransferCount} {c_progressChars[s_progressSpin & 3]}\r");
         }
 
         private void TabulateItem(ItemIdentifier ii)
@@ -513,6 +513,7 @@ namespace TabulateSmarterTestContentPackage
                 {
                     ++mTransferCount;
                 }
+                --mProgressCount; // Have not yet processed this item
                 return;
             }
 
@@ -523,6 +524,7 @@ namespace TabulateSmarterTestContentPackage
                 {
                     ++mTransferCount;
                 }
+                --mProgressCount; // Have not yet processed this item
                 return;
             }
 
