@@ -1784,6 +1784,15 @@ namespace TabulateSmarterTestContentPackage
             }
         }
 
+        static HashSet<string> cRubricElements = new HashSet<string>(new string[]
+        {
+            "rubriclist",
+            "rationaleoptlist",
+            "concept",
+            "es",
+            "himi"
+        });
+
         // Returns the Wordlist ID
         string ValidateContentAndWordlist(ItemContext it, XmlDocument xml)
         {
@@ -1793,19 +1802,33 @@ namespace TabulateSmarterTestContentPackage
 
             // Process all CDATA (embedded HTML) sections in the content
             {
-                var contentNode = xml.SelectSingleNode(it.IsStimulus ? "itemrelease/passage/content" : "itemrelease/item/content");
-                if (contentNode == null)
+                // There may be multiple content sections - one per language/presentation
+                var contentElements = xml.SelectNodes(it.IsStimulus ? "itemrelease/passage/content" : "itemrelease/item/content");
+                if (contentElements.Count == 0)
                 {
                     ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Item has no content element.");
                 }
                 else
                 {
-                    foreach (var node in new XmlSubtreeEnumerable(contentNode))
+                    // For each content section
+                    foreach (XmlNode contentElement in contentElements)
                     {
-                        if (node.NodeType == XmlNodeType.CDATA)
+                        // For each element in the content section
+                        foreach (XmlNode content in contentElement.ChildNodes)
                         {
-                            var html = LoadHtml(it, node);
-                            ValidateContentCData(it, termIndices, terms, html);
+                            // Only process elements that are not rubrics
+                            if (content.NodeType != XmlNodeType.Element) continue;
+                            if (cRubricElements.Contains(content.Name)) continue;
+
+                            // Validate all CDATA elements (that are not in rubrics)
+                            foreach (var node in new XmlSubtreeEnumerable(content))
+                            {
+                                if (node.NodeType == XmlNodeType.CDATA)
+                                {
+                                    var html = LoadHtml(it, node);
+                                    ValidateContentCData(it, termIndices, terms, html);
+                                }
+                            }
                         }
                     }
                 }
