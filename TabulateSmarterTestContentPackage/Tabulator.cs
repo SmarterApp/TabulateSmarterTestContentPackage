@@ -943,19 +943,6 @@ namespace TabulateSmarterTestContentPackage
             // Validate content segments
             var wordlistId = ValidateContentAndWordlist(it, xml);
 
-            // Other content validation
-            // TODO: this should be combined with ValidateContentAndWordlist
-            if (Program.gValidationOptions.IsEnabled("cdt"))
-            {
-                var isCDataValid = CDataExtractor.ExtractCData(new XDocument().LoadXml(xml.OuterXml).Root)
-                    .Select(
-                        x =>
-                            CDataValidator.IsValid(x, it,
-                                x.Parent.Name.LocalName.Equals("val", StringComparison.OrdinalIgnoreCase)
-                                    ? ErrorSeverity.Benign
-                                    : ErrorSeverity.Degraded)).ToList();
-            }
-
             // ASL
             var asl = GetAslType(it, xml, xmlMetadata);
 
@@ -1801,6 +1788,7 @@ namespace TabulateSmarterTestContentPackage
             // Compose lists of referenced term Indices and Names
             var termIndices = new List<int>();
             var terms = new List<string>();
+            var nonTermTokens = new StringBuilder();
 
             // Process all CDATA (embedded HTML) sections in the content
             {
@@ -1815,6 +1803,8 @@ namespace TabulateSmarterTestContentPackage
                     // For each content section
                     foreach (XmlNode contentElement in contentElements)
                     {
+                        string language = contentElement.XpEvalE("@language");
+
                         // For each element in the content section
                         foreach (XmlNode content in contentElement.ChildNodes)
                         {
@@ -1828,10 +1818,32 @@ namespace TabulateSmarterTestContentPackage
                                 if (node.NodeType == XmlNodeType.CDATA)
                                 {
                                     var html = LoadHtml(it, node);
-                                    ValidateContentCData(it, termIndices, terms, html);
+                                    ValidateGlossaryTags(it, termIndices, terms, html);
+
+                                    // Tokenize the text in order to check for untagged glossary terms
+                                    if (language.Equals("ENU", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        TokenizeNonGlossaryText(nonTermTokens, html);
+                                    }
+
+                                    // Perform other CDATA validation
+                                    // (Includes styles, img tags, etc)
+                                    CDataValidator.ValidateItemContent(it, html);
                                 }
                             }
                         }
+                    }
+                }
+            }
+
+            // Report any glossary terms that have untagged instances.
+            {
+                string ntTokens = nonTermTokens.ToString();
+                foreach (var term in terms)
+                {
+                    if (ntTokens.IndexOf(Tokenize(term)) >= 0)
+                    {
+                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable, "Term that is tagged for glossary is not tagged when it occurs elsewhere in the item.", $"term='{term}'");
                     }
                 }
             }
@@ -1843,6 +1855,7 @@ namespace TabulateSmarterTestContentPackage
                 ? "itemrelease/passage/resourceslist/resource[@type='wordList']"
                 : "itemrelease/item/resourceslist/resource[@type='wordList']";
 
+            // Retrieve each wordlist and check it against the referenced terms
             foreach (XmlElement xmlRes in xml.SelectNodes(xp))
             {
                 string witId = xmlRes.GetAttribute("id");
@@ -1885,7 +1898,7 @@ namespace TabulateSmarterTestContentPackage
 
         static readonly char[] s_WhiteAndPunct = { '\t', '\n', '\r', ' ', '!', '"', '#', '$', '%', '&', '\'', '(', ')', '*', '+', ',', '-', '.', '/', ':', ';', '<', '=', '>', '?', '@', '[', '\\', ']', '^', '_', '`', '{', '|', '~' };
 
-        private void ValidateContentCData(ItemContext it, IList<int> termIndices, IList<string> terms, XmlDocument html)
+        private static void ValidateGlossaryTags(ItemContext it, IList<int> termIndices, IList<string> terms, XmlDocument html)
         {
             /* Word list references look like this:
             <span id="item_998_TAG_2" class="its-tag" data-tag="word" data-tag-boundary="start" data-word-index="1"></span>
@@ -1932,6 +1945,15 @@ namespace TabulateSmarterTestContentPackage
                         break;
                     }
 
+                    // Check for a nested or overlapping glossary tag
+                    if (enode != null
+                        && enode.GetAttribute("data-tag").Equals("word", StringComparison.Ordinal)
+                        && enode.GetAttribute("data-tag-boundary").Equals("start", StringComparison.Ordinal))
+                    {
+                        var otherId = enode.GetAttribute("id");
+                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable, "Glossary tags overlap or are nested.", $"glossaryId1='{id}' glossaryId2='{otherId}'");
+                    }
+
                     // Collect term plain text
                     if (snode.NodeType == XmlNodeType.Text || snode.NodeType == XmlNodeType.SignificantWhitespace)
                     {
@@ -1944,12 +1966,43 @@ namespace TabulateSmarterTestContentPackage
                 termIndices.Add(termIndex);
                 terms.Add(term);
             }
+        }
 
-            // Img tag validation
-            if (Program.gValidationOptions.IsEnabled("iat"))
+        private static void TokenizeNonGlossaryText(StringBuilder sb, XmlDocument html)
+        {
+            XmlNode node = html.FirstChild;
+            int inWordRef = 0;
+            while (node != null)
             {
-                //Temporarily disabled to prevent double reporting
-                //ReportMissingImgAltTags(it, xml, ExtractImageList(html));
+                XmlElement element = node as XmlElement;
+
+                // If beginning of a word reference
+                if (element != null
+                    && element.GetAttribute("data-tag").Equals("word", StringComparison.Ordinal)
+                    && element.GetAttribute("data-tag-boundary").Equals("start", StringComparison.Ordinal))
+                {
+                    if (inWordRef == 0)
+                    {
+                        // insert placeholder (that shouldn't match anything in actual text)
+                        Tokenize(sb, "cqcqcq");
+                    }
+                    ++inWordRef;
+                }
+
+                // Look for end tag
+                if (element != null
+                    && element.GetAttribute("data-tag-boundary").Equals("end", StringComparison.Ordinal)
+                    && inWordRef > 0)
+                {
+                    --inWordRef;
+                }
+
+                if (inWordRef == 0 && node.NodeType == XmlNodeType.Text)
+                {
+                    Tokenize(sb, node.Value);
+                }
+
+                node = node.NextNode();
             }
         }
 
@@ -2018,6 +2071,7 @@ namespace TabulateSmarterTestContentPackage
             return !string.IsNullOrEmpty(node?.InnerText);
         }
 
+        // TODO: Make sure this is covered by CDataValidator and then remove.
         void ReportMissingImgAltTags(ItemContext it, XmlDocument xml, List<HtmlImageTag> imgList)
         {
             foreach (var img in imgList)
@@ -2853,6 +2907,45 @@ namespace TabulateSmarterTestContentPackage
                 mTermCounts.Dump(writer);
             }
             writer.WriteLine();
+        }
+
+        static void Tokenize(StringBuilder sb, string content)
+        {
+            // Ensure that a space delimiter exists
+            if (sb.Length == 0 || sb[sb.Length - 1] != ' ') sb.Append(' ');
+
+            int i = 0;
+            while (i < content.Length)
+            {
+                // Skip non-word characters
+                while (i < content.Length)
+                {
+                    char c = content[i];
+                    if (char.IsLetterOrDigit(c) || c == '\'') break;
+                    ++i;
+                }
+
+                if (i >= content.Length) break;
+
+                // Transfer all word characters
+                while (i < content.Length)
+                {
+                    char c = content[i];
+                    if (!char.IsLetterOrDigit(c) && c != '\'') break;
+                    sb.Append(char.ToLowerInvariant(c));
+                    ++i;
+                }
+
+                // Append a space
+                sb.Append(' ');
+            }
+        }
+
+        static string Tokenize(string content)
+        {
+            StringBuilder sb = new StringBuilder();
+            Tokenize(sb, content);
+            return sb.ToString();
         }
 
         private static readonly char[] cCsvEscapeChars = {',', '"', '\'', '\r', '\n'};

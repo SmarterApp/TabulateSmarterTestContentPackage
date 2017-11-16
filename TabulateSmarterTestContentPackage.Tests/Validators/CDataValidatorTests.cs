@@ -36,6 +36,7 @@ namespace TabulateSmarterTestContentPackage.Tests.Validators
         // Source: item-187-1832 2016.2.24 IrpTestPackageAndContent
         private XElement ItemXml { get; set; }
 
+        /*
         [Test]
         public void AllMatchingTermsTaggedShouldReturnTrue()
         {
@@ -422,5 +423,6 @@ namespace TabulateSmarterTestContentPackage.Tests.Validators
             Assert.IsTrue(result.Keys.Contains("over again"));
             Assert.IsTrue(result.Values.All(x => x == 1));
         }
+        */
     }
 }
