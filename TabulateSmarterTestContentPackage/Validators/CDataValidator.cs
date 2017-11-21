@@ -19,26 +19,33 @@ namespace TabulateSmarterTestContentPackage.Validators
         const string cColorOrZoom = "color contrast or zoom";
 
         // Dictionaries map from attributes or styles to a description of what they interfere with.
-        static Dictionary<string, string> s_prohibitedElements;
-        static Dictionary<string, string> s_prohibitedAttributes;
-        static Dictionary<string, string> s_prohibitedStyleProperties;
-
-        static CDataValidator()
+        static Dictionary<string, string> s_prohibitedElements = new Dictionary<string, string>
         {
-            s_prohibitedElements = new Dictionary<string, string>();
-            s_prohibitedElements.Add("font", cColorOrZoom);
+            { "font", cColorOrZoom }
+        };
 
-            s_prohibitedAttributes = new Dictionary<string, string>();
-            s_prohibitedAttributes.Add("color", cColorContrast);
-            s_prohibitedAttributes.Add("bgcolor", cColorContrast);
+        static Dictionary<string, string> s_prohibitedAttributes = new Dictionary<string, string>
+        {
+            { "color", cColorContrast },
+            { "bgcolor", cColorContrast }
+        };
 
-            s_prohibitedStyleProperties = new Dictionary<string, string>();
-            s_prohibitedStyleProperties.Add("font", cColorOrZoom);
-            s_prohibitedStyleProperties.Add("background", cColorContrast);
-            s_prohibitedStyleProperties.Add("background-color", cColorContrast);
-            s_prohibitedStyleProperties.Add("color", cColorContrast);
-            s_prohibitedStyleProperties.Add("font-size", cZoom);
-        }
+        static Dictionary<string, string> s_prohibitedStyleProperties = new Dictionary<string, string>
+        {
+            { "font", cColorOrZoom },
+            { "background", cColorContrast },
+            { "background-color", cColorContrast },
+            { "color", cColorContrast }
+        };
+
+        static HashSet<string> s_styleSizeProperties = new HashSet<string>
+        {
+            "font-size",
+            "line-height"
+        };
+
+        static HashSet<string> s_prohibitedUnitSuffixes = new HashSet<string>
+        { "cm", "mm", "in", "px", "pt", "pc" };
 
         public static void ValidateItemContent(ItemContext it, IXPathNavigable html)
         {
@@ -54,8 +61,7 @@ namespace TabulateSmarterTestContentPackage.Validators
             XPathNavigator ele = root.Clone();
             while (ele.MoveToFollowing(XPathNodeType.Element))
             {
-                string interferesWith;
-                if (s_prohibitedElements.TryGetValue(ele.Name, out interferesWith))
+                if (s_prohibitedElements.TryGetValue(ele.Name, out string interferesWith))
                 {
                     ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
                         $"Item content has element that may interfere with {interferesWith}.", $"element='{ele.OuterXml}'");
@@ -95,19 +101,8 @@ namespace TabulateSmarterTestContentPackage.Validators
                                     value = string.Empty;
                                 }
 
-                                // Special case for "font-size". Relative sizing is OK. Absolute sizing is not.
-                                if (name.Equals("font-size", StringComparison.Ordinal))
-                                {
-                                    if (value.EndsWith("pt", StringComparison.OrdinalIgnoreCase)
-                                        || value.EndsWith("px", StringComparison.OrdinalIgnoreCase))
-                                    {
-                                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                            $"Item content has style property that may interfere with zoom.", $"style='{name}' element='{ele.OuterXml}'");
-                                    }
-                                }
-
                                 // Special case for "background-color". Transparent is acceptable.
-                                else if (name.Equals("background-color", StringComparison.Ordinal))
+                                if (name.Equals("background-color", StringComparison.Ordinal))
                                 {
                                     if (!value.Equals("transparent", StringComparison.OrdinalIgnoreCase))
                                     {
@@ -116,6 +111,20 @@ namespace TabulateSmarterTestContentPackage.Validators
                                     }
                                 }
 
+                                // Special handling for "font". Look for any component with a prohibited suffix
+                                else if (name.Equals("font", StringComparison.Ordinal))
+                                {
+                                    foreach (string part in value.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries))
+                                    {
+                                        if (HasProhibitedUnitSuffix(part))
+                                        {
+                                            ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
+                                                $"Item content has style property that may interfere with zoom.", $"style='{name}' element='{ele.OuterXml}'");
+                                        }
+                                    }
+                                }
+
+                                // Check for prohibited style properties
                                 else if (s_prohibitedStyleProperties.TryGetValue(name, out interferesWith))
                                 {
                                     ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
@@ -123,15 +132,13 @@ namespace TabulateSmarterTestContentPackage.Validators
                                     valid = false;
                                 }
 
-                                // Special handling for "font"
-                                else if (name.Equals("font", StringComparison.Ordinal))
+                                // Check whether size properties use prohibited units
+                                else if (s_styleSizeProperties.Contains(name))
                                 {
-                                    string[] parts = value.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                                    if (parts.Length > 2) // First two font properties are benign
+                                    if (HasProhibitedUnitSuffix(value))
                                     {
                                         ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                            $"Item content has style property that may interfere with {interferesWith}.", $"style='{name}' element='{ele.OuterXml}'");
-                                        valid = false;
+                                            $"Item content has style property that may interfere with zoom.", $"style='{name}' element='{ele.OuterXml}'");
                                     }
                                 }
                             }
@@ -178,5 +185,17 @@ namespace TabulateSmarterTestContentPackage.Validators
 
             return true;
         }
+                            
+        private static bool HasProhibitedUnitSuffix(string value)
+        {
+            // Value should be a number for the magnitude followed by
+            // letters indicating units.
+            int split = 0;
+            while (split < value.Length && (char.IsDigit(value[split]) || value[split] == '.')) ++split;
+            string units = value.Substring(split).ToLower();
+
+            return s_prohibitedUnitSuffixes.Contains(units);
+        }
+
     }
 }
