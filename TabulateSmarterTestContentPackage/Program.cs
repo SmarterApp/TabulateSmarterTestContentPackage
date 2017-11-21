@@ -197,11 +197,12 @@ Validation Options:
             tutorials are packaged separately from the balance of the
             content.
     -v-asl  ASL video: Disables checking for ASL video whose ratio of video
-            length to item stim length falls outside of two standard deviations
-            from mean (adjustible through app.config).
-    -v+cdt  Disables CData validations including glossary tags and restricted
-            css
-    -v-tss  Check for text-to-speech silencing tags.
+            length to item stim length falls outside of two standard
+            deviations from mean (adjustible through app.config).
+    -v-tss  Text-to-Speech Silencing: Disable check for TTS silencing tags
+            that do not belong.
+    -v-ugt  Untagged Glossary Terms: Disable check for glossary terms that
+            are tagged in one case but not in another.
 
     -v+all  Enable all optional validation and tabulation features.
     -v+ebt  Embedded Braille Text: Enables checking embedded <brailleText>

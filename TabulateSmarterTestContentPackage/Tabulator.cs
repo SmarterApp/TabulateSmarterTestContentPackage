@@ -1596,13 +1596,15 @@ namespace TabulateSmarterTestContentPackage
                                     $"Target: {itemOrStimText} Filename: {filename} Actual Target: {match.Groups[1].Value}");
                             }
                             // According to the documentation, all stimuli braille attachments must be prefixed with "stim", 
-                            // but functionally, they may be "passage". Indicate a benign error.
+                            // but functionally, they may be "passage". 
+                            /* Suppressing this error altogether
                             else
                             {
                                 ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Benign,
                                     "Braille embossing filename designated as a \"passage\", should be \"stim\".",
                                     filename);
                             }
+                            */
                         }
                         if (!match.Groups[2].Value.Equals(it.ItemId.ToString(), StringComparison.OrdinalIgnoreCase))
                         // item id
@@ -1814,6 +1816,7 @@ namespace TabulateSmarterTestContentPackage
             }
 
             // Report any glossary terms that have untagged instances.
+            if (Program.gValidationOptions.IsEnabled("ugt"))
             {
                 string ntTokens = nonTermTokens.ToString();
                 foreach (var term in terms)
