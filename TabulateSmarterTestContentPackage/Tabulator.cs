@@ -1536,7 +1536,9 @@ namespace TabulateSmarterTestContentPackage
 
                     // === From here forward we are only dealing with Braille attachments and the error messages reflect that ===
 
-                    if (!attachType.Equals(brailleTypeMeta))
+                    // TODO: Need to check the pattern of braille attachments - should be among the expected sets
+                    // TODO: Match enhanced braille attachment metadata against pattern. For now we just check that the beginning matches.
+                    if (!brailleTypeMeta.StartsWith(attachType, StringComparison.OrdinalIgnoreCase))
                     {
                         ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Severe, "Braille metadata does not match attachment type.", "metadata='{0}', fileType='{1}'", brailleTypeMeta, attachType);
                     }
