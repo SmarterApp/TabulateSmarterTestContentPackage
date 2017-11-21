@@ -434,7 +434,8 @@ namespace TabulateSmarterTestContentPackage
                 ++s_progressSpin;
                 s_lastProgressTicks = Environment.TickCount;
             }
-            Console.Error.Write($"   {mProgressCount} of {mItemQueue.Count + mStimQueue.Count + mTutorialQueue.Count + mWordlistQueue.Count - mTransferCount} {c_progressChars[s_progressSpin & 3]}\r");
+            int total = mItemQueue.Count + mStimQueue.Count + mTutorialQueue.Count + mWordlistQueue.Count - mTransferCount;
+            Console.Error.Write($"   {mProgressCount} of {total} {c_progressChars[s_progressSpin & 3]}\r");
         }
 
         private void TabulateItem(ItemIdentifier ii)
@@ -459,6 +460,14 @@ namespace TabulateSmarterTestContentPackage
             // Skip the item if it's already in the wordlist queue.
             if (mWordlistQueue.Contains(ii))
             {
+                --mProgressCount;   // Didn't actually process anything
+                return;
+            }
+
+            // Skip the item it it's already in the tutorial queue.
+            if (mTutorialQueue.Contains(ii))
+            {
+                --mProgressCount;   // Didn't actually process anything
                 return;
             }
 
@@ -2363,7 +2372,7 @@ namespace TabulateSmarterTestContentPackage
                 return;
             }
 
-            // Add this to the wordlist tabulation queue (while keeping counts clean)
+            // Add this to the wordlist queue (if not there already) and manage progress count
             if (mWordlistQueue.Add(ii))
             {
                 if (mItemQueue.Contains(ii)) ++mTransferCount;
