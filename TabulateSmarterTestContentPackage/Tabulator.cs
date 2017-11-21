@@ -56,20 +56,6 @@ namespace TabulateSmarterTestContentPackage
                 "Narrative"
             });
 
-        static readonly HashSet<string> sValidClaims = new HashSet<string>(
-            new[] {
-                "1",
-                "1-LT",
-                "1-IT",
-                "2",
-                "2-W",
-                "3",
-                "3-L",
-                "3-S",
-                "4",
-                "4-CR"
-            });
-
         // Filenames
         const string cSummaryReportFn = "SummaryReport.txt";
         const string cItemReportFn = "ItemReport.csv";
@@ -213,8 +199,8 @@ namespace TabulateSmarterTestContentPackage
                 // TODO: Add CsvHelper library to allow expandable headers
                 mItemReport.WriteLine("Folder,BankKey,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL," +
                                       "BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice,MaxPoints," +
-                                      "CommonCore,ClaimContentTarget,SecondaryCommonCore,SecondaryClaimContentTarget, CAT_MeasurementModel," +
-                                      "CAT_ScorePoints,CAT_Dimension,CAT_Weight,CAT_Parameters, PP_MeasurementModel," +
+                                      "Claim,Target,CCSS,ClaimContentTarget,SecondaryCCSS,SecondaryClaimContentTarget," +
+                                      "CAT_MeasurementModel,CAT_ScorePoints,CAT_Dimension,CAT_Weight,CAT_Parameters,PP_MeasurementModel," +
                                       "PP_ScorePoints,PP_Dimension,PP_Weight,PP_Parameters");
 
                 mStimulusReport = new StreamWriter(string.Concat(mReportPathPrefix, cStimulusReportFn), false, Encoding.UTF8);
@@ -904,41 +890,18 @@ namespace TabulateSmarterTestContentPackage
             }
 
             // Standards Alignment
-            var primaryStandards = new List<ItemStandard>();
-            var secondaryStandards = new List<ItemStandard>();
-            if (!string.IsNullOrEmpty(xmlMetadata.OuterXml))
-            {
-                primaryStandards = ItemStandardExtractor.Extract(xmlMetadata.MapToXElement()).ToList();
-                secondaryStandards =
-                    ItemStandardExtractor.Extract(xmlMetadata.MapToXElement(), "SecondaryStandard").ToList();
-            }
-            if (primaryStandards.Any(x => string.IsNullOrEmpty(x.Standard)))
-            {
-                ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Degraded, "Common Core Standard not included in PrimaryStandard metadata.");
-            }
-
-            // Validate claim
-            if (primaryStandards.Any(x => !sValidClaims.Contains(x.Claim)))
-            {
-                ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Degraded, "Unexpected claim value (Should be 1, 2, 3, or 4 with possible suffix).", "Claim='{0}'", primaryStandards.First(x => !sValidClaims.Contains(x.Claim)).Claim);
-            }
-
-            // Validate target grade suffix (Generating lots of errors. Need to follow up.)
-            primaryStandards.ForEach(x =>
-                    {
-                        var parts = x.Target.Split('-');
-                        if (parts.Length == 2 &&
-                            !string.Equals(parts[1].Trim(), grade, StringComparison.OrdinalIgnoreCase))
-                        {
-                            ReportingUtility.ReportError("tgs", it, ErrorCategory.Metadata, ErrorSeverity.Tolerable,
-                                "Target suffix indicates a different grade from item attribute.",
-                                "ItemAttributeGrade='{0}' TargetSuffixGrade='{1}'", grade, parts[1]);
-                        }
-                    }
-                )
-            ;
+            var primaryStandards = ItemStandardExtractor.Extract(it, xmlMetadata);
+            ItemStandardExtractor.ValidateStandards(it, primaryStandards, true, grade);
+            var secondaryStandards = ItemStandardExtractor.Extract(it, xmlMetadata, "SecondaryStandard");
+            ItemStandardExtractor.ValidateStandards(it, secondaryStandards, false, grade);
 
             var standardClaimTarget = new ReportingStandard(primaryStandards, secondaryStandards);
+
+            // Fill in an empty standard if no primary found
+            if (primaryStandards.Count == 0)
+            {
+                primaryStandards = new List<ItemStandard> { new ItemStandard() };
+            }
 
             // Validate content segments
             var wordlistId = ValidateContentAndWordlist(it, xml);
@@ -984,13 +947,17 @@ namespace TabulateSmarterTestContentPackage
             var scoringSeparation = scoringInformation.GroupBy(
                 x => !string.IsNullOrEmpty(x.Domain) && x.Domain.Equals("paper", StringComparison.OrdinalIgnoreCase)).ToList();
 
-            // Folder,BankKey,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,
-            // MathematicalPractice, MaxPoints, CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget, measurementmodel, scorepoints,
-            // dimension, weight, parameters
+            //"Folder,BankKey,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL," +
+            //"BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice,MaxPoints," +
+            //"Claim,Target,PrimaryCommonCore,PrimaryClaimContentTarget,SecondaryCommonCore,SecondaryClaimContentTarget," +
+            //"CAT_MeasurementModel,CAT_ScorePoints,CAT_Dimension,CAT_Weight,CAT_Parameters,PP_MeasurementModel," +
+            //"PP_ScorePoints,PP_Dimension,PP_Weight,PP_Parameters"
             mItemReport.WriteLine(string.Join(",", CsvEncode(it.FolderDescription), it.BankKey.ToString(), it.ItemId.ToString(), CsvEncode(it.ItemType), CsvEncode(version), CsvEncode(subject), 
                 CsvEncode(grade), CsvEncode(answerKey), CsvEncode(assessmentType), CsvEncode(wordlistId), 
                 CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), CsvEncode(media), size.ToString(), CsvEncode(depthOfKnowledge), CsvEncode(allowCalculator), 
-                CsvEncode(mathematicalPractice), CsvEncode(maximumNumberOfPoints), CsvEncode(standardClaimTarget.PrimaryCommonCore), CsvEncode(standardClaimTarget.PrimaryClaimsContentTargets),
+                CsvEncode(mathematicalPractice), CsvEncode(maximumNumberOfPoints),
+                CsvEncode(primaryStandards.FirstOrDefault().Claim), CsvEncodeExcel(primaryStandards.FirstOrDefault().Target),
+                CsvEncode(standardClaimTarget.PrimaryCommonCore), CsvEncode(standardClaimTarget.PrimaryClaimsContentTargets),
                 CsvEncode(standardClaimTarget.SecondaryCommonCore), CsvEncode(standardClaimTarget.SecondaryClaimsContentTargets), 
                 CsvEncode(scoringSeparation.FirstOrDefault(x => !x.Key)?.Select(x => x.MeasurementModel).Aggregate((x,y) => $"{x};{y}") ?? string.Empty), 
                 CsvEncode(scoringSeparation.FirstOrDefault(x => !x.Key)?.Select(x => x.ScorePoints).Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
@@ -1382,15 +1349,16 @@ namespace TabulateSmarterTestContentPackage
             // Translation
             var translation = GetTranslation(it, xml, xmlMetadata);
 
-            // Folder,BankKey,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,MathematicalPractice, MaxPoints, 
-            // CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget, CAT_MeasurementModel,
-            // CAT_ScorePoints, CAT_Dimension, CAT_Weight,CAT_Parameters, PP_MeasurementModel
-            // PP_ScorePoints,PP_Dimension,PP_Weight,PP_Parameters
+            //"Folder,BankKey,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL," +
+            //"BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice,MaxPoints," +
+            //"Claim,Target,PrimaryCommonCore,PrimaryClaimContentTarget,SecondaryCommonCore,SecondaryClaimContentTarget," +
+            //"CAT_MeasurementModel,CAT_ScorePoints,CAT_Dimension,CAT_Weight,CAT_Parameters,PP_MeasurementModel," +
+            //"PP_ScorePoints,PP_Dimension,PP_Weight,PP_Parameters"
             mItemReport.WriteLine(string.Join(",", CsvEncode(it.FolderDescription), it.BankKey.ToString(), it.ItemId.ToString(), CsvEncode(it.ItemType), CsvEncode(version),
                 CsvEncode(subject), CsvEncode(grade), CsvEncode(answerKey), CsvEncode(assessmentType), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation),
                 string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty,
-                string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty));
-
+                string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty));
+  
         } // TabulateTutorial
 
         string LoadXmlErrorDetail { get; set; }

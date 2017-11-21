@@ -4,104 +4,176 @@ using System.Xml;
 using System.Xml.Linq;
 using System.Xml.XPath;
 using TabulateSmarterTestContentPackage.Models;
+using TabulateSmarterTestContentPackage.Utilities;
 
 namespace TabulateSmarterTestContentPackage.Extractors
 {
     public static class ItemStandardExtractor
     {
-        public static IEnumerable<ItemStandard> Extract(XElement metadata, string standard = "PrimaryStandard")
+
+        static XmlNamespaceManager s_nsMetadata;
+
+        static char[] c_standardDelimiters = new char[] { ':', '|' };
+
+        static readonly HashSet<string> sValidClaims = new HashSet<string>(new[] {
+                "1",
+                "1-LT",
+                "1-IT",
+                "2",
+                "2-W",
+                "3",
+                "3-L",
+                "3-S",
+                "4",
+                "4-CR"
+        });
+
+        static ItemStandardExtractor()
         {
-            var sXmlNs = new XmlNamespaceManager(new NameTable());
-            sXmlNs.AddNamespace("sa", "http://www.smarterapp.org/ns/1/assessment_item_metadata");
-            var xmlNodes = metadata.XPathSelectElements($".//sa:{standard}", sXmlNs).ToList();
-            if (!xmlNodes.Any())
+            s_nsMetadata = new XmlNamespaceManager(new NameTable());
+            s_nsMetadata.AddNamespace("sa", "http://www.smarterapp.org/ns/1/assessment_item_metadata");
+        }
+
+        public static IReadOnlyList<ItemStandard> Extract(ItemIdentifier ii, IXPathNavigable metadata, string standard = "PrimaryStandard")
+        {
+            var result = new List<ItemStandard>();
+            XPathNavigator root = metadata.CreateNavigator();
+            ItemStandard std = new ItemStandard();
+            HashSet<string> stdEncountered = new HashSet<string>();
+            HashSet<string> pubEncountered = new HashSet<string>();
+
+            // Look at all values for the specified Primary or Secondary standard.
+            // Merge values if different publications. Add values if same publication.
+            foreach (XPathNavigator node in root.Select($".//sa:{standard}", s_nsMetadata))
             {
-                return new List<ItemStandard>();
+                // Check whether we have processed this standard yet. Skip if so.
+                if (!stdEncountered.Add(node.Value))
+                {
+                    continue;
+                }
+
+                var parts = node.Value.Split(c_standardDelimiters);
+                if (parts.Length < 2)
+                {
+                    ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, $"{standard} metadata does not match expected format.", $"standard='{node.Value}'");
+                    continue;
+                }
+
+                // If this publication has been encountered and the standard is not empty
+                // add existing value to the list
+                if (pubEncountered.Contains(parts[0]))
+                {
+                    if (!std.IsEmpty)
+                    {
+                        result.Add(std);
+                        std = new ItemStandard();
+                    }
+                    pubEncountered.Clear();
+                }
+
+                // Parse out the standard according to which publication
+                switch (parts[0])
+                {
+                    case "SBAC-MA-v4":
+                    case "SBAC-MA-v5":
+                        SetCheckMatch(ii, "Claim", ref std.Claim, parts, 1);
+                        SetCheckMatch(ii, "ContentDomain", ref std.ContentDomain, parts, 2);
+                        SetCheckMatch(ii, "Target", ref std.Target, parts, 3);
+                        SetCheckMatch(ii, "Emphasis", ref std.Emphasis, parts, 4);
+                        SetCheckMatch(ii, "CCSS", ref std.CCSS, parts, 5);
+                        break;
+
+                    case "SBAC-MA-v6":
+                        SetCheckMatch(ii, "Claim", ref std.Claim, parts, 1);
+                        SetCheckMatch(ii, "ContentCategory", ref std.ContentCategory, parts, 2);
+                        SetCheckMatch(ii, "TargetSet", ref std.TargetSet, parts,3);
+                        SetCheckMatch(ii, "Target", ref std.Target, parts, 4);
+                        break;
+
+                    case "SBAC-ELA-v1":
+                        SetCheckMatch(ii, "Claim", ref std.Claim, parts, 1);
+                        SetCheckMatch(ii, "Target", ref std.Target, parts, 2);
+                        SetCheckMatch(ii, "CCSS", ref std.CCSS, parts, 3);
+                        break;
+                }
+
+                // Set the common field
+                std.Standard = node.Value;
+
+                // Retrieve grade suffix from target (if present)
+                {
+                    int tlen = std.Target.Length;
+                    if (tlen >= 3 && std.Target[tlen - 2] == '-' && char.IsDigit(std.Target[tlen - 1]))
+                    {
+                        std.Grade = std.Target.Substring(tlen - 1);
+                    }
+                }
+
+                pubEncountered.Add(parts[0]);
+
             }
-            var result = xmlNodes.Select(x => new
-                {
-                    Publication = x.Value.Split(':').FirstOrDefault(),
-                    Metadata = x.Value.Split(':').LastOrDefault()?.Split('|')
-                })
-                .Where(x => !x.Publication.Equals("SBAC-MA-v6"))
-                .Select(x => new ItemStandard
-                {
-                    Publication = x.Publication,
-                    Standard =
-                        x.Publication.Equals("SBAC-MA-v6") || x.Metadata.Length <= 2
-                            ? string.Empty
-                            : x.Metadata.LastOrDefault(),
-                    Claim = x.Metadata.FirstOrDefault() ?? string.Empty,
-                    Target =
-                        x.Metadata.Skip(SkipToTargetForPublication(x.Publication ?? string.Empty))
-                            .FirstOrDefault() ?? string.Empty,
-                    ContentDomain = x.Publication.Equals("SBAC-ELA-v1")
-                        ? string.Empty
-                        : x.Metadata.Skip(SkipToContentDomainForPublication(x.Publication ?? string.Empty))
-                              .FirstOrDefault() ?? string.Empty
-                }).ToList();
-            if (result.Count > 1 && standard.Equals("PrimaryStandard"))
+            if (!std.IsEmpty)
             {
-                return DeterminePrimaryStandard(result).ToList();
+                result.Add(std);
             }
             return result;
         }
 
-        // Functionally, there are a maximum of two primary standards. If we have the v6 first and reverse we should get the good one
-        private static IEnumerable<ItemStandard> DeterminePrimaryStandard(IList<ItemStandard> candidates)
+        private static void SetCheckMatch(ItemIdentifier ii, string fieldName, ref string rDest, string[] vals, int index)
         {
-            return candidates.Count() > 1 && candidates.First().Standard.Equals("SBAC-MA-v6")
-                ? candidates.Reverse()
-                : candidates;
-        }
-
-        /* 
-         * Locate and parse the standard, claim, and target from the metadata
-         * 
-         * Claim and target are specified in one of the following formats:
-         * SBAC-ELA-v1 (there is only one alignment for ELA, this is used for delivery)
-         *     Claim|Assessment Target|Common Core Standard
-         * SBAC-MA-v6 (Math, based on the blueprint hierarchy, primary alignment and does not go to standard level, THIS IS USED FOR DELIVERY, should be the same as SBAC-MA-v4)
-         *     Claim|Content Category|Target Set|Assessment Target
-         * SBAC-MA-v5 (Math, based on the content specifications hierarchy secondary alignment to the standard level)
-         *     Claim|Content Domain|Target|Emphasis|Common Core Standard
-         * SBAC-MA-v4 (Math, based on the content specifications hierarchy primary alignment to the standard level)
-         *     Claim|Content Domain|Target|Emphasis|Common Core Standard
-         */
-        // This is the index of the expected target in the PrimaryStandard node given a particular publication
-        private static int SkipToTargetForPublication(string publication)
-        {
-            switch (publication)
+            if (vals.Length <= index)
             {
-                case "SBAC-ELA-v1":
-                    return 1;
-                case "SBAC-MA-v4":
-                case "SBAC-MA-v5":
-                    return 2;
-                case "SBAC-MA-v6":
-                    return 3;
-                default:
-                    return 0;
+                return;
+            }
+            if (string.IsNullOrEmpty(rDest))
+            {
+                rDest = vals[index];
+                return;
+            }
+            if (!string.Equals(rDest, vals[index], System.StringComparison.Ordinal))
+            {
+                ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, $"Standard publications specify conflicting metadata.", $"property='{fieldName}' valA='{rDest}' valB='{vals[index]}'");
             }
         }
 
-        private static int SkipToContentDomainForPublication(string publication)
+        public static void ValidateStandards(ItemIdentifier ii, IReadOnlyList<ItemStandard> standards, bool primary, string expectedGrade)
         {
-            switch (publication)
+            if (primary)
             {
-                case "SBAC-MA-v4":
-                case "SBAC-MA-v5":
-                case "SBAC-MA-v6":
-                    return 1;
-                default:
-                    return 0;
+                // Validate count
+                if (standards.Count < 1)
+                {
+                    ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "No primary standard specified.");
+                    return;
+                }
+                if (standards.Count > 1)
+                {
+                    ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Multiple primary standards specified.", $"count='{standards.Count()}'");
+                }
+
+                // Ensure CCSS is present
+                if (string.IsNullOrEmpty(standards[0].CCSS))
+                {
+                    ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Common Core standard not included in PrimaryStandard metadata.");
+                }
+            }
+
+            foreach (var standard in standards)
+            {
+                // Validate claim
+                if (!sValidClaims.Contains(standard.Claim))
+                {
+                    ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Degraded, "Unexpected claim value (should be 1, 2, 3, or 4 with possible suffix).", $"Claim='{standard.Claim}'");
+                }
+
+                // Validate grade (derived from target suffix)
+                if (!standard.Grade.Equals(expectedGrade, System.StringComparison.Ordinal))
+                {
+                    ReportingUtility.ReportError("tgs", ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable,
+                        "Target suffix indicates a different grade from item attribute.",
+                        $"ItemAttributeGrade='{expectedGrade}' TargetSuffixGrade='{standard.Grade}'");
+                }
             }
         }
-
-        // claim|content domain|target <-- Super fancy Alla format (semicolon separated)
-        // Secondary standards/claims/targets are semicolon delimited in a seperate field
-        // If there is only a primary v6, take that (no standard in this case)
-
-        // If there are both a primary v4 and a v6, take the v4 because it has a common core standard
     }
 }

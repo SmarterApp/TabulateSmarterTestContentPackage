@@ -1,34 +1,39 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace TabulateSmarterTestContentPackage.Models
 {
     public class ReportingStandard
     {
-        public ReportingStandard(IList<ItemStandard> primary, IList<ItemStandard> secondary)
+        public ReportingStandard(IReadOnlyList<ItemStandard> primary, IReadOnlyList<ItemStandard> secondary)
         {
-            if (primary.Any(x => !string.IsNullOrEmpty(x.Standard) && !x.Standard.Equals("NA")))
+            // If more than one primary standard, move it to the secondary list
+            // (Note that the standard extractor will prevent duplicates)
+            if (primary.Count > 1)
+            {
+                var newPrimary = new List<ItemStandard> { primary[0] };
+                var newSecondary = new List<ItemStandard>(primary);
+                newSecondary.RemoveAt(0);
+                newSecondary.AddRange(secondary);
+                primary = newPrimary;
+                secondary = newSecondary;
+            }
+
+            if (primary.Any(x => !string.IsNullOrEmpty(x.CCSS) && !x.CCSS.Equals("NA")))
             {
                 PrimaryCommonCore =
-                    primary.Select(x => !string.IsNullOrEmpty(x.Standard) ? $"{x.Standard}\t" : string.Empty)
+                    primary.Select(x => !string.IsNullOrEmpty(x.CCSS) ? $"{x.CCSS}\t" : string.Empty)
                         .Where(x => !string.IsNullOrEmpty(x))
                         .Aggregate((x, y) => $"{x};{y}");
             }
-            if (primary.Any() && primary.Count > 1)
-            {
-                var second = primary.Last();
-                primary.Remove(second);
-                var tempList = new List<ItemStandard> {second};
-                tempList.AddRange(secondary);
-                secondary = tempList;
-            }
             PrimaryClaimsContentTargets = CombineClaimsContentTargets(primary);
 
-            if (secondary.Any(x => !string.IsNullOrEmpty(x.Standard) && !x.Standard.Equals("NA")))
+            if (secondary.Any(x => !string.IsNullOrEmpty(x.CCSS) && !x.CCSS.Equals("NA")))
             {
                 SecondaryCommonCore =
-                    secondary.Where(x => !x.Standard.Equals("NA"))
-                        .Select(x => !string.IsNullOrEmpty(x.Standard) ? $"{x.Standard}\t" : string.Empty)
+                    secondary.Where(x => !x.CCSS.Equals("NA"))
+                        .Select(x => !string.IsNullOrEmpty(x.CCSS) ? $"{x.CCSS}\t" : string.Empty)
                         .Where(x => !string.IsNullOrEmpty(x))
                         .Aggregate((x, y) => $"{x};{y}");
             }
@@ -40,10 +45,10 @@ namespace TabulateSmarterTestContentPackage.Models
         public string SecondaryCommonCore { get; set; } = string.Empty;
         public string SecondaryClaimsContentTargets { get; set; } = string.Empty;
 
-        private static string CombineClaimsContentTargets(IList<ItemStandard> itemStandards)
+        private static string CombineClaimsContentTargets(IReadOnlyList<ItemStandard> itemStandards)
         {
             return itemStandards.Any()
-                ? itemStandards.Select(x => !x.Publication.Equals("SBAC-ELA-v1")
+                ? itemStandards.Select(x => !x.Standard.StartsWith("SBAC-ELA-v1", StringComparison.Ordinal)
                         ? $"{x.Claim}|{x.ContentDomain}|{x.Target}"
                         : $"{x.Claim}|{x.Target}")
                     .Aggregate((x, y) => $"{x};{y}")
