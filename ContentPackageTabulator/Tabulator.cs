@@ -322,6 +322,19 @@ namespace ContentPackageTabulator
                 }
             }
 
+            // Second pass through stimuli
+            foreach (var it in mStimContexts)
+            {
+                try
+                {
+                    TabulateItem_Pass2(it);
+                }
+                catch (Exception err)
+                {
+                    ReportingUtility.ReportError(it, ErrorCategory.Exception, ErrorSeverity.Severe, err.ToString());
+                }
+            }
+
             result.AddRange(ReportingUtility.Errors);
             ReportingUtility.WriteValidationJson();
             return result;
@@ -1569,7 +1582,7 @@ namespace ContentPackageTabulator
             // WordCount
             var wordCount = GetWordCount(it, xml);
 
-            if (Program.gValidationOptions.IsEnabled("dsk") && write)
+            if (Program.gValidationOptions.IsEnabled("dsk") && write && mStimulusReport != null)
             {
                 // Folder,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,Media,Size,WordCount
                 mStimulusReport.WriteLine(string.Join(",", ReportingUtility.CsvEncode(it.Folder),
