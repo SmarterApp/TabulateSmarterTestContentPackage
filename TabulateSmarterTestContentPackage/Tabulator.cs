@@ -6,7 +6,6 @@ using System.IO;
 using System.Linq;
 using System.Xml;
 using System.Text.RegularExpressions;
-using System.Xml.Linq;
 using NLog;
 using TabulateSmarterTestContentPackage.Extensions;
 using TabulateSmarterTestContentPackage.Extractors;
@@ -899,18 +898,8 @@ namespace TabulateSmarterTestContentPackage
             }
 
             // Standards Alignment
-            var primaryStandards = ItemStandardExtractor.Extract(it, xmlMetadata);
-            ItemStandardExtractor.ValidateStandards(it, primaryStandards, true, grade);
-            var secondaryStandards = ItemStandardExtractor.Extract(it, xmlMetadata, "SecondaryStandard");
-            ItemStandardExtractor.ValidateStandards(it, secondaryStandards, false, grade);
-
-            var standardClaimTarget = new ReportingStandard(primaryStandards, secondaryStandards);
-
-            // Fill in an empty standard if no primary found
-            if (primaryStandards.Count == 0)
-            {
-                primaryStandards = new List<ItemStandard> { new ItemStandard() };
-            }
+            var standards = ItemStandardExtractor.Extract(it, xmlMetadata);
+            var reportingStandard = ItemStandardExtractor.ValidateAndSummarize(it, standards, subject, grade);
 
             // Validate content segments
             var wordlistId = ValidateContentAndWordlist(it, xml);
@@ -936,13 +925,11 @@ namespace TabulateSmarterTestContentPackage
             // Check for silencing tags
             if (Program.gValidationOptions.IsEnabled("tss"))
             {
-                var primaryStandard = primaryStandards.FirstOrDefault();
-                if (primaryStandard != null && HasTtsSilencingTags(xml) 
-                    && !primaryStandard.Claim.Split('-').FirstOrDefault().Equals("2")
-                    && !primaryStandard.Target.Split('-').FirstOrDefault().Equals("9"))
+                if (HasTtsSilencingTags(xml) 
+                    && !(standards[0].Claim.StartsWith("2") && standards[0].Target.StartsWith("9")) )
                 {
                     ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable, "Item has improper TTS Silencing Tag", "subject='{0}' claim='{1}' target='{2}'", subject, 
-                        primaryStandard.Claim, primaryStandard.Target);
+                        standards[0].Claim, standards[0].Target);
                 }
             }
 
@@ -965,9 +952,11 @@ namespace TabulateSmarterTestContentPackage
                 CsvEncode(grade), CsvEncode(answerKey), CsvEncode(assessmentType), CsvEncode(wordlistId), 
                 CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), CsvEncode(media), size.ToString(), CsvEncode(depthOfKnowledge), CsvEncode(allowCalculator), 
                 CsvEncode(mathematicalPractice), CsvEncode(maximumNumberOfPoints),
-                CsvEncode(primaryStandards.FirstOrDefault().Claim), CsvEncodeExcel(primaryStandards.FirstOrDefault().Target),
-                CsvEncode(standardClaimTarget.PrimaryCommonCore), CsvEncode(standardClaimTarget.PrimaryClaimsContentTargets),
-                CsvEncode(standardClaimTarget.SecondaryCommonCore), CsvEncode(standardClaimTarget.SecondaryClaimsContentTargets), 
+                CsvEncode(standards[0].Claim), CsvEncodeExcel(standards[0].Target),
+                CsvEncode(reportingStandard.PrimaryCCSS),
+                CsvEncode(reportingStandard.PrimaryClaimContentTarget),
+                CsvEncode(reportingStandard.SecondaryCCSS),
+                CsvEncode(reportingStandard.SecondaryClaimsContentTargets), 
                 CsvEncode(scoringSeparation.FirstOrDefault(x => !x.Key)?.Select(x => x.MeasurementModel).Aggregate((x,y) => $"{x};{y}") ?? string.Empty), 
                 CsvEncode(scoringSeparation.FirstOrDefault(x => !x.Key)?.Select(x => x.ScorePoints).Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
                 CsvEncode(scoringSeparation.FirstOrDefault(x => !x.Key)?.Select(x => x.Dimension).Aggregate((x, y) => $"{x};{y}") ?? string.Empty), 

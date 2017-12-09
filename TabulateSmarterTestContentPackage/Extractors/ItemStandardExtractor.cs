@@ -1,7 +1,7 @@
-﻿using System.Collections.Generic;
-using System.Linq;
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
 using System.Xml;
-using System.Xml.Linq;
 using System.Xml.XPath;
 using TabulateSmarterTestContentPackage.Models;
 using TabulateSmarterTestContentPackage.Utilities;
@@ -10,6 +10,9 @@ namespace TabulateSmarterTestContentPackage.Extractors
 {
     public static class ItemStandardExtractor
     {
+        const string cSubjectMath = "MATH";
+        const string cSubjectEla = "ELA";
+        const string cValueNA = "NA";
 
         static XmlNamespaceManager s_nsMetadata;
 
@@ -34,11 +37,36 @@ namespace TabulateSmarterTestContentPackage.Extractors
             s_nsMetadata.AddNamespace("sa", "http://www.smarterapp.org/ns/1/assessment_item_metadata");
         }
 
-        public static IReadOnlyList<ItemStandard> Extract(ItemIdentifier ii, IXPathNavigable metadata, string standard = "PrimaryStandard")
+        public static IReadOnlyList<ItemStandard> Extract(ItemIdentifier ii, IXPathNavigable metadata)
         {
+            // Get the primary standard
             var result = new List<ItemStandard>();
+            Extract(ii, metadata, "PrimaryStandard", result);
+            if (result.Count == 0)
+            {
+                ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "No PrimaryStandard found in metadata.");
+            }
+            if (result.Count != 1)
+            {
+                ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Found more than one PrimaryStandard.", $"count='{result.Count}'");
+            }
+
+            // Get any secondary standards
+            Extract(ii, metadata, "SecondaryStandard", result);
+
+            // Do not return an empty result - make a blank one if necessary
+            if (result.Count == 0)
+            {
+                result.Add(new ItemStandard());
+            }
+
+            return result;
+        }
+
+        private static void Extract(ItemIdentifier ii, IXPathNavigable metadata, string standard, List<ItemStandard> result)
+        {
             XPathNavigator root = metadata.CreateNavigator();
-            ItemStandard std = new ItemStandard();
+            ItemStandard std = new ItemStandard(); // A new standard has empty string for all values
             HashSet<string> stdEncountered = new HashSet<string>();
             HashSet<string> pubEncountered = new HashSet<string>();
 
@@ -76,6 +104,7 @@ namespace TabulateSmarterTestContentPackage.Extractors
                 {
                     case "SBAC-MA-v4":
                     case "SBAC-MA-v5":
+                        std.Subject = cSubjectMath;
                         SetCheckMatch(ii, "Claim", ref std.Claim, parts, 1);
                         SetCheckMatch(ii, "ContentDomain", ref std.ContentDomain, parts, 2);
                         SetCheckMatch(ii, "Target", ref std.Target, parts, 3);
@@ -84,6 +113,7 @@ namespace TabulateSmarterTestContentPackage.Extractors
                         break;
 
                     case "SBAC-MA-v6":
+                        std.Subject = cSubjectMath;
                         SetCheckMatch(ii, "Claim", ref std.Claim, parts, 1);
                         SetCheckMatch(ii, "ContentCategory", ref std.ContentCategory, parts, 2);
                         SetCheckMatch(ii, "TargetSet", ref std.TargetSet, parts,3);
@@ -91,6 +121,7 @@ namespace TabulateSmarterTestContentPackage.Extractors
                         break;
 
                     case "SBAC-ELA-v1":
+                        std.Subject = cSubjectEla;
                         SetCheckMatch(ii, "Claim", ref std.Claim, parts, 1);
                         SetCheckMatch(ii, "Target", ref std.Target, parts, 2);
                         SetCheckMatch(ii, "CCSS", ref std.CCSS, parts, 3);
@@ -116,7 +147,6 @@ namespace TabulateSmarterTestContentPackage.Extractors
             {
                 result.Add(std);
             }
-            return result;
         }
 
         private static void SetCheckMatch(ItemIdentifier ii, string fieldName, ref string rDest, string[] vals, int index)
@@ -136,34 +166,23 @@ namespace TabulateSmarterTestContentPackage.Extractors
             }
         }
 
-        public static void ValidateStandards(ItemIdentifier ii, IReadOnlyList<ItemStandard> standards, bool primary, string expectedGrade)
+        public static ReportingStandard ValidateAndSummarize(ItemIdentifier ii, IReadOnlyList<ItemStandard> standards, string expectedSubject, string expectedGrade)
         {
-            if (primary)
-            {
-                // Validate count
-                if (standards.Count < 1)
-                {
-                    ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "No primary standard specified.");
-                    return;
-                }
-                if (standards.Count > 1)
-                {
-                    ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Multiple primary standards specified.", $"count='{standards.Count()}'");
-                }
-
-                // Ensure CCSS is present
-                if (string.IsNullOrEmpty(standards[0].CCSS))
-                {
-                    ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Common Core standard not included in PrimaryStandard metadata.");
-                }
-            }
-
+            // Validate each of the standards in the list
             foreach (var standard in standards)
             {
                 // Validate claim
                 if (!sValidClaims.Contains(standard.Claim))
                 {
                     ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Degraded, "Unexpected claim value (should be 1, 2, 3, or 4 with possible suffix).", $"Claim='{standard.Claim}'");
+                }
+
+                // Validate subject
+                if (!standard.Subject.Equals(expectedSubject, StringComparison.OrdinalIgnoreCase))
+                {
+                    ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable,
+                        "Metadata standard publication indicates subject different from item.",
+                        $"ItemAttributeSubject='{expectedSubject}' MetadataSubject='{standard.Subject}'");
                 }
 
                 // Validate grade (derived from target suffix)
@@ -174,6 +193,107 @@ namespace TabulateSmarterTestContentPackage.Extractors
                         $"ItemAttributeGrade='{expectedGrade}' TargetSuffixGrade='{standard.Grade}'");
                 }
             }
+
+            // === Extract the Primary CCSS ===
+
+            //   Special case for Math claims 2,3,4. In those cases the primary CCSS is
+            //   supplied on a secondary standard string with claim 1.
+            string primaryCCSS = string.Empty;
+            int primaryCcssIndex = -1;
+            if (standards[0].Subject.Equals(cSubjectMath, StringComparison.OrdinalIgnoreCase)
+                && standards[0].Claim.Length > 0 && standards[0].Claim[0] >= '2' && standards[0].Claim[0] <= '4')
+            {
+                // If empty CCSS (which should be the case) find the CCSS on a claim 1 standard
+                if (string.IsNullOrEmpty(standards[0].CCSS)
+                    || standards[0].CCSS.Equals(cValueNA, StringComparison.OrdinalIgnoreCase))
+                {
+                    for (int i = 1; i < standards.Count; ++i)
+                    {
+                        if (standards[i].Claim.StartsWith("1")
+                            && !string.IsNullOrEmpty(standards[i].CCSS)
+                            && !standards[i].CCSS.Equals(cValueNA, StringComparison.OrdinalIgnoreCase))
+                        {
+                            primaryCCSS = standards[i].CCSS;
+                            primaryCcssIndex = i;
+                            break;
+                        }
+                    }
+                    if (primaryCcssIndex < 0)
+                    {
+                        ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable,
+                            "Math Claim 2, 3, 4 primary alignment should be paired with a claim 1 secondary alignment.", $"claim='{standards[0].Claim}'");
+                    }
+                    else if (string.IsNullOrEmpty(primaryCCSS) || primaryCCSS.Equals(cValueNA, StringComparison.OrdinalIgnoreCase))
+                    {
+                        ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable,
+                            "Math Claim 2, 3, 4 primary alignment is missing CCSS standard.", $"claim='{standards[0].Claim}'");
+                    }
+                }
+                else
+                {
+                    ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable,
+                        "Expected blank CCSS for Math Claim 2, 3, or 4", $"claim='{standards[0].Claim}' CCSS='{standards[0].CCSS}'");
+                }
+            }
+            // Only accept value if it's non-empty and not NA
+            else if (!string.IsNullOrEmpty(standards[0].CCSS)
+                && !standards[0].CCSS.Equals(cValueNA, StringComparison.OrdinalIgnoreCase))
+            {
+                primaryCCSS = standards[0].CCSS;
+                primaryCcssIndex = 0;
+            }
+            // Otherwise empty
+            else
+            {
+                // primaryCCSS is already set to string.Empty;
+                ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable,
+                    "CCSS standard is missing from item.", $"claim='{standards[0].Claim}'");
+            }
+
+            // === Extract the Secondary CCSS ===
+            var secondaryCcss = new StringBuilder();
+            for (int i = 0; i < standards.Count; ++i)
+            {
+                if (i == primaryCcssIndex) continue;
+                if (!string.IsNullOrEmpty(standards[i].CCSS)
+                    && !standards[i].CCSS.Equals(cValueNA, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (secondaryCcss.Length > 0) secondaryCcss.Append(';');
+                    secondaryCcss.Append(standards[i].CCSS);
+                }
+            }
+
+            // Return the summary value
+            return new ReportingStandard(
+                primaryCCSS,
+                CombineClaimsContentTargets(standards, 0, 1),
+                secondaryCcss.ToString(),
+                CombineClaimsContentTargets(standards, 1));
         }
+
+        // Formats claim content target for reporting app.
+        public static string CombineClaimsContentTargets(IReadOnlyList<ItemStandard> itemStandards, int first, int count = 500)
+        {
+            int end = first + count;
+            if (end > itemStandards.Count) end = itemStandards.Count;
+            var result = new System.Text.StringBuilder();
+            for (int i = first; i < end; ++i)
+            {
+                if (result.Length > 0) result.Append(';');
+                if (itemStandards[i].Subject.Equals(cSubjectMath, StringComparison.Ordinal))
+                {
+                    result.Append($"{itemStandards[i].Claim}|{itemStandards[i].ContentDomain}|{itemStandards[i].Target}");
+                }
+                else
+                {
+                    result.Append($"{itemStandards[i].Claim}|{itemStandards[i].Target}");
+                }
+            }
+
+            return result.ToString();
+        }
+
+
+
     }
 }

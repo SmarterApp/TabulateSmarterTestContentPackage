@@ -181,6 +181,8 @@ namespace TabulateSmarterTestContentPackage.Validators
             
                Look up the corresponding apipAccessibility/acessibilityinfo/accessElement
                element in the item XML and ensure it has a readAloud/audioText element.
+
+               Also need to check for alt text on MathML expressions.
              */
 
             return true;
