@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Text;
+using System.Collections.Generic;
 using TabulateSmarterTestContentPackage.Models;
 
 namespace TabulateSmarterTestContentPackage.Utilities
@@ -10,11 +11,26 @@ namespace TabulateSmarterTestContentPackage.Utilities
         public static int ErrorCount { get; set; }
         public static string ErrorReportPath { get; set; }
         public static string CurrentPackageName { get; set; }
+        public static bool DeDuplicate { get; set; }
 
         static TextWriter m_ErrorReport { get; set; }
+        static HashSet<ShaHash> s_ErrorsReported = new HashSet<ShaHash>();
 
         private static void InternalReportError(string folder, string itemType, string bankKey, string itemId, ErrorCategory category, ErrorSeverity severity, string msg, string detail)
         {
+            // If deduplicate, find out if this error has already been reported for this particular item.
+            if (DeDuplicate)
+            {
+                // Create a hash of the itemId and message
+                var errHash = new ShaHash(string.Concat(itemType, bankKey, itemId, msg));
+
+                // If it's aready in the set then exit
+                if (!s_ErrorsReported.Add(errHash))
+                {
+                    return; // Already reported an error of this type on this item
+                }
+            }
+
             if (m_ErrorReport == null)
             {
                 m_ErrorReport = new StreamWriter(ErrorReportPath, false, Encoding.UTF8);
@@ -121,6 +137,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
                 m_ErrorReport.Dispose();
                 m_ErrorReport = null;
             }
+            s_ErrorsReported.Clear();
         }
     }
 }

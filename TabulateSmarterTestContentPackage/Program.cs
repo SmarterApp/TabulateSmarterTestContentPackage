@@ -83,6 +83,8 @@ Arguments:
     -rbrk            Export rubrics into HTML files so that they can be
                      examined. The rubrics will be in a folder located in the
                      same place as the reports.
+    -dedup           Only report the first instance of an error on a
+                     particular item (De-duplicate).
     <packageMoniker> The filename of a local package or the identifier of an
                      online item bank. (See below for details.)
     
@@ -267,6 +269,7 @@ Error severity definitions:
         static bool s_reportIds;
         static bool s_exitAfterIds;
         static bool s_exportRubrics;
+        static bool s_deDuplicate;
 
 
         private static void Main(string[] args)
@@ -433,6 +436,10 @@ Error severity definitions:
                         bankOperation.BankAccessToken = args[i];
                         break;
 
+                    case "-dedup":
+                        s_deDuplicate = true;
+                        break;
+
                     default:
                         if (arg.StartsWith("-v", StringComparison.OrdinalIgnoreCase) && (arg[2] == '-' || arg[2] == '+'))
                         {
@@ -540,6 +547,7 @@ Error severity definitions:
                                 tab.ReportIds = s_reportIds;
                                 tab.ExitAfterSelect = s_exitAfterIds;
                                 tab.ExportRubrics = s_exportRubrics;
+                                tab.DeDuplicate = s_deDuplicate;
                                 if (operation.IdFilename != null)
                                 {
                                     tab.SelectItems(new IdReadable(operation.IdFilename, c_DefaultBankKey));
@@ -564,6 +572,7 @@ Error severity definitions:
                             tab.ReportIds = s_reportIds;
                             tab.ExitAfterSelect = s_exitAfterIds;
                             tab.ExportRubrics = s_exportRubrics;
+                            tab.DeDuplicate = s_deDuplicate;
                             if (operation.IdFilename != null)
                             {
                                 tab.SelectItems(new IdReadable(operation.IdFilename, c_DefaultBankKey));
@@ -598,6 +607,7 @@ Error severity definitions:
                 tab.ReportIds = s_reportIds;
                 tab.ExitAfterSelect = s_exitAfterIds;
                 tab.ExportRubrics = s_exportRubrics;
+                tab.DeDuplicate = s_deDuplicate;
 
                 foreach (var operation in s_operations)
                 {

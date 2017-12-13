@@ -1,14 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text.RegularExpressions;
-using System.Xml;
-using System.Xml.Linq;
 using System.Xml.XPath;
-using NLog;
-using TabulateSmarterTestContentPackage.Extensions;
+using System.Xml;
 using TabulateSmarterTestContentPackage.Models;
 using TabulateSmarterTestContentPackage.Utilities;
+using System.IO;
 
 namespace TabulateSmarterTestContentPackage.Validators
 {
@@ -64,7 +60,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                 if (s_prohibitedElements.TryGetValue(ele.Name, out string interferesWith))
                 {
                     ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                        $"Item content has element that may interfere with {interferesWith}.", $"element='{ele.OuterXml}'");
+                        $"Item content has element that may interfere with {interferesWith}.", $"element='{StartTagXml(ele)}'");
                     valid = false;
                 }
 
@@ -77,7 +73,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                         if (s_prohibitedAttributes.TryGetValue(attribute.Name, out interferesWith))
                         {
                             ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                $"Item content has attribute that may interfere with {interferesWith}.", $"attribute='{attribute.Name}' element='{ele.OuterXml}'");
+                                $"Item content has attribute that may interfere with {interferesWith}.", $"attribute='{attribute.Name}' element='{StartTagXml(ele)}'");
                             valid = false;
                         }
 
@@ -107,7 +103,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                                     if (!value.Equals("transparent", StringComparison.OrdinalIgnoreCase))
                                     {
                                         ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                            $"Item content has style property that may interfere with color contrast.", $"style='{name}' element='{ele.OuterXml}'");
+                                            $"Item content has style property that may interfere with color contrast.", $"style='{name}' element='{StartTagXml(ele)}'");
                                     }
                                 }
 
@@ -119,7 +115,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                                         if (HasProhibitedUnitSuffix(part))
                                         {
                                             ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                                $"Item content has style property that may interfere with zoom.", $"style='{name}' element='{ele.OuterXml}'");
+                                                $"Item content has style property that may interfere with zoom.", $"style='{name}' element='{StartTagXml(ele)}'");
                                         }
                                     }
                                 }
@@ -128,7 +124,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                                 else if (s_prohibitedStyleProperties.TryGetValue(name, out interferesWith))
                                 {
                                     ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                        $"Item content has style property that may interfere with {interferesWith}.", $"style='{name}' element='{ele.OuterXml}'");
+                                        $"Item content has style property that may interfere with {interferesWith}.", $"style='{name}' element='{StartTagXml(ele)}'");
                                     valid = false;
                                 }
 
@@ -138,7 +134,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                                     if (HasProhibitedUnitSuffix(value))
                                     {
                                         ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                            $"Item content has style property that may interfere with zoom.", $"style='{name}' element='{ele.OuterXml}'");
+                                            $"Item content has style property that may interfere with zoom.", $"style='{name}' element='{StartTagXml(ele)}'");
                                     }
                                 }
                             }
@@ -171,7 +167,7 @@ namespace TabulateSmarterTestContentPackage.Validators
             if (string.IsNullOrEmpty(id))
             {
                 ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                    "Img element does not contain a valid id attribute necessary to provide alt text.", $"Value: {imgEle.OuterXml}");
+                    "Img element does not contain a valid id attribute necessary to provide alt text.", $"Value: {StartTagXml(imgEle)}");
                 return false;
             }
 
@@ -197,6 +193,15 @@ namespace TabulateSmarterTestContentPackage.Validators
             string units = value.Substring(split).ToLower();
 
             return s_prohibitedUnitSuffixes.Contains(units);
+        }
+
+        private static string StartTagXml(XPathNavigator nav)
+        {
+            string result = nav.OuterXml;
+            int gt = result.IndexOf('>');
+            if (gt >= 0) result = result.Substring(0, gt + 1);
+
+            return result;
         }
 
     }

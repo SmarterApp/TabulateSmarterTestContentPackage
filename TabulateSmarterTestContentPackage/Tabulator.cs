@@ -128,6 +128,7 @@ namespace TabulateSmarterTestContentPackage
         public bool ReportIds { get; set; }
         public bool ExitAfterSelect { get; set; }
         public bool ExportRubrics { get; set; }
+        public bool DeDuplicate { get; set; }
 
         public void SelectItems(IEnumerable<ItemIdentifier> itemIds)
         {
@@ -178,6 +179,7 @@ namespace TabulateSmarterTestContentPackage
             // Prep the error report
             ReportingUtility.ErrorReportPath = string.Concat(mReportPathPrefix, cErrorReportFn);
             File.Delete(ReportingUtility.ErrorReportPath); // Delete does not throw exception if file does not exist.
+            ReportingUtility.DeDuplicate = DeDuplicate;
 
             // Delete any existing reports
             File.Delete(mReportPathPrefix + cIdReportFn);
