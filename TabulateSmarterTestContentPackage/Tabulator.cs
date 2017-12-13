@@ -286,13 +286,13 @@ namespace TabulateSmarterTestContentPackage
             {
                 Initialize();
             }
-
-
+            
             Console.WriteLine("Tabulating " + package.Name);
             try
             {
                 var startTicks = Environment.TickCount;
                 ReportingUtility.CurrentPackageName = package.Name;
+                mRubrics.Clear();
 
                 // Initialize package-specific collections
                 mPackage = package;
