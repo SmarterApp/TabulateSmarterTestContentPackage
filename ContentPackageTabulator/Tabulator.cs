@@ -358,7 +358,7 @@ namespace ContentPackageTabulator
                 // In the case of multiple standards/claims/targets, these headers will not be sufficient
                 // TODO: Add CsvHelper library to allow expandable headers
                 mItemReport.WriteLine(
-                    "Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,NumberOfAnswerOptions,AsmtType,WordlistId,ASL," +
+                    "Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,NumberOfAnswerOptions,AsmtType,PerformanceTask,PtWritingType,WordlistId,ASL," +
                     "BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice,MaxPoints," +
                     "CommonCore,ClaimContentTarget,SecondaryCommonCore,SecondaryClaimContentTarget, CAT_MeasurementModel," +
                     "CAT_ScorePoints,CAT_Dimension,CAT_Weight,CAT_Parameters, PP_MeasurementModel," +
@@ -1156,76 +1156,7 @@ namespace ContentPackageTabulator
                 AslVideoValidator.Validate(it, xml);
             }
 
-            Console.WriteLine($"Tabulating {it.ItemId}");
-
-            var scoringSeparation = scoringInformation.GroupBy(
-                    x => !string.IsNullOrEmpty(x.Domain) && x.Domain.Equals("paper", StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-            if (Program.gValidationOptions.IsEnabled("dsk") && write)
-            {
-                // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,NumberOfAnswerOptions,AsmtType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,
-                // MathematicalPractice, MaxPoints, CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget, measurementmodel, scorepoints,
-                // dimension, weight, parameters
-                mItemReport.WriteLine(string.Join(",", ReportingUtility.CsvEncode(it.Folder),
-                    ReportingUtility.CsvEncode(it.ItemId), ReportingUtility.CsvEncode(it.ItemType),
-                    ReportingUtility.CsvEncode(version), ReportingUtility.CsvEncode(subject),
-                    ReportingUtility.CsvEncode(grade), ReportingUtility.CsvEncode(answerKey),
-                    numberOfAnswerOptions,
-                    ReportingUtility.CsvEncode(assessmentType), ReportingUtility.CsvEncode(wordlistId),
-                    ReportingUtility.CsvEncode(asl), ReportingUtility.CsvEncode(brailleType),
-                    ReportingUtility.CsvEncode(translation), ReportingUtility.CsvEncode(media), size.ToString(),
-                    ReportingUtility.CsvEncode(depthOfKnowledge), ReportingUtility.CsvEncode(allowCalculator),
-                    ReportingUtility.CsvEncode(mathematicalPractice), ReportingUtility.CsvEncode(maximumNumberOfPoints),
-                    ReportingUtility.CsvEncode(standardClaimTarget.PrimaryCommonCore),
-                    ReportingUtility.CsvEncode(standardClaimTarget.PrimaryClaimsContentTargets),
-                    ReportingUtility.CsvEncode(standardClaimTarget.SecondaryCommonCore),
-                    ReportingUtility.CsvEncode(standardClaimTarget.SecondaryClaimsContentTargets),
-                    ReportingUtility.CsvEncode(
-                        scoringSeparation.FirstOrDefault(x => !x.Key)?
-                            .Select(x => x.MeasurementModel)
-                            .Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
-                    ReportingUtility.CsvEncode(
-                        scoringSeparation.FirstOrDefault(x => !x.Key)?
-                            .Select(x => x.ScorePoints)
-                            .Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
-                    ReportingUtility.CsvEncode(
-                        scoringSeparation.FirstOrDefault(x => !x.Key)?
-                            .Select(x => x.Dimension)
-                            .Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
-                    ReportingUtility.CsvEncode(
-                        scoringSeparation.FirstOrDefault(x => !x.Key)?
-                            .Select(x => x.Weight)
-                            .Aggregate((x, y) => $"{x};{y}") ??
-                        string.Empty),
-                    ReportingUtility.CsvEncode(
-                        scoringSeparation.FirstOrDefault(x => !x.Key)?
-                            .Select(x => x.GetParameters())
-                            .Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
-                    ReportingUtility.CsvEncode(
-                        scoringSeparation.FirstOrDefault(x => x.Key)?
-                            .Select(x => x.MeasurementModel)
-                            .Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
-                    ReportingUtility.CsvEncode(
-                        scoringSeparation.FirstOrDefault(x => x.Key)?
-                            .Select(x => x.ScorePoints)
-                            .Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
-                    ReportingUtility.CsvEncode(
-                        scoringSeparation.FirstOrDefault(x => x.Key)?
-                            .Select(x => x.Dimension)
-                            .Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
-                    ReportingUtility.CsvEncode(
-                        scoringSeparation.FirstOrDefault(x => x.Key)?
-                            .Select(x => x.Weight)
-                            .Aggregate((x, y) => $"{x};{y}") ??
-                        string.Empty),
-                    ReportingUtility.CsvEncode(
-                        scoringSeparation.FirstOrDefault(x => x.Key)?
-                            .Select(x => x.GetParameters())
-                            .Aggregate((x, y) => $"{x};{y}") ?? string.Empty)));
-            }
-
-            // === Tabulation is complete, check for other errors
+            // check for other errors
 
             // Points
             {
@@ -1357,6 +1288,7 @@ namespace ContentPackageTabulator
             }
 
             // Performance Task Details
+            string ptWritingType = null;
             if (string.Equals(assessmentType, "PT", StringComparison.OrdinalIgnoreCase))
             {
                 // PtSequence
@@ -1376,7 +1308,7 @@ namespace ContentPackageTabulator
                 // PtWritingType Metadata (defined as optional in metadata but we'll still report a benign error if it's not on PT WER items)
                 if (string.Equals(it.ItemType, "wer", StringComparison.OrdinalIgnoreCase))
                 {
-                    var ptWritingType = xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:PtWritingType", sXmlNs);
+                    ptWritingType = xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:PtWritingType", sXmlNs);
                     if (ptWritingType == null)
                     {
                         ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Benign,
@@ -1468,6 +1400,78 @@ namespace ContentPackageTabulator
                     // Make sure dependency is recorded in manifest
                     CheckDependencyInManifest(it, tutorialFilename, "Tutorial");
                 }
+            }
+
+            Console.WriteLine($"Tabulating {it.ItemId}");
+
+            var scoringSeparation = scoringInformation.GroupBy(
+                    x => !string.IsNullOrEmpty(x.Domain) && x.Domain.Equals("paper", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (Program.gValidationOptions.IsEnabled("dsk") && write)
+            {
+                // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,NumberOfAnswerOptions,AsmtType,PerformanceTask,PTWritingType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,
+                // MathematicalPractice, MaxPoints, CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget, measurementmodel, scorepoints,
+                // dimension, weight, parameters
+                mItemReport.WriteLine(string.Join(",", ReportingUtility.CsvEncode(it.Folder),
+                    ReportingUtility.CsvEncode(it.ItemId), ReportingUtility.CsvEncode(it.ItemType),
+                    ReportingUtility.CsvEncode(version), ReportingUtility.CsvEncode(subject),
+                    ReportingUtility.CsvEncode(grade), ReportingUtility.CsvEncode(answerKey),
+                    numberOfAnswerOptions,
+                    ReportingUtility.CsvEncode(assessmentType), 
+                    (string.Equals(assessmentType, "PT", StringComparison.OrdinalIgnoreCase) ? "Y" : "N"),
+                    ReportingUtility.CsvEncode(ptWritingType),
+                    ReportingUtility.CsvEncode(wordlistId),
+                    ReportingUtility.CsvEncode(asl), ReportingUtility.CsvEncode(brailleType),
+                    ReportingUtility.CsvEncode(translation), ReportingUtility.CsvEncode(media), size.ToString(),
+                    ReportingUtility.CsvEncode(depthOfKnowledge), ReportingUtility.CsvEncode(allowCalculator),
+                    ReportingUtility.CsvEncode(mathematicalPractice), ReportingUtility.CsvEncode(maximumNumberOfPoints),
+                    ReportingUtility.CsvEncode(standardClaimTarget.PrimaryCommonCore),
+                    ReportingUtility.CsvEncode(standardClaimTarget.PrimaryClaimsContentTargets),
+                    ReportingUtility.CsvEncode(standardClaimTarget.SecondaryCommonCore),
+                    ReportingUtility.CsvEncode(standardClaimTarget.SecondaryClaimsContentTargets),
+                    ReportingUtility.CsvEncode(
+                        scoringSeparation.FirstOrDefault(x => !x.Key)?
+                            .Select(x => x.MeasurementModel)
+                            .Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
+                    ReportingUtility.CsvEncode(
+                        scoringSeparation.FirstOrDefault(x => !x.Key)?
+                            .Select(x => x.ScorePoints)
+                            .Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
+                    ReportingUtility.CsvEncode(
+                        scoringSeparation.FirstOrDefault(x => !x.Key)?
+                            .Select(x => x.Dimension)
+                            .Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
+                    ReportingUtility.CsvEncode(
+                        scoringSeparation.FirstOrDefault(x => !x.Key)?
+                            .Select(x => x.Weight)
+                            .Aggregate((x, y) => $"{x};{y}") ??
+                        string.Empty),
+                    ReportingUtility.CsvEncode(
+                        scoringSeparation.FirstOrDefault(x => !x.Key)?
+                            .Select(x => x.GetParameters())
+                            .Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
+                    ReportingUtility.CsvEncode(
+                        scoringSeparation.FirstOrDefault(x => x.Key)?
+                            .Select(x => x.MeasurementModel)
+                            .Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
+                    ReportingUtility.CsvEncode(
+                        scoringSeparation.FirstOrDefault(x => x.Key)?
+                            .Select(x => x.ScorePoints)
+                            .Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
+                    ReportingUtility.CsvEncode(
+                        scoringSeparation.FirstOrDefault(x => x.Key)?
+                            .Select(x => x.Dimension)
+                            .Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
+                    ReportingUtility.CsvEncode(
+                        scoringSeparation.FirstOrDefault(x => x.Key)?
+                            .Select(x => x.Weight)
+                            .Aggregate((x, y) => $"{x};{y}") ??
+                        string.Empty),
+                    ReportingUtility.CsvEncode(
+                        scoringSeparation.FirstOrDefault(x => x.Key)?
+                            .Select(x => x.GetParameters())
+                            .Aggregate((x, y) => $"{x};{y}") ?? string.Empty)));
             }
         } // TablulateInteraction
 
@@ -1671,7 +1675,7 @@ namespace ContentPackageTabulator
 
             if (Program.gValidationOptions.IsEnabled("dsk") && write)
             {
-                // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,MathematicalPractice, MaxPoints, 
+                // Folder,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,PerformanceTask,PtWritingType,WordlistId,ASL,BrailleType,Translation,Media,Size,DepthOfKnowledge,AllowCalculator,MathematicalPractice, MaxPoints, 
                 // CommonCore, ClaimContentTarget, SecondaryCommonCore, SecondaryClaimContentTarget, CAT_MeasurementModel,
                 // CAT_ScorePoints, CAT_Dimension, CAT_Weight,CAT_Parameters, PP_MeasurementModel
                 // PP_ScorePoints,PP_Dimension,PP_Weight,PP_Parameters
@@ -1679,7 +1683,9 @@ namespace ContentPackageTabulator
                     ReportingUtility.CsvEncode(it.ItemId), ReportingUtility.CsvEncode(it.ItemType),
                     ReportingUtility.CsvEncode(version), ReportingUtility.CsvEncode(subject),
                     ReportingUtility.CsvEncode(grade), ReportingUtility.CsvEncode(answerKey),
-                    ReportingUtility.CsvEncode(assessmentType), ReportingUtility.CsvEncode(wordlistId),
+                    ReportingUtility.CsvEncode(assessmentType), 
+                    "N", string.Empty,
+                    ReportingUtility.CsvEncode(wordlistId),
                     ReportingUtility.CsvEncode(asl), ReportingUtility.CsvEncode(brailleType),
                     ReportingUtility.CsvEncode(translation),
                     string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty,
