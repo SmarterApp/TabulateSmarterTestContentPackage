@@ -75,6 +75,7 @@ namespace ContentPackageTabulator.Extractors
             {
                 case "SBAC-ELA-v1":
                     return 1;
+                case "SBAC-MA-v1":
                 case "SBAC-MA-v4":
                 case "SBAC-MA-v5":
                     return 2;
@@ -89,6 +90,8 @@ namespace ContentPackageTabulator.Extractors
         {
             switch (publication)
             {
+                case "SBAC-MA-v1":
+                case "SBAC-MA-v3":
                 case "SBAC-MA-v4":
                 case "SBAC-MA-v5":
                 case "SBAC-MA-v6":
