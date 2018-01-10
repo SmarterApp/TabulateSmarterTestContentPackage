@@ -167,7 +167,7 @@ namespace TabulateSmarterTestContentPackage.Validators
             if (string.IsNullOrEmpty(id))
             {
                 ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                    "Img element does not contain a valid id attribute necessary to provide alt text.", $"Value: {StartTagXml(imgEle)}");
+                    "Img element does not contain an id attribute necessary to provide alt text.", $"Value: {StartTagXml(imgEle)}");
                 return false;
             }
 
@@ -182,10 +182,10 @@ namespace TabulateSmarterTestContentPackage.Validators
             }
             if (!readAloudFound)
                 ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                    "Img element does not contain a valid alt text for text-to-speech (readAloud element).", $"Value: {StartTagXml(imgEle)}");
+                    "Img element does not reference alt text for text-to-speech (no corresponding readAloud element).", $"Value: {StartTagXml(imgEle)}");
             if (!brailleTextFound)
                 ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                    "Img element does not contain a valid alt text for braille presentation mode (brailleText element).", $"Value: {StartTagXml(imgEle)}");
+                    "Img element does not reference alt text for braille presentation (no corresponding brailleText element).", $"Value: {StartTagXml(imgEle)}");
 
             return readAloudFound && brailleTextFound;
         }
