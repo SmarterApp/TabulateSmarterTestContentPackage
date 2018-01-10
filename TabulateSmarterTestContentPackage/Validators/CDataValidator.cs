@@ -43,12 +43,12 @@ namespace TabulateSmarterTestContentPackage.Validators
         static HashSet<string> s_prohibitedUnitSuffixes = new HashSet<string>
         { "cm", "mm", "in", "px", "pt", "pc" };
 
-        public static void ValidateItemContent(ItemContext it, IXPathNavigable html)
+        public static void ValidateItemContent(ItemContext it, IXPathNavigable contentElement, IXPathNavigable html)
         {
-            var root = html.CreateNavigator();
-            ImgElementsHaveValidAltReference(it, root);
+            var htmlNav = html.CreateNavigator();
+            ImgElementsHaveValidAltReference(it, contentElement.CreateNavigator(), htmlNav);
 
-            ElementsFreeOfProhibitedAttributes(it, root);
+            ElementsFreeOfProhibitedAttributes(it, htmlNav);
         }
 
         public static bool ElementsFreeOfProhibitedAttributes(ItemContext it, XPathNavigator root)
@@ -148,12 +148,12 @@ namespace TabulateSmarterTestContentPackage.Validators
             return valid;
         }
 
-        public static bool ImgElementsHaveValidAltReference(ItemContext it, XPathNavigator root)
+        public static bool ImgElementsHaveValidAltReference(ItemContext it, XPathNavigator contentElement, XPathNavigator html)
         {
             bool success = true;
-            foreach (XPathNavigator imgEle in root.Select("//img"))
+            foreach (XPathNavigator imgEle in html.Select("//img"))
             {
-                success &= ImgElementHasValidAltReference(it, imgEle);
+                success &= ImgElementHasValidAltReference(it, contentElement, imgEle);
             }
             return success;
         }
@@ -161,7 +161,7 @@ namespace TabulateSmarterTestContentPackage.Validators
         //<summary>This method takes a <img> element tag and determines whether
         //the provided <img> element contains a valid "alt" attribute </summary>
         //<param name="image"> The <img> tag to be validated </param>
-        public static bool ImgElementHasValidAltReference(ItemContext it, XPathNavigator imgEle)
+        public static bool ImgElementHasValidAltReference(ItemContext it, XPathNavigator contentElement, XPathNavigator imgEle)
         {
             string id = imgEle.GetAttribute("id", string.Empty);
             if (string.IsNullOrEmpty(id))
@@ -171,17 +171,23 @@ namespace TabulateSmarterTestContentPackage.Validators
                 return false;
             }
 
-            /* TODO: This is incomplete. It ensures that images have an ID but it still
-               must make sure that the corresponding accessibility information is in the
-               item XML that will supply alt text at runtime.
-            
-               Look up the corresponding apipAccessibility/acessibilityinfo/accessElement
-               element in the item XML and ensure it has a readAloud/audioText element.
+            // Look for an accessibility element that references this item
+            bool readAloudFound = false;
+            bool brailleTextFound = false;
+            var relatedEle = contentElement.SelectSingleNode($"apipAccessibility/accessibilityInfo/accessElement[contentLinkInfo/@itsLinkIdentifierRef='{id}']/relatedElementInfo");
+            if (relatedEle != null)
+            {
+                if (relatedEle.SelectSingleNode("readAloud") != null) readAloudFound = true;
+                if (relatedEle.SelectSingleNode("brailleText") != null) brailleTextFound = true;
+            }
+            if (!readAloudFound)
+                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
+                    "Img element does not contain a valid alt text for text-to-speech (readAloud element).", $"Value: {StartTagXml(imgEle)}");
+            if (!brailleTextFound)
+                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
+                    "Img element does not contain a valid alt text for braille presentation mode (brailleText element).", $"Value: {StartTagXml(imgEle)}");
 
-               Also need to check for alt text on MathML expressions.
-             */
-
-            return true;
+            return readAloudFound && brailleTextFound;
         }
                             
         private static bool HasProhibitedUnitSuffix(string value)
