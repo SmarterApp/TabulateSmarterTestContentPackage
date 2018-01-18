@@ -907,12 +907,10 @@ namespace TabulateSmarterTestContentPackage
             var reportingStandard = ItemStandardExtractor.ValidateAndSummarize(it, standards, subject, grade);
 
             // BrailleType (need this before validating content)
-            BrailleFileType brailleFileType;
-            BrailleSupport brailleSupport;
-            string brailleType = GetBrailleType(it, xml, xmlMetadata, out brailleFileType, out brailleSupport);
+            string brailleType = GetBrailleType(it, xml, xmlMetadata);
 
             // Validate content segments
-            var wordlistId = ValidateContentAndWordlist(it, xml);
+            var wordlistId = ValidateContentAndWordlist(it, xml, !string.IsNullOrEmpty(brailleType));
 
             // ASL
             var asl = GetAslType(it, xml, xmlMetadata);
@@ -1253,16 +1251,14 @@ namespace TabulateSmarterTestContentPackage
             }
             */
 
+            // BrailleType
+            string brailleType = GetBrailleType(it, xml, xmlMetadata);
+
             // Validate content segments
-            string wordlistId = ValidateContentAndWordlist(it, xml);
+            string wordlistId = ValidateContentAndWordlist(it, xml, !string.IsNullOrEmpty(brailleType));
 
             // ASL
             string asl = GetAslType(it, xml, xmlMetadata);
-
-            // BrailleType
-            BrailleFileType brailleFileType;
-            BrailleSupport brailleSupport;
-            string brailleType = GetBrailleType(it, xml, xmlMetadata, out brailleFileType, out brailleSupport);
 
             // Translation
             string translation = GetTranslation(it, xml, xmlMetadata);
@@ -1344,16 +1340,14 @@ namespace TabulateSmarterTestContentPackage
             var claim = string.Empty;
             var target = string.Empty;
 
+            // BrailleType
+            string brailleType = GetBrailleType(it, xml, xmlMetadata);
+
             // Validate content segments
-            var wordlistId = ValidateContentAndWordlist(it, xml);
+            var wordlistId = ValidateContentAndWordlist(it, xml, !string.IsNullOrEmpty(brailleType));
 
             // ASL
             var asl = GetAslType(it, xml, xmlMetadata);
-
-            // BrailleType
-            BrailleFileType brailleFileType;
-            BrailleSupport brailleSupport;
-            string brailleType = GetBrailleType(it, xml, xmlMetadata, out brailleFileType, out brailleSupport);
 
             // Translation
             var translation = GetTranslation(it, xml, xmlMetadata);
@@ -1476,7 +1470,7 @@ namespace TabulateSmarterTestContentPackage
             return (aslFound && aslInMetadata) ? "MP4" : string.Empty;
         }
 
-        public static string GetBrailleType(ItemContext it, XmlDocument xml, XmlDocument xmlMetadata, out BrailleFileType outBrailleFileType, out BrailleSupport outBrailleSupport)
+        public static string GetBrailleType(ItemContext it, XmlDocument xml, XmlDocument xmlMetadata)
         {
             // First, check metadata
             var brailleTypeMeta = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:BrailleType", sXmlNs);
@@ -1729,9 +1723,6 @@ namespace TabulateSmarterTestContentPackage
                 brailleSupport = BrailleSupport.NONE;
             }
 
-            outBrailleFileType = (brailleFiles.Count > 0) ? brailleFiles.FirstOrDefault().Type : BrailleFileType.NONE;
-            outBrailleSupport = brailleSupport;
-
             return (brailleFiles.Count > 0)
                 ? brailleFiles.FirstOrDefault().Type + "_" + brailleSupport.ToString()
                 : ((brailleSupport != BrailleSupport.NONE) ? brailleSupport.ToString() : string.Empty);
@@ -1765,7 +1756,7 @@ namespace TabulateSmarterTestContentPackage
         });
 
         // Returns the Wordlist ID
-        string ValidateContentAndWordlist(ItemContext it, XmlDocument xml)
+        string ValidateContentAndWordlist(ItemContext it, XmlDocument xml, bool brailleSupported)
         {
             // Compose lists of referenced term Indices and Names
             var termIndices = new List<int>();
@@ -1810,7 +1801,7 @@ namespace TabulateSmarterTestContentPackage
 
                                     // Perform other CDATA validation
                                     // (Includes styles, img tags, etc)
-                                    CDataValidator.ValidateItemContent(it, contentElement, html);
+                                    CDataValidator.ValidateItemContent(it, contentElement, html, brailleSupported);
                                 }
                             }
                         }

@@ -43,10 +43,10 @@ namespace TabulateSmarterTestContentPackage.Validators
         static HashSet<string> s_prohibitedUnitSuffixes = new HashSet<string>
         { "cm", "mm", "in", "px", "pt", "pc" };
 
-        public static void ValidateItemContent(ItemContext it, IXPathNavigable contentElement, IXPathNavigable html)
+        public static void ValidateItemContent(ItemContext it, IXPathNavigable contentElement, IXPathNavigable html, bool brailleSupported)
         {
             var htmlNav = html.CreateNavigator();
-            ImgElementsHaveValidAltReference(it, contentElement.CreateNavigator(), htmlNav);
+            ImgElementsHaveValidAltReference(it, contentElement.CreateNavigator(), htmlNav, brailleSupported);
 
             ElementsFreeOfProhibitedAttributes(it, htmlNav);
         }
@@ -148,12 +148,12 @@ namespace TabulateSmarterTestContentPackage.Validators
             return valid;
         }
 
-        public static bool ImgElementsHaveValidAltReference(ItemContext it, XPathNavigator contentElement, XPathNavigator html)
+        public static bool ImgElementsHaveValidAltReference(ItemContext it, XPathNavigator contentElement, XPathNavigator html, bool brailleSupported)
         {
             bool success = true;
             foreach (XPathNavigator imgEle in html.Select("//img"))
             {
-                success &= ImgElementHasValidAltReference(it, contentElement, imgEle);
+                success &= ImgElementHasValidAltReference(it, contentElement, imgEle, brailleSupported);
             }
             return success;
         }
@@ -161,7 +161,7 @@ namespace TabulateSmarterTestContentPackage.Validators
         //<summary>This method takes a <img> element tag and determines whether
         //the provided <img> element contains a valid "alt" attribute </summary>
         //<param name="image"> The <img> tag to be validated </param>
-        public static bool ImgElementHasValidAltReference(ItemContext it, XPathNavigator contentElement, XPathNavigator imgEle)
+        public static bool ImgElementHasValidAltReference(ItemContext it, XPathNavigator contentElement, XPathNavigator imgEle, bool brailleSupported)
         {
             string id = imgEle.GetAttribute("id", string.Empty);
             if (string.IsNullOrEmpty(id))
@@ -183,11 +183,11 @@ namespace TabulateSmarterTestContentPackage.Validators
             if (!readAloudFound)
                 ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
                     "Img element does not reference alt text for text-to-speech (no corresponding readAloud element).", $"Value: {StartTagXml(imgEle)}");
-            if (!brailleTextFound)
+            if (!brailleTextFound && brailleSupported)
                 ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
                     "Img element does not reference alt text for braille presentation (no corresponding brailleText element).", $"Value: {StartTagXml(imgEle)}");
 
-            return readAloudFound && brailleTextFound;
+            return readAloudFound && (brailleTextFound || !brailleSupported);
         }
                             
         private static bool HasProhibitedUnitSuffix(string value)
