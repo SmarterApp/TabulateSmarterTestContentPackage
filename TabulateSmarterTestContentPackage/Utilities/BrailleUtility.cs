@@ -6,62 +6,65 @@ namespace TabulateSmarterTestContentPackage.Utilities
 {
     public static class BrailleUtility
     {
-        // Uncontracted == EXL && Contracted == ECL
-        // Nemeth == ECN
-        public static IList<BrailleSupport> GetSupportByCode(IList<BrailleFile> files)
+        public static BrailleSupport GetSupportByCode(IList<BrailleFile> files)
         {
-            var result = new List<BrailleSupport>();
-            if (ContainsCodes(files, BrailleCode.EXN, BrailleCode.ECN, BrailleCode.UXN, BrailleCode.UXT, BrailleCode.UCN,
-                    BrailleCode.UCT)
-                ||
-                ContainsCodes(files, BrailleCode.EXN, BrailleCode.NEMETH, BrailleCode.UXN, BrailleCode.UXT,
-                    BrailleCode.UCN,
-                    BrailleCode.UCT))
+            if (files.Count == 0)
             {
-                result.Add(BrailleSupport.Both6);
+                return BrailleSupport.NONE;
             }
-            if (ContainsCodes(files, BrailleCode.EXL, BrailleCode.ECL, BrailleCode.UXL, BrailleCode.UCL)
-                || ContainsCodes(files, BrailleCode.UNCONTRACTED, BrailleCode.ECL, BrailleCode.UXL, BrailleCode.UCL)
-                || ContainsCodes(files, BrailleCode.EXL, BrailleCode.CONTRACTED, BrailleCode.UXL, BrailleCode.UCL)
-                ||
-                ContainsCodes(files, BrailleCode.UNCONTRACTED, BrailleCode.CONTRACTED, BrailleCode.UXL, BrailleCode.UCL))
+            if (ContainsCodes(files, BrailleCode.EXN, BrailleCode.ECN, BrailleCode.UXN, BrailleCode.UXT, BrailleCode.UCN, BrailleCode.UCT))
             {
-                result.Add(BrailleSupport.Both4);
+                return BrailleSupport.Both6;
+            }
+            if (ContainsCodes(files, BrailleCode.EXL, BrailleCode.ECL, BrailleCode.UXL, BrailleCode.UCL))
+            {
+                return BrailleSupport.Both4;
             }
             if (ContainsCodes(files, BrailleCode.UXN, BrailleCode.UXT, BrailleCode.UCN, BrailleCode.UCT))
             {
-                result.Add(BrailleSupport.UEB4);
+                return BrailleSupport.UEB4;
             }
             if (ContainsCodes(files, BrailleCode.UXL, BrailleCode.UCL))
             {
-                result.Add(BrailleSupport.UEB2);
+                return BrailleSupport.UEB2;
             }
             if (ContainsCodes(files, BrailleCode.UXL, BrailleCode.UCL))
             {
-                result.Add(BrailleSupport.UEB2);
+                return BrailleSupport.UEB2;
             }
-            if (ContainsCodes(files, BrailleCode.UNCONTRACTED, BrailleCode.CONTRACTED)
-                || ContainsCodes(files, BrailleCode.EXL, BrailleCode.CONTRACTED)
-                || ContainsCodes(files, BrailleCode.UNCONTRACTED, BrailleCode.ECL)
-                || ContainsCodes(files, BrailleCode.EXL, BrailleCode.ECL))
+            if (ContainsCodes(files, BrailleCode.EXL, BrailleCode.ECL))
             {
-                result.Add(BrailleSupport.EBAE2);
+                return BrailleSupport.EBAE2;
             }
-            if (ContainsCodes(files, BrailleCode.NEMETH)
-                || ContainsCodes(files, BrailleCode.ECN))
+            if (ContainsCodes(files, BrailleCode.ECN))
             {
-                result.Add(BrailleSupport.EBAE1);
+                return BrailleSupport.EBAE1;
             }
-            if (!result.Any())
-            {
-                result.Add(BrailleSupport.UNKNOWN);
-            }
-            return result;
+            return BrailleSupport.UNEXPECTED;
         }
 
         public static bool ContainsCodes(IList<BrailleFile> files, params BrailleCode[] codes)
         {
             return codes.All(code => files.Any(x => x.Code == code));
+        }
+
+        public static string NormalizeBrailleFileType(string brailleFileType)
+        {
+            if (brailleFileType == null) return string.Empty;
+            brailleFileType = brailleFileType.ToUpper();
+
+            // Map legacy file types
+            switch(brailleFileType)
+            {
+                case "UNCONTRACTED":
+                    return "EXL";
+                case "CONTRACTED":
+                    return "ECL";
+                case "NEMETH":
+                    return "ECN";
+                default:
+                    return brailleFileType;
+            }
         }
     }
 }

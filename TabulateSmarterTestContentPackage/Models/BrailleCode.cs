@@ -14,9 +14,11 @@
         UXL, // UEB, Uncontracted, None
         UCN, // UEB, Contracted, Nemeth
         UCT, // UEB, Contracted, UEB
-        UCL, // UEB, Contracted, None
-        UNCONTRACTED, // Legacy equivalent to EXL
-        CONTRACTED, // Legacy equivalent to ECL
-        NEMETH // Legacy equivalent to ECN
+        UCL // UEB, Contracted, None
+
+        // Legacy types are normalized using BrailleUtility.NormalizeBrailleFileType;
+        // UNCONTRACTED, // Legacy equivalent to EXL
+        // CONTRACTED, // Legacy equivalent to ECL
+        // NEMETH // Legacy equivalent to ECN
     }
 }

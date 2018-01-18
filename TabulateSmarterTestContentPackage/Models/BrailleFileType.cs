@@ -2,7 +2,8 @@
 {
     public enum BrailleFileType
     {
-        BRF, // Braille text
-        PRN // Braille text & potentially tactile graphics
+        NONE,       // No braille file included
+        BRF,        // Braille text
+        PRN         // Braille text & potentially tactile graphics
     }
 }

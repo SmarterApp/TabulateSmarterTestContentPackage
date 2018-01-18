@@ -55,6 +55,9 @@ namespace TabulateSmarterTestContentPackage
                 "Narrative"
             });
 
+       static readonly HashSet<string> sValidBrailleFileTypes =
+            new HashSet<string>(Enum.GetNames(typeof(BrailleCode)));
+
         // Filenames
         const string cSummaryReportFn = "SummaryReport.txt";
         const string cItemReportFn = "ItemReport.csv";
@@ -903,14 +906,16 @@ namespace TabulateSmarterTestContentPackage
             var standards = ItemStandardExtractor.Extract(it, xmlMetadata);
             var reportingStandard = ItemStandardExtractor.ValidateAndSummarize(it, standards, subject, grade);
 
+            // BrailleType (need this before validating content)
+            BrailleFileType brailleFileType;
+            BrailleSupport brailleSupport;
+            string brailleType = GetBrailleType(it, xml, xmlMetadata, out brailleFileType, out brailleSupport);
+
             // Validate content segments
             var wordlistId = ValidateContentAndWordlist(it, xml);
 
             // ASL
             var asl = GetAslType(it, xml, xmlMetadata);
-
-            // BrailleType
-            var brailleType = GetBrailleType(it, xml, xmlMetadata);
 
             // Translation
             var translation = GetTranslation(it, xml, xmlMetadata);
@@ -1255,7 +1260,9 @@ namespace TabulateSmarterTestContentPackage
             string asl = GetAslType(it, xml, xmlMetadata);
 
             // BrailleType
-            string brailleType = GetBrailleType(it, xml, xmlMetadata);
+            BrailleFileType brailleFileType;
+            BrailleSupport brailleSupport;
+            string brailleType = GetBrailleType(it, xml, xmlMetadata, out brailleFileType, out brailleSupport);
 
             // Translation
             string translation = GetTranslation(it, xml, xmlMetadata);
@@ -1344,7 +1351,9 @@ namespace TabulateSmarterTestContentPackage
             var asl = GetAslType(it, xml, xmlMetadata);
 
             // BrailleType
-            var brailleType = GetBrailleType(it, xml, xmlMetadata);
+            BrailleFileType brailleFileType;
+            BrailleSupport brailleSupport;
+            string brailleType = GetBrailleType(it, xml, xmlMetadata, out brailleFileType, out brailleSupport);
 
             // Translation
             var translation = GetTranslation(it, xml, xmlMetadata);
@@ -1467,7 +1476,7 @@ namespace TabulateSmarterTestContentPackage
             return (aslFound && aslInMetadata) ? "MP4" : string.Empty;
         }
 
-        public static string GetBrailleType(ItemContext it, XmlDocument xml, XmlDocument xmlMetadata)
+        public static string GetBrailleType(ItemContext it, XmlDocument xml, XmlDocument xmlMetadata, out BrailleFileType outBrailleFileType, out BrailleSupport outBrailleSupport)
         {
             // First, check metadata
             var brailleTypeMeta = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:BrailleType", sXmlNs);
@@ -1556,10 +1565,10 @@ namespace TabulateSmarterTestContentPackage
                     }
 
                     // Get the subtype (if any)
-                    var subtype = xmlEle.GetAttribute("subtype");
+                    var subtype = BrailleUtility.NormalizeBrailleFileType(xmlEle.GetAttribute("subtype"));
+
                     BrailleCode attachmentSubtype;
-                    if (!string.IsNullOrEmpty(subtype) && !subtype.Contains('_') &&
-                        Enum.TryParse(subtype.ToUpperInvariant(), out attachmentSubtype))
+                    if (!string.IsNullOrEmpty(subtype) && Enum.TryParse(subtype.ToUpperInvariant(), out attachmentSubtype))
                     {
                         brailleFiles.Add(new BrailleFile
                         {
@@ -1570,7 +1579,7 @@ namespace TabulateSmarterTestContentPackage
                     else
                     {
                         ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, 
-                            "Braille embossing attachment has unknown subtype.", subtype ?? "Subtype not present");
+                            "Braille embossing attachment has unknown subtype.", $"subtype='{subtype ?? ("Subtype not present")}'");
                     }
 
                     var match = Regex.Match(filename, validFilePattern);
@@ -1614,19 +1623,19 @@ namespace TabulateSmarterTestContentPackage
                                 $"Attachment Language: {match.Groups[3].Value} Filename: {filename}");
                         }
 
-                        if (!validTypes.Select(x => x.ToLower()).Contains(match.Groups[4].Value.ToLower()))
-                        // code, uncontracted, contracted, nemeth
+                        var fileTypeFromFilename = BrailleUtility.NormalizeBrailleFileType(match.Groups[4].Value);
+
+                        if (!sValidBrailleFileTypes.Contains(fileTypeFromFilename))
                         {
                             ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
                                 "Braille embossing filename indicates unknown braille type.",
                                 $"Braille Code: {match.Groups[4].Value} Filename: {filename}");
                         }
-                        else if (!string.IsNullOrEmpty(subtype) && !match.Groups[4].Value.Equals(subtype.Split('_').First(),
-                          StringComparison.OrdinalIgnoreCase))
+                        else if (!fileTypeFromFilename.Equals(subtype, StringComparison.Ordinal))
                         {
                             ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
                                 "Braille embossing filename doesn't match expected braille type.",
-                                $"Embossing Braille Type: {match.Groups[4].Value} Expected Braille Type: {subtype.Split('_').First()} Filename {filename}");
+                                $"value='{match.Groups[4].Value}' expected='{subtype}' filename='{filename}'");
                         }
                         if (!string.IsNullOrEmpty(match.Groups[5].Value) &&
                             !match.Groups[5].Value.Equals("_transcript", StringComparison.OrdinalIgnoreCase))
@@ -1699,7 +1708,8 @@ namespace TabulateSmarterTestContentPackage
                     ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Benign, "brailleTextString and/or brailleCode element is empty.");
             }
 
-            var brailleList = BrailleUtility.GetSupportByCode(brailleFiles);
+            // TODO: Perform more robust comparison of observed files with metadata. Specifically accounting for the newly introuduced braille metadata values.
+            var brailleSupport = BrailleUtility.GetSupportByCode(brailleFiles);
             // Check for match with metadata
             // Metadata MUST take precedence over contents.
             if (string.Equals(brailleTypeMeta, "Not Braillable", StringComparison.OrdinalIgnoreCase))
@@ -1708,23 +1718,23 @@ namespace TabulateSmarterTestContentPackage
                 {
                     ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Benign, "Metadata indicates not braillable but braille content included.", "brailleTypes='{0}'", string.Join(";", brailleTypes));
                 }
-                brailleTypes.Clear();
-                brailleTypes.Add("NotBraillable");
-                brailleList.Clear();
-                brailleList.Add(BrailleSupport.NOTBRAILLABLE);
+                brailleSupport = BrailleSupport.NOTBRAILLABLE;
             }
             else if (string.IsNullOrEmpty(brailleTypeMeta))
             {
-                brailleTypes.Clear();   // Don't report embedded braille markup if there is no attachment
-                brailleList.Clear();
+                if (brailleTypes.Count != 0)
+                {
+                    ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Benign, "Metadata indicates no braille but braille content included.", "brailleTypes='{0}'", string.Join(";", brailleTypes));
+                }
+                brailleSupport = BrailleSupport.NONE;
             }
 
-            return brailleFiles.FirstOrDefault()?.Type + (brailleList.Any() ?
-                "|" + brailleList
-                    .Select(x => x.ToString())
-                    .Distinct()
-                    .Aggregate((y, z) => $"{y};{z}")
-                    : string.Empty);
+            outBrailleFileType = (brailleFiles.Count > 0) ? brailleFiles.FirstOrDefault().Type : BrailleFileType.NONE;
+            outBrailleSupport = brailleSupport;
+
+            return (brailleFiles.Count > 0)
+                ? brailleFiles.FirstOrDefault().Type + "_" + brailleSupport.ToString()
+                : ((brailleSupport != BrailleSupport.NONE) ? brailleSupport.ToString() : string.Empty);
         }
 
         private static bool HasTtsSilencingTags(XmlNode xml)

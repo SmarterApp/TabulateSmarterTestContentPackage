@@ -2,6 +2,8 @@
 {
     public enum BrailleSupport
     {
+        // No braille support found
+        NONE,
         // Item supporting EBAE and UEB with math content.
         // EXN, ECN, UXN, UXT, UCN, UCT
         Both6,
@@ -20,7 +22,9 @@
         // Old item, supporting EBAE with math content
         // nemeth (Equivalent to ECN)
         EBAE1,
-        UNKNOWN,
+        // Unexpected combination of braille files
+        UNEXPECTED,
+        // Metadata marks item as not braillable
         NOTBRAILLABLE
     }
 }
