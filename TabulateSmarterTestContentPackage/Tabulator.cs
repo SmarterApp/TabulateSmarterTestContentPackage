@@ -1503,7 +1503,7 @@ namespace TabulateSmarterTestContentPackage
             // Enumerate all of the braille attachments
             {
                 var type = it.IsStimulus ? "passage" : "item";
-                var attachmentXPath = $"itemrelease/{type}/content/attachmentlist/attachment";
+                var attachmentXPath = $"itemrelease/{type}/content[@language='ENU']/attachmentlist/attachment";
                 var fileExtensionsXPath = $"itemrelease/{type}/content/attachmentlist/attachment/@file";
                 var extensions = xml.SelectNodes(fileExtensionsXPath)?
                     .Cast<XmlNode>().Select(x => x.InnerText)
