@@ -99,45 +99,43 @@ namespace TabulateSmarterTestContentPackage.Extractors
                     pubEncountered.Clear();
                 }
 
+                // Set the common field
+                if (string.IsNullOrEmpty(std.Standard))
+                {
+                    std.Standard = node.Value;
+                }
+                else
+                {
+                    std.Standard = string.Concat(std.Standard, ";", node.Value);
+                }
+
                 // Parse out the standard according to which publication
                 switch (parts[0])
                 {
                     case "SBAC-MA-v4":
                     case "SBAC-MA-v5":
                         std.Subject = cSubjectMath;
-                        SetCheckMatch(ii, "Claim", ref std.Claim, parts, 1);
-                        SetCheckMatch(ii, "ContentDomain", ref std.ContentDomain, parts, 2);
-                        SetCheckMatch(ii, "Target", ref std.Target, parts, 3);
-                        SetCheckMatch(ii, "Emphasis", ref std.Emphasis, parts, 4);
-                        SetCheckMatch(ii, "CCSS", ref std.CCSS, parts, 5);
+                        SetCheckMatch(ii, "Claim", std.Standard, ref std.Claim, parts, 1);
+                        SetCheckMatch(ii, "ContentDomain", std.Standard, ref std.ContentDomain, parts, 2);
+                        SetTargetCheckMatch(ii, std.Standard, std, parts, 3);
+                        SetCheckMatch(ii, "Emphasis", std.Standard, ref std.Emphasis, parts, 4);
+                        SetCheckMatch(ii, "CCSS", std.Standard, ref std.CCSS, parts, 5);
                         break;
 
                     case "SBAC-MA-v6":
                         std.Subject = cSubjectMath;
-                        SetCheckMatch(ii, "Claim", ref std.Claim, parts, 1);
-                        SetCheckMatch(ii, "ContentCategory", ref std.ContentCategory, parts, 2);
-                        SetCheckMatch(ii, "TargetSet", ref std.TargetSet, parts,3);
-                        SetCheckMatch(ii, "Target", ref std.Target, parts, 4);
+                        SetCheckMatch(ii, "Claim", std.Standard, ref std.Claim, parts, 1);
+                        SetCheckMatch(ii, "ContentCategory", std.Standard, ref std.ContentCategory, parts, 2);
+                        SetCheckMatch(ii, "TargetSet", std.Standard, ref std.TargetSet, parts, 3);
+                        SetTargetCheckMatch(ii, std.Standard, std, parts, 4);
                         break;
 
                     case "SBAC-ELA-v1":
                         std.Subject = cSubjectEla;
-                        SetCheckMatch(ii, "Claim", ref std.Claim, parts, 1);
-                        SetCheckMatch(ii, "Target", ref std.Target, parts, 2);
-                        SetCheckMatch(ii, "CCSS", ref std.CCSS, parts, 3);
+                        SetCheckMatch(ii, "Claim", std.Standard, ref std.Claim, parts, 1);
+                        SetTargetCheckMatch(ii, std.Standard, std, parts, 2);
+                        SetCheckMatch(ii, "CCSS", std.Standard, ref std.CCSS, parts, 3);
                         break;
-                }
-
-                // Set the common field
-                std.Standard = node.Value;
-
-                // Retrieve grade suffix from target (if present)
-                {
-                    int tlen = std.Target.Length;
-                    if (tlen >= 3 && std.Target[tlen - 2] == '-' && char.IsDigit(std.Target[tlen - 1]))
-                    {
-                        std.Grade = std.Target.Substring(tlen - 1);
-                    }
                 }
 
                 pubEncountered.Add(parts[0]);
@@ -149,22 +147,53 @@ namespace TabulateSmarterTestContentPackage.Extractors
             }
         }
 
-        private static void SetCheckMatch(ItemIdentifier ii, string fieldName, ref string rDest, string[] vals, int index)
+        private static void SetCheckMatch(ItemIdentifier ii, string fieldName, string standard, ref string rDest, string[] vals, int index)
         {
             if (vals.Length <= index)
             {
                 return;
             }
+            SetCheckMatch(ii, fieldName, standard, ref rDest, vals[index]);
+        }
+
+        private static void SetCheckMatch(ItemIdentifier ii, string fieldName, string standard, ref string rDest, string value)
+        {
             if (string.IsNullOrEmpty(rDest))
             {
-                rDest = vals[index];
+                rDest = value;
                 return;
             }
-            if (!string.Equals(rDest, vals[index], System.StringComparison.Ordinal))
+            if (!string.Equals(rDest, value, System.StringComparison.Ordinal))
             {
-                ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, $"Standard publications specify conflicting metadata.", $"property='{fieldName}' valA='{rDest}' valB='{vals[index]}'");
+                ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, $"Standard publications specify conflicting metadata.", $"property='{fieldName}' val1='{rDest}' val1='{value}' standards='{standard}'");
             }
         }
+
+        private static void SetTargetCheckMatch(ItemIdentifier ii, string standard, ItemStandard std, string[] vals, int index)
+        {
+            if (vals.Length <= index) return;
+
+            // Target may have a grade level suffix. If so, separate it and set both parts
+            string target = vals[index];
+            string grade;
+            int tlen = target.Length;
+            int cursor = target.Length;
+            while (cursor > 0 && char.IsDigit(target[cursor - 1])) --cursor;
+            if (cursor > 0 && target[cursor - 1] == '-')
+            {
+                cursor--;
+                grade = target.Substring(cursor + 1);
+                target = target.Substring(0, cursor);
+            }
+            else
+            {
+                grade = string.Empty;   // When target doesn't have a suffix, grade is empty
+            }
+
+            SetCheckMatch(ii, "Target", standard, ref std.Target, target);
+            SetCheckMatch(ii, "Grade", standard, ref std.Grade, grade);
+        }
+
 
         public static ReportingStandard ValidateAndSummarize(ItemIdentifier ii, IReadOnlyList<ItemStandard> standards, string expectedSubject, string expectedGrade)
         {
@@ -186,11 +215,20 @@ namespace TabulateSmarterTestContentPackage.Extractors
                 }
 
                 // Validate grade (derived from target suffix)
-                if (!standard.Grade.Equals(expectedGrade, System.StringComparison.Ordinal))
+                if (!standard.Grade.Equals(expectedGrade, System.StringComparison.Ordinal) && Program.gValidationOptions.IsEnabled("tgs"))
                 {
-                    ReportingUtility.ReportError("tgs", ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable,
-                        "Target suffix indicates a different grade from item attribute.",
-                        $"ItemAttributeGrade='{expectedGrade}' TargetSuffixGrade='{standard.Grade}'");
+                    if (string.IsNullOrEmpty(standard.Grade))
+                    {
+                        ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable,
+                            "Grade level target suffix not included in standard reference.",
+                            $"ItemAttributeGrade='{expectedGrade}' StandardString='{standard.Standard}'");
+                    }
+                    else
+                    {
+                        ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable,
+                            "Target suffix indicates a different grade from item attribute.",
+                            $"ItemAttributeGrade='{expectedGrade}' TargetSuffixGrade='{standard.Grade}' StandardString='{standard.Standard}'");
+                    }
                 }
             }
 
@@ -247,7 +285,7 @@ namespace TabulateSmarterTestContentPackage.Extractors
             {
                 // primaryCCSS is already set to string.Empty;
                 ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable,
-                    "CCSS standard is missing from item.", $"claim='{standards[0].Claim}'");
+                    "CCSS standard is missing from item.", $"claim='{standards[0].Claim}' standard='{standards[0].Standard}'");
             }
 
             // === Extract the Secondary CCSS ===

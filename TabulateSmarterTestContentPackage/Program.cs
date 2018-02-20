@@ -205,13 +205,13 @@ Validation Options:
             that do not belong.
     -v-ugt  Untagged Glossary Terms: Disable check for glossary terms that
             are tagged in one case but not in another.
+    -v-tgs  Target Grade Suffix: Disables checking whether the grade suffix in
+            a target matches the grade alignment in the item attributes.
 
     -v+all  Enable all optional validation and tabulation features.
     -v+ebt  Embedded Braille Text: Enables checking embedded <brailleText>
             elements. Without this option, only braille embossing attachments
             are checked.
-    -v+tgs  Target Grade Suffix: Enables checking whether the grade suffix in
-            a target matches the grade alignment in the item attributes.
     -v+umf  Unreferenced Media File: Enables checking whether media files are
             referenced in the corresponding item, passage, or wordlist.
     -v+gtr  Glossary Text Report: Include glossary text in the Glossary
@@ -221,8 +221,6 @@ Validation Options:
     -v+mwa  Missing Wordlist Attachments: Reports errors for missing wordlist
             attachments (audio and images) even when the corresponding term
             is not referenced by any item.
-    -v+iat  Image Alternate Text: Reports errors when images are present
-            without alternate text.
 
 Error severity definitions:
     Severe     The error will prevent the test item from functioning properly
@@ -278,12 +276,10 @@ Error severity definitions:
 
             // Default options
             gValidationOptions.Disable("ebt"); // Disable EmptyBrailleText test.
-            gValidationOptions.Disable("tgs"); // Disable Target Grade Suffix
             gValidationOptions.Disable("umf"); // Disable checking for Unreferenced Media Files
             gValidationOptions.Disable("gtr"); // Disable Glossary Text Report
             gValidationOptions.Disable("uwt"); // Disable Unreferenced Wordlist Terms
             gValidationOptions.Disable("mwa"); // Disable checking for attachments on unreferenced wordlist terms
-            gValidationOptions.Disable("iat"); // Disable checking for images without alternate text
             gValidationOptions.Disable("css"); // Disable reporting css color-contrast interference (temporary fix)
 
             LogManager.DisableLogging();

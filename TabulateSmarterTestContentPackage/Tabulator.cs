@@ -25,6 +25,8 @@ namespace TabulateSmarterTestContentPackage
         const string cItemTypeStim = "stim";
         const string cItemTypeWordlist = "wordList";
         const string cItemTypeTutorial = "tut";
+        const string cScoreMetaHand = "HandScored";
+        const string cScoreMetaMachine = "Automatic with Machine Rubric";
 
         static NameTable sXmlNt;
         static XmlNamespaceManager sXmlNs;
@@ -100,6 +102,9 @@ namespace TabulateSmarterTestContentPackage
         TextWriter mWordlistReport;
         TextWriter mGlossaryReport;
         TextWriter mSummaryReport;
+
+        // Per item variables
+        int mItemTranslatedGlossaryBitflags;
 
         static Tabulator()
         {
@@ -202,13 +207,13 @@ namespace TabulateSmarterTestContentPackage
                 // In the case of multiple standards/claims/targets, these headers will not be sufficient
                 // TODO: Add CsvHelper library to allow expandable headers
                 mItemReport.WriteLine("Folder,BankKey,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL," +
-                                      "BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice,MaxPoints," +
+                                      "BrailleType,Translation,TransGloss,Media,Size,DOK,AllowCalculator,MathematicalPractice,MaxPoints," +
                                       "Claim,Target,CCSS,ClaimContentTarget,SecondaryCCSS,SecondaryClaimContentTarget," +
                                       "CAT_MeasurementModel,CAT_ScorePoints,CAT_Dimension,CAT_Weight,CAT_Parameters,PP_MeasurementModel," +
                                       "PP_ScorePoints,PP_Dimension,PP_Weight,PP_Parameters");
 
                 mStimulusReport = new StreamWriter(string.Concat(mReportPathPrefix, cStimulusReportFn), false, Encoding.UTF8);
-                mStimulusReport.WriteLine("Folder,BankKey,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,Media,Size,WordCount");
+                mStimulusReport.WriteLine("Folder,BankKey,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,TransGloss,Media,Size,WordCount");
 
                 mWordlistReport = new StreamWriter(string.Concat(mReportPathPrefix, cWordlistReportFn), false, Encoding.UTF8);
                 mWordlistReport.WriteLine("Folder,BankKey,WIT_ID,RefCount,TermCount,MaxGloss,MinGloss,AvgGloss");
@@ -676,7 +681,9 @@ namespace TabulateSmarterTestContentPackage
                     machineScoringType = Path.GetExtension(machineScoringFilename).ToLowerInvariant();
                     if (machineScoringType.Length > 0) machineScoringType = machineScoringType.Substring(1);
                     if (!it.FfItem.FileExists(machineScoringFilename))
-                        ReportingUtility.ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Severe, "Machine scoring file not found.", "Filename='{0}'", machineScoringFilename);
+                        ReportingUtility.ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Severe, "Machine scoring file not found.", "filename='{0}'", machineScoringFilename);
+                    if (!machineScoringType.Equals("qrx", StringComparison.Ordinal))
+                        ReportingUtility.ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Severe, "Machine scoring file type is not supported.", $"type='{machineScoringType}' filename='{machineScoringFilename}'");
                 }
 
                 var metadataScoringEngine = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:ScoringEngine", sXmlNs);
@@ -757,17 +764,24 @@ namespace TabulateSmarterTestContentPackage
                     case "htq":         // Hot Text (in wrapped-QTI format)
                     case "mi":          // Match Interaction
                     case "ti":          // Table Interaction
-                        metadataExpected = (machineScoringFilename != null) ? "Automatic with Machine Rubric" : "HandScored";
-                        answerKey = machineScoringType;
-                        if (!string.Equals(answerKeyValue, it.ItemType.ToUpperInvariant()))
-                            ReportingUtility.ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Severe, "Unexpected answer key attribute.", "Value='{0}' Expected='{1}'", answerKeyValue, it.ItemType.ToUpperInvariant());
-                        scoringType = ScoringType.Qrx;
+                        {
+                            bool handScored = metadataScoringEngine.StartsWith(cScoreMetaHand, StringComparison.OrdinalIgnoreCase);
+                            bool hasMachineKey = !string.IsNullOrEmpty(machineScoringFilename);
+                            if (!hasMachineKey && !handScored)
+                                ReportingUtility.ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Severe, "Item lacks QRX scoring key but not marked as HandScored.");
+                            // Other conflicts between key presence and metadata settings are reported later
+                            metadataExpected = hasMachineKey ? cScoreMetaMachine : cScoreMetaHand;
+                            if (!string.Equals(answerKeyValue, it.ItemType.ToUpperInvariant()))
+                                ReportingUtility.ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Tolerable, "Unexpected answer key attribute.", "Value='{0}' Expected='{1}'", answerKeyValue, it.ItemType.ToUpperInvariant());
+                            answerKey = hasMachineKey ? machineScoringType : (handScored ? ScoringType.Hand.ToString() : string.Empty);
+                            scoringType = ScoringType.Qrx;
+                        }
                         break;
 
                     case "er":          // Extended-Response
                     case "sa":          // Short Answer
                     case "wer":         // Writing Extended Response
-                        metadataExpected = "HandScored";
+                        metadataExpected = cScoreMetaHand;
                         if (!string.Equals(answerKeyValue, it.ItemType.ToUpperInvariant()))
                             ReportingUtility.ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Tolerable, "Unexpected answer key attribute.", "Value='{0}' Expected='{1}'", answerKeyValue, it.ItemType.ToUpperInvariant());
                         answerKey = ScoringType.Hand.ToString();
@@ -808,8 +822,7 @@ namespace TabulateSmarterTestContentPackage
                 if (!string.IsNullOrEmpty(machineScoringFilename) && scoringType != ScoringType.Qrx)
                 {
                     ReportingUtility.ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Benign,
-                        "Unexpected machine scoring file found for HandScored item type.", "Filename='{0}'",
-                        machineScoringFilename);
+                        "Unexpected machine scoring file found for selected-response or handscored item type.", $"Filename='{machineScoringFilename}' ItemType='{it.ItemType}'");
                 }
 
                 // Check for unreferenced machine scoring files
@@ -955,7 +968,7 @@ namespace TabulateSmarterTestContentPackage
             //"PP_ScorePoints,PP_Dimension,PP_Weight,PP_Parameters"
             mItemReport.WriteLine(string.Join(",", CsvEncode(it.FolderDescription), it.BankKey.ToString(), it.ItemId.ToString(), CsvEncode(it.ItemType), CsvEncode(version), CsvEncode(subject), 
                 CsvEncode(grade), CsvEncode(answerKey), CsvEncode(assessmentType), CsvEncode(wordlistId), 
-                CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), CsvEncode(media), size.ToString(), CsvEncode(depthOfKnowledge), CsvEncode(allowCalculator), 
+                CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), TransGlossFromFlags(mItemTranslatedGlossaryBitflags), CsvEncode(media), size.ToString(), CsvEncode(depthOfKnowledge), CsvEncode(allowCalculator), 
                 CsvEncode(mathematicalPractice), CsvEncode(maximumNumberOfPoints),
                 CsvEncode(standards[0].Claim), CsvEncodeExcel(standards[0].Target),
                 CsvEncode(reportingStandard.PrimaryCCSS),
@@ -1273,7 +1286,9 @@ namespace TabulateSmarterTestContentPackage
             long wordCount = GetWordCount(it, xml);
 
             // Folder,BankKey,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,Media,Size,WordCount
-            mStimulusReport.WriteLine(string.Join(",", CsvEncode(it.FolderDescription), it.BankKey.ToString(), it.ItemId.ToString(), CsvEncode(version), CsvEncode(subject), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), CsvEncode(media), size.ToString(), wordCount.ToString()));
+            mStimulusReport.WriteLine(string.Join(",", CsvEncode(it.FolderDescription), it.BankKey.ToString(), it.ItemId.ToString(),
+                CsvEncode(version), CsvEncode(subject), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType),
+                CsvEncode(translation), TransGlossFromFlags(mItemTranslatedGlossaryBitflags), CsvEncode(media), size.ToString(), wordCount.ToString()));
 
         } // TabulateStimulus
 
@@ -1358,7 +1373,7 @@ namespace TabulateSmarterTestContentPackage
             //"CAT_MeasurementModel,CAT_ScorePoints,CAT_Dimension,CAT_Weight,CAT_Parameters,PP_MeasurementModel," +
             //"PP_ScorePoints,PP_Dimension,PP_Weight,PP_Parameters"
             mItemReport.WriteLine(string.Join(",", CsvEncode(it.FolderDescription), it.BankKey.ToString(), it.ItemId.ToString(), CsvEncode(it.ItemType), CsvEncode(version),
-                CsvEncode(subject), CsvEncode(grade), CsvEncode(answerKey), CsvEncode(assessmentType), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation),
+                CsvEncode(subject), CsvEncode(grade), CsvEncode(answerKey), CsvEncode(assessmentType), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), TransGlossFromFlags(mItemTranslatedGlossaryBitflags),
                 string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty,
                 string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty));
   
@@ -1865,7 +1880,7 @@ namespace TabulateSmarterTestContentPackage
                 return string.Empty;
             }
 
-            ValidateWordlistVocabulary(wordlistBankkey, wordlistId, it, termIndices, terms);
+            mItemTranslatedGlossaryBitflags = ValidateWordlistVocabulary(wordlistBankkey, wordlistId, it, termIndices, terms);
 
             return wordlistId;
         }
@@ -2336,7 +2351,9 @@ namespace TabulateSmarterTestContentPackage
         // Sample: item_116605_v1_116605_01btagalog_glossary_ogg_m4a.m4a
         static readonly Regex sRxAttachmentNamingConvention = new Regex(@"^item_(\d+)_v\d+_(\d+)_(\d+)([a-zA-Z]+)_glossary(?:_ogg)?(?:_m4a)?(?:_ogg)?\.(?:ogg|m4a)$", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
-        private void ValidateWordlistVocabulary(string bankKey, string wordlistId, ItemContext itemIt, List<int> termIndices, List<string> terms)
+        // Validate the wordlist vocabulary for a particular item.
+        // Returns the aggregate translation Bitflags
+        private int ValidateWordlistVocabulary(string bankKey, string wordlistId, ItemContext itemIt, List<int> termIndices, List<string> terms)
         {
             // Make sure the wordlist exists
             ItemIdentifier ii = new ItemIdentifier(cItemTypeWordlist, bankKey, wordlistId);
@@ -2344,7 +2361,7 @@ namespace TabulateSmarterTestContentPackage
             if (!mPackage.TryGetItem(ii, out ff))
             {
                 ReportingUtility.ReportError(itemIt, ErrorCategory.Item, ErrorSeverity.Degraded, "Item references non-existent wordlist (WIT)", "wordlistId='{0}'", wordlistId);
-                return;
+                return 0;
             }
  
             // Read the wordlist XML
@@ -2352,21 +2369,21 @@ namespace TabulateSmarterTestContentPackage
             if (!TryLoadXml(ff, ii.FullId + ".xml", xml))
             {
                 ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Severe, "Invalid wordlist file.", LoadXmlErrorDetail);
-                return;
+                return 0;
             }
 
             // Make sure this is a wordlist
             if (!string.Equals(xml.XpEvalE("itemrelease/item/@type"), cItemTypeWordlist))
             {
                 ReportingUtility.ReportError(itemIt, ErrorCategory.Item, ErrorSeverity.Severe, "WordList reference is to a non-wordList item.", $"referencedId='{ii.ItemId}'");
-                return;
+                return 0;
             }
 
             // Sanity check
             if (!string.Equals(xml.XpEvalE("itemrelease/item/@id"), ii.ItemId.ToString()))
             {
                 ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Severe, "Wordlist file id mismatch.", $"wordListId='{xml.XpEval("itemrelease/item/@id")}' expected='{ii.ItemId}'");
-                return;
+                return 0;
             }
 
             // Add this to the wordlist queue (if not there already) and manage progress count
@@ -2415,6 +2432,7 @@ namespace TabulateSmarterTestContentPackage
 
             // Enumerate all the terms in the wordlist (second pass)
             int ordinal = 0;
+            int aggregateTranslationBitflags = 0;
             foreach (XmlNode kwNode in xml.SelectNodes("itemrelease/item/keywordList/keyword"))
             {
                 ++ordinal;
@@ -2564,6 +2582,8 @@ namespace TabulateSmarterTestContentPackage
                     }
                     ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Tolerable, "Wordlist does not include all expected translations.", "term='{0}' missing='{1}'", term, string.Join(", ", missedTranslations));
                 }
+
+                aggregateTranslationBitflags |= translationBitflags;
             }
 
             Porter.Stemmer stemmer = new Porter.Stemmer();
@@ -2596,6 +2616,8 @@ namespace TabulateSmarterTestContentPackage
                     }
                 }
             }
+
+            return aggregateTranslationBitflags;
         }
 
         // This is kind of ugly with so many parameters but it's the cleanest way to handle this task that's repeated multiple times
@@ -2684,6 +2706,16 @@ namespace TabulateSmarterTestContentPackage
             {
                 type = string.Concat(type, ";", extension.ToLower());
             }
+        }
+
+        static string TransGlossFromFlags(int translatedGlossaryFlags)
+        {
+            int result = 0;
+            for(int i=0; i<15; ++i)
+            {
+                if ((translatedGlossaryFlags & (1 << i)) != 0) ++result;
+            }
+            return (result == 0) ? string.Empty : result.ToString();
         }
 
         bool ValidateManifest(FileFolder rootFolder)
