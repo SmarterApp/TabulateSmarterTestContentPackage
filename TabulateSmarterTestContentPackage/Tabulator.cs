@@ -206,14 +206,14 @@ namespace TabulateSmarterTestContentPackage
                 // DOK is "Depth of Knowledge"
                 // In the case of multiple standards/claims/targets, these headers will not be sufficient
                 // TODO: Add CsvHelper library to allow expandable headers
-                mItemReport.WriteLine("Folder,BankKey,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL," +
+                mItemReport.WriteLine("Folder,BankKey,ItemId,ItemType,Version,Subject,Grade,Status,AnswerKey,AsmtType,WordlistId,ASL," +
                                       "BrailleType,Translation,TransGloss,Media,Size,DOK,AllowCalculator,MathematicalPractice,MaxPoints," +
                                       "Claim,Target,CCSS,ClaimContentTarget,SecondaryCCSS,SecondaryClaimContentTarget," +
                                       "CAT_MeasurementModel,CAT_ScorePoints,CAT_Dimension,CAT_Weight,CAT_Parameters,PP_MeasurementModel," +
                                       "PP_ScorePoints,PP_Dimension,PP_Weight,PP_Parameters");
 
                 mStimulusReport = new StreamWriter(string.Concat(mReportPathPrefix, cStimulusReportFn), false, Encoding.UTF8);
-                mStimulusReport.WriteLine("Folder,BankKey,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,TransGloss,Media,Size,WordCount");
+                mStimulusReport.WriteLine("Folder,BankKey,StimulusId,Version,Subject,Status,WordlistId,ASL,BrailleType,Translation,TransGloss,Media,Size,WordCount");
 
                 mWordlistReport = new StreamWriter(string.Concat(mReportPathPrefix, cWordlistReportFn), false, Encoding.UTF8);
                 mWordlistReport.WriteLine("Folder,BankKey,WIT_ID,RefCount,TermCount,MaxGloss,MinGloss,AvgGloss");
@@ -961,13 +961,13 @@ namespace TabulateSmarterTestContentPackage
             var scoringSeparation = scoringInformation.GroupBy(
                 x => !string.IsNullOrEmpty(x.Domain) && x.Domain.Equals("paper", StringComparison.OrdinalIgnoreCase)).ToList();
 
-            //"Folder,BankKey,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL," +
+            //"Folder,BankKey,ItemId,ItemType,Version,Subject,Grade,Status,AnswerKey,AsmtType,WordlistId,ASL," +
             //"BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice,MaxPoints," +
             //"Claim,Target,PrimaryCommonCore,PrimaryClaimContentTarget,SecondaryCommonCore,SecondaryClaimContentTarget," +
             //"CAT_MeasurementModel,CAT_ScorePoints,CAT_Dimension,CAT_Weight,CAT_Parameters,PP_MeasurementModel," +
             //"PP_ScorePoints,PP_Dimension,PP_Weight,PP_Parameters"
             mItemReport.WriteLine(string.Join(",", CsvEncode(it.FolderDescription), it.BankKey.ToString(), it.ItemId.ToString(), CsvEncode(it.ItemType), CsvEncode(version), CsvEncode(subject), 
-                CsvEncode(grade), CsvEncode(answerKey), CsvEncode(assessmentType), CsvEncode(wordlistId), 
+                CsvEncode(grade), CsvEncode(GetStatus(it, xmlMetadata)), CsvEncode(answerKey), CsvEncode(assessmentType), CsvEncode(wordlistId), 
                 CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), TransGlossFromFlags(mItemTranslatedGlossaryBitflags), CsvEncode(media), size.ToString(), CsvEncode(depthOfKnowledge), CsvEncode(allowCalculator), 
                 CsvEncode(mathematicalPractice), CsvEncode(maximumNumberOfPoints),
                 CsvEncode(standards[0].Claim), CsvEncodeExcel(standards[0].Target),
@@ -1285,9 +1285,9 @@ namespace TabulateSmarterTestContentPackage
             // WordCount
             long wordCount = GetWordCount(it, xml);
 
-            // Folder,BankKey,StimulusId,Version,Subject,WordlistId,ASL,BrailleType,Translation,Media,Size,WordCount
+            // Folder,BankKey,StimulusId,Version,Subject,Status,WordlistId,ASL,BrailleType,Translation,Media,Size,WordCount
             mStimulusReport.WriteLine(string.Join(",", CsvEncode(it.FolderDescription), it.BankKey.ToString(), it.ItemId.ToString(),
-                CsvEncode(version), CsvEncode(subject), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType),
+                CsvEncode(version), CsvEncode(subject), CsvEncode(GetStatus(it, xmlMetadata)), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType),
                 CsvEncode(translation), TransGlossFromFlags(mItemTranslatedGlossaryBitflags), CsvEncode(media), size.ToString(), wordCount.ToString()));
 
         } // TabulateStimulus
@@ -1367,13 +1367,13 @@ namespace TabulateSmarterTestContentPackage
             // Translation
             var translation = GetTranslation(it, xml, xmlMetadata);
 
-            //"Folder,BankKey,ItemId,ItemType,Version,Subject,Grade,AnswerKey,AsmtType,WordlistId,ASL," +
+            //"Folder,BankKey,ItemId,ItemType,Version,Subject,Grade,Status,AnswerKey,AsmtType,WordlistId,ASL," +
             //"BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice,MaxPoints," +
             //"Claim,Target,PrimaryCommonCore,PrimaryClaimContentTarget,SecondaryCommonCore,SecondaryClaimContentTarget," +
             //"CAT_MeasurementModel,CAT_ScorePoints,CAT_Dimension,CAT_Weight,CAT_Parameters,PP_MeasurementModel," +
             //"PP_ScorePoints,PP_Dimension,PP_Weight,PP_Parameters"
             mItemReport.WriteLine(string.Join(",", CsvEncode(it.FolderDescription), it.BankKey.ToString(), it.ItemId.ToString(), CsvEncode(it.ItemType), CsvEncode(version),
-                CsvEncode(subject), CsvEncode(grade), CsvEncode(answerKey), CsvEncode(assessmentType), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), TransGlossFromFlags(mItemTranslatedGlossaryBitflags),
+                CsvEncode(subject), CsvEncode(grade), CsvEncode(GetStatus(it, xmlMetadata)), CsvEncode(answerKey), CsvEncode(assessmentType), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), TransGlossFromFlags(mItemTranslatedGlossaryBitflags),
                 string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty,
                 string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty));
   
@@ -1483,6 +1483,11 @@ namespace TabulateSmarterTestContentPackage
             if (!aslInMetadata && aslFound) ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Item has ASL but not indicated in the metadata.");
 
             return (aslFound && aslInMetadata) ? "MP4" : string.Empty;
+        }
+
+        private string GetStatus(ItemContext it, XmlDocument xmlMetadata)
+        {
+            return xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:Status", sXmlNs);
         }
 
         public static string GetBrailleType(ItemContext it, XmlDocument xml, XmlDocument xmlMetadata)
