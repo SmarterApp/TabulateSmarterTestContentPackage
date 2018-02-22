@@ -102,8 +102,6 @@ namespace TabulateSmarterTestContentPackage
             int page = 1;   // GitLab numbers pages starting with 1
             while (uri != null)
             {
-                System.Diagnostics.Debug.WriteLine(uri.ToString());
-
                 var request = HttpPrepareRequest(uri);
                 using (var response = HttpGetResponseHandleErrors(request))
                 {

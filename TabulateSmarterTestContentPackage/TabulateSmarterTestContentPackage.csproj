@@ -92,7 +92,6 @@
     <Compile Include="Utilities\MathUtility.cs" />
     <Compile Include="Utilities\ReportingUtility.cs" />
     <Compile Include="Utilities\Mp4VideoUtility.cs" />
-    <Compile Include="Utilities\SettingsUtility.cs" />
     <Compile Include="Validators\AslVideoValidator.cs" />
     <Compile Include="Validators\CDataValidator.cs" />
     <Compile Include="WordStemmer.cs" />

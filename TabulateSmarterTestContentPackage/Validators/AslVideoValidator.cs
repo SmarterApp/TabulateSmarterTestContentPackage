@@ -15,64 +15,54 @@ namespace TabulateSmarterTestContentPackage.Validators
 {
     public static class AslVideoValidator
     {
-        public static void Validate(ItemContext itemContext, XmlDocument xmlDocument)
+        public static void Validate(ItemContext it, IXPathNavigable xml, int englishCharacterCount, StatAccumulator accumulator)
         {
-            var attachmentFile = FileUtility.GetAttachmentFilename(itemContext, xmlDocument, "ASL");
+            var attachmentFilename = FileUtility.GetAttachmentFilename(it, xml, "ASL");
+            if (string.IsNullOrEmpty(attachmentFilename)) return;
 
-            if (!string.IsNullOrEmpty(attachmentFile))
+            ValidateFilename(attachmentFilename, it);
+
+            FileFile file;
+            if (!it.FfItem.TryGetFile(attachmentFilename, out file)) return;
+
+            double videoSeconds;
+            using (var stream = file.Open())
             {
-                ValidateFilename(attachmentFile, itemContext);
-                try
-                {
-                    double videoSeconds = -1.0;
-                    using (var stream = itemContext.FfItem.GetFile(attachmentFile).Open())
-                    {
-                        videoSeconds = Mp4VideoUtility.GetDuration(stream) / 1000.0;
-                    }
-                    var cData = CDataExtractor.ExtractCData(xmlDocument.MapToXDocument()
-                        .XPathSelectElement("itemrelease/item/content[@language='ENU']/stem"))?.FirstOrDefault();
-                    int? characterCount = 0;
-                    if (cData != null)
-                    {
-                        var cDataSection = new XDocument().LoadXml($"<root>{cData.Value}</root>");
-                        characterCount = cDataSection.DescendantNodes()
-                            .Where(x => x.NodeType == XmlNodeType.Text)
-                            .Sum(x => x.ToString().Length);
-                    }
-                    if (characterCount == null || characterCount == 0)
-                    {
-                        ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Degraded,
-                            "ASL enabled element does not contain an english language stem");
-                        return;
-                    }
-                    var secondToCountRatio = videoSeconds / characterCount;
-                    var highStandard = TabulatorSettings.AslMean +
-                                       TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslTolerance;
-                    var lowStandard = TabulatorSettings.AslMean -
-                                      TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslTolerance;
-                    if (secondToCountRatio > highStandard
-                        || secondToCountRatio < lowStandard)
-                    {
-                        ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Degraded,
-                            "ASL enabled item's video length doesn't correlate with text length - likely mismatch.",
-                            $"Video Length (seconds): {videoSeconds} Character Count: {characterCount} Ratio: {secondToCountRatio} " +
-                            $"Standard Deviation Tolerance: {TabulatorSettings.AslTolerance} Standard Deviation: {TabulatorSettings.AslStandardDeviation} " +
-                            $"Mean: {TabulatorSettings.AslMean}");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe,
-                        "An error occurred when attempting to process an ASL video"
-                        , $"Filename: {attachmentFile} Exception: {ex.Message}");
-                }
+                videoSeconds = Mp4VideoUtility.GetDuration(stream) / 1000.0;
             }
-            else
+            if (videoSeconds <= 0.0) return;
+
+            double secondToCountRatio = videoSeconds / englishCharacterCount;
+
+            var highStandard = TabulatorSettings.AslMean +
+                                TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslToleranceInStdev;
+            var lowStandard = TabulatorSettings.AslMean -
+                                TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslToleranceInStdev;
+
+            if (secondToCountRatio > highStandard
+                || secondToCountRatio < lowStandard)
             {
-                ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe,
-                    "Unable to locate valid video file for item",
-                    attachmentFile ?? "Attachment filename does not exist");
+                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
+                    "ASL video length doesn't correlate with text length; possible mismatch.",
+                    $"videoSeconds={videoSeconds:F3} characterCount={englishCharacterCount} ratio={secondToCountRatio:F3} meanRatio={TabulatorSettings.AslMean} tolerance={TabulatorSettings.AslToleranceInStdev*TabulatorSettings.AslStandardDeviation:F3}");
             }
+
+            accumulator.AddDatum(secondToCountRatio);
+        }
+
+        public static int GetContentLengthInCharacters(XmlDocument xmlDocument)
+        {
+            var cData = CDataExtractor.ExtractCData(xmlDocument.MapToXDocument()
+                .XPathSelectElement("itemrelease/item/content[@language='ENU']/stem"))?.FirstOrDefault();
+            int? characterCount = 0;
+            if (cData != null)
+            {
+                var cDataSection = new XDocument().LoadXml($"<root>{cData.Value}</root>");
+                characterCount = cDataSection.DescendantNodes()
+                    .Where(x => x.NodeType == XmlNodeType.Text)
+                    .Sum(x => x.ToString().Length);
+            }
+            return characterCount ?? 0;
         }
 
         private static void ValidateFilename(string fileName, ItemContext itemContext)

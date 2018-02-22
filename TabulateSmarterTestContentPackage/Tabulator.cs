@@ -96,6 +96,7 @@ namespace TabulateSmarterTestContentPackage
         Dictionary<string, int> mTranslationCounts = new Dictionary<string, int>();
         Dictionary<string, int> mAnswerKeyCounts = new Dictionary<string, int>();
         Dictionary<ShaHash, ItemIdentifier> mRubrics = new Dictionary<ShaHash, ItemIdentifier>();
+        StatAccumulator mAslStat = new StatAccumulator();
         string mReportPathPrefix;
         TextWriter mItemReport;
         TextWriter mStimulusReport;
@@ -240,6 +241,8 @@ namespace TabulateSmarterTestContentPackage
             mTermCounts.Clear();
             mTranslationCounts.Clear();
             mAnswerKeyCounts.Clear();
+
+            mAslStat.Clear();
 
             mInitialized = true;
         }
@@ -930,7 +933,9 @@ namespace TabulateSmarterTestContentPackage
             string brailleType = GetBrailleType(it, xml, xmlMetadata);
 
             // Validate content segments
-            var wordlistId = ValidateContentAndWordlist(it, xml, !string.IsNullOrEmpty(brailleType));
+            string wordlistId;
+            int englishCharacterCount;
+            ValidateContentAndWordlist(it, xml, !string.IsNullOrEmpty(brailleType), out wordlistId, out englishCharacterCount);
 
             // ASL
             var asl = GetAslType(it, xml, xmlMetadata);
@@ -958,9 +963,9 @@ namespace TabulateSmarterTestContentPackage
                 }
             }
 
-            if (!it.IsStimulus && Program.gValidationOptions.IsEnabled("asl") && CheckForAttachment(it, xml, "ASL", "MP4"))
+            if (Program.gValidationOptions.IsEnabled("asl") && !string.IsNullOrEmpty(asl) && englishCharacterCount > 0)
             {
-                AslVideoValidator.Validate(it, xml);
+                AslVideoValidator.Validate(it, xml, englishCharacterCount, mAslStat);
             }
 
             Logger.Info($"Tabulating {it.ItemId}");
@@ -1275,7 +1280,9 @@ namespace TabulateSmarterTestContentPackage
             string brailleType = GetBrailleType(it, xml, xmlMetadata);
 
             // Validate content segments
-            string wordlistId = ValidateContentAndWordlist(it, xml, !string.IsNullOrEmpty(brailleType));
+            string wordlistId;
+            int englishCharacterCount;
+            ValidateContentAndWordlist(it, xml, !string.IsNullOrEmpty(brailleType), out wordlistId, out englishCharacterCount);
 
             // ASL
             string asl = GetAslType(it, xml, xmlMetadata);
@@ -1366,7 +1373,9 @@ namespace TabulateSmarterTestContentPackage
             string brailleType = GetBrailleType(it, xml, xmlMetadata);
 
             // Validate content segments
-            var wordlistId = ValidateContentAndWordlist(it, xml, !string.IsNullOrEmpty(brailleType));
+            string wordlistId;
+            int englishCharacterCount;
+            ValidateContentAndWordlist(it, xml, !string.IsNullOrEmpty(brailleType), out wordlistId, out englishCharacterCount);
 
             // ASL
             var asl = GetAslType(it, xml, xmlMetadata);
@@ -1783,12 +1792,14 @@ namespace TabulateSmarterTestContentPackage
         });
 
         // Returns the Wordlist ID
-        string ValidateContentAndWordlist(ItemContext it, XmlDocument xml, bool brailleSupported)
+        void ValidateContentAndWordlist(ItemContext it, XmlDocument xml, bool brailleSupported, out string rWordlistId, out int rEnglishCharacterCount)
         {
             // Compose lists of referenced term Indices and Names
             var termIndices = new List<int>();
             var terms = new List<string>();
             var nonTermTokens = new StringBuilder();
+
+            int englishCharacterCount = 0;
 
             // Process all CDATA (embedded HTML) sections in the content
             {
@@ -1823,7 +1834,7 @@ namespace TabulateSmarterTestContentPackage
                                     // Tokenize the text in order to check for untagged glossary terms
                                     if (language.Equals("ENU", StringComparison.OrdinalIgnoreCase))
                                     {
-                                        TokenizeNonGlossaryText(nonTermTokens, html);
+                                        englishCharacterCount += TokenizeNonGlossaryText(nonTermTokens, html);
                                     }
 
                                     // Perform other CDATA validation
@@ -1889,12 +1900,15 @@ namespace TabulateSmarterTestContentPackage
                 {
                     ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Benign, "Item has terms marked for glossary but does not reference a wordlist.");
                 }
-                return string.Empty;
+                wordlistId = string.Empty;
+            }
+            else
+            {
+                mItemTranslatedGlossaryBitflags = ValidateWordlistVocabulary(wordlistBankkey, wordlistId, it, termIndices, terms);
             }
 
-            mItemTranslatedGlossaryBitflags = ValidateWordlistVocabulary(wordlistBankkey, wordlistId, it, termIndices, terms);
-
-            return wordlistId;
+            rWordlistId = wordlistId;
+            rEnglishCharacterCount = englishCharacterCount;
         }
 
         static readonly char[] s_WhiteAndPunct = { '\t', '\n', '\r', ' ', '!', '"', '#', '$', '%', '&', '\'', '(', ')', '*', '+', ',', '-', '.', '/', ':', ';', '<', '=', '>', '?', '@', '[', '\\', ']', '^', '_', '`', '{', '|', '~' };
@@ -1969,10 +1983,17 @@ namespace TabulateSmarterTestContentPackage
             }
         }
 
-        private static void TokenizeNonGlossaryText(StringBuilder sb, XmlDocument html)
+        /// <summary>
+        /// Tokenizes the non-glossary text and counts the number of characters in the text
+        /// </summary>
+        /// <param name="sb">StringBuilder into which the tokenized text is loaded.</param>
+        /// <param name="html">An XmlDocument containing the parsed HTML text to be tokenized and counted.</param>
+        /// <returns>The number of text characters (not including tags) in the text.</returns>
+        private static int TokenizeNonGlossaryText(StringBuilder sb, XmlDocument html)
         {
             XmlNode node = html.FirstChild;
             int inWordRef = 0;
+            int characterCount = 0;
             while (node != null)
             {
                 XmlElement element = node as XmlElement;
@@ -2003,8 +2024,15 @@ namespace TabulateSmarterTestContentPackage
                     Tokenize(sb, node.Value);
                 }
 
+                if (node.NodeType == XmlNodeType.Text || node.NodeType == XmlNodeType.SignificantWhitespace || node.NodeType == XmlNodeType.Whitespace)
+                {
+                    characterCount += node.Value.Length;
+                }
+
                 node = node.NextNode();
             }
+
+            return characterCount;
         }
 
         static XmlDocument LoadHtml(ItemContext it, XmlNode content)
@@ -2911,6 +2939,10 @@ namespace TabulateSmarterTestContentPackage
                 writer.WriteLine("Word Lists: {0}", mWordlistCount);
                 writer.WriteLine("Glossary Terms: {0}", mGlossaryTermCount);
                 writer.WriteLine("Distinct Glossary Terms: {0}", mTermCounts.Count);
+                writer.WriteLine();
+                writer.WriteLine("ASL Video Length to Text Length: mean={0:F6} stdev={1:F6}", mAslStat.Mean, mAslStat.StandardDeviation);
+                writer.WriteLine("Configured Values: mean={0:F6} stdev={1:F6} tolerance={2:F6} tol/stdev={3:F1}",
+                    TabulatorSettings.AslMean, TabulatorSettings.AslStandardDeviation, TabulatorSettings.AslToleranceInStdev*TabulatorSettings.AslStandardDeviation, TabulatorSettings.AslToleranceInStdev);
                 writer.WriteLine();
                 writer.WriteLine("Item Type Counts:");
                 mTypeCounts.Dump(writer);

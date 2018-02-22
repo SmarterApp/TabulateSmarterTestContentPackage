@@ -286,12 +286,8 @@ Error severity definitions:
 
             try
             {
+                Models.TabulatorSettings.Load();
                 ParseCommandLine(args);
-
-                if (gValidationOptions.IsEnabled("asl"))
-                {
-                    SettingsUtility.RetrieveAslValues();
-                }
 
                 Console.WriteLine("Tabulator Flags");
                 Console.WriteLine(Enumerable.Repeat("-",20).Aggregate((x,y) => $"{x}{y}"));
