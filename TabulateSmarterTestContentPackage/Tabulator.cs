@@ -1782,7 +1782,6 @@ namespace TabulateSmarterTestContentPackage
             "himi"
         });
 
-        // Returns the Wordlist ID
         void ValidateContentAndWordlist(ItemContext it, XmlDocument xml, bool brailleSupported, out string rWordlistId, out int rEnglishCharacterCount)
         {
             // Compose lists of referenced term Indices and Names
@@ -1879,9 +1878,9 @@ namespace TabulateSmarterTestContentPackage
                         wordlistBankkey = witBankkey;
                     }
 
-                    // TODO: Update this to use an itemIdentifier so that bankKey is a factor
-                    // That will require modifying the extensions (Increment, Count, etc.) to work with key types other than string.
-                    mWordlistRefCounts.Increment(witId);
+                    // Count this reference
+                    var witIdx = new ItemIdentifier(cItemTypeWordlist, witBankkey, witId);
+                    mWordlistRefCounts.Increment(witIdx.ToString());
                 }
             }
 
@@ -2296,7 +2295,7 @@ namespace TabulateSmarterTestContentPackage
             ++mWordlistCount;
 
             // See if the wordlist has been referenced
-            int refCount = mWordlistRefCounts.Count(it.ItemId.ToString());
+            int refCount = mWordlistRefCounts.Count(it.ToString());
             if (refCount == 0)
             {
                 ReportingUtility.ReportError(it, ErrorCategory.Wordlist, ErrorSeverity.Benign, "Wordlist is not referenced by any item.");
