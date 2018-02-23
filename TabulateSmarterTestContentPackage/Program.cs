@@ -209,9 +209,6 @@ Validation Options:
             a target matches the grade alignment in the item attributes.
 
     -v+all  Enable all optional validation and tabulation features.
-    -v+ebt  Embedded Braille Text: Enables checking embedded <brailleText>
-            elements. Without this option, only braille embossing attachments
-            are checked.
     -v+umf  Unreferenced Media File: Enables checking whether media files are
             referenced in the corresponding item, passage, or wordlist.
     -v+gtr  Glossary Text Report: Include glossary text in the Glossary
@@ -275,7 +272,6 @@ Error severity definitions:
             long startTicks = Environment.TickCount;
 
             // Default options
-            gValidationOptions.Disable("ebt"); // Disable EmptyBrailleText test.
             gValidationOptions.Disable("umf"); // Disable checking for Unreferenced Media Files
             gValidationOptions.Disable("gtr"); // Disable Glossary Text Report
             gValidationOptions.Disable("uwt"); // Disable Unreferenced Wordlist Terms
