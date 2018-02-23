@@ -2091,46 +2091,6 @@ namespace TabulateSmarterTestContentPackage
             return !string.IsNullOrEmpty(node?.InnerText);
         }
 
-        // TODO: Make sure this is covered by CDataValidator and then remove.
-        void ReportMissingImgAltTags(ItemContext it, XmlDocument xml, List<HtmlImageTag> imgList)
-        {
-            foreach (var img in imgList)
-            {
-                if (string.IsNullOrEmpty(img.Source))
-                {
-                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, "Img tag is missing src attribute");
-                }
-                if (string.IsNullOrEmpty(img.Id))
-                {
-                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, 
-                        "Img tag is missing id attribute to associate with alternative text.", "src = '{0}'", img.Source);
-                }
-                else
-                {
-                    var xpAccessibility = $"itemrelease/{(it.IsStimulus ? "passage" : "item")}/content/apipAccessibility/accessibilityInfo/accessElement/contentLinkInfo";
-                    // Search for matching ID in the accessibility nodes. If none exist, record an error.
-                    var accessibilityNodes = xml.SelectNodes(xpAccessibility)
-                        .Cast<XmlNode>()
-                        .Where(accessibilityNode => accessibilityNode.Attributes["itsLinkIdentifierRef"].Value.Equals(img.Id)
-                            || (!string.IsNullOrEmpty(img.EnclosingSpanId) 
-                            && accessibilityNode.Attributes["itsLinkIdentifierRef"].Value.Equals(img.EnclosingSpanId)))
-                        .ToList();
-                    if (!accessibilityNodes.Any())
-                    {
-                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, 
-                            "Img tag does not have associated alternative text.", "id ='{0}' src='{1}'", img.Id, img.Source);
-                    }
-                    else
-                    {
-                        foreach (var node in accessibilityNodes)
-                        {
-                            CheckForNonEmptyReadAloudSubElement(it, node.ParentNode, img.Id, img.Source, img.EnclosingSpanId);
-                        }
-                    }
-                }
-            }
-        }
-
         static string GetXmlContext(XmlNode node)
         {
             string context = string.Empty;
