@@ -1829,7 +1829,7 @@ namespace TabulateSmarterTestContentPackage
 
                                     // Perform other CDATA validation
                                     // (Includes styles, img tags, etc)
-                                    CDataValidator.ValidateItemContent(it, contentElement, html, brailleSupported);
+                                    CDataValidator.ValidateItemContent(it, contentElement, html, brailleSupported, language);
                                 }
                             }
                         }

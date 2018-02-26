@@ -43,15 +43,19 @@ namespace TabulateSmarterTestContentPackage.Validators
         static HashSet<string> s_prohibitedUnitSuffixes = new HashSet<string>
         { "cm", "mm", "in", "px", "pt", "pc" };
 
-        public static void ValidateItemContent(ItemContext it, IXPathNavigable contentElement, IXPathNavigable html, bool brailleSupported)
+        public static void ValidateItemContent(ItemContext it, IXPathNavigable contentElement, IXPathNavigable html, bool brailleSupported, string language)
         {
             var htmlNav = html.CreateNavigator();
-            ImgElementsHaveValidAltReference(it, contentElement.CreateNavigator(), htmlNav, brailleSupported);
+
+            if (language.Equals("ENU", StringComparison.OrdinalIgnoreCase) || Program.gValidationOptions.IsEnabled("ats"))
+            {
+                ImgElementsHaveValidAltReference(it, contentElement.CreateNavigator(), htmlNav, brailleSupported);
+            }
 
             ElementsFreeOfProhibitedAttributes(it, htmlNav);
         }
 
-        public static bool ElementsFreeOfProhibitedAttributes(ItemContext it, XPathNavigator root)
+        static bool ElementsFreeOfProhibitedAttributes(ItemContext it, XPathNavigator root)
         {
             bool valid = true;
             XPathNavigator ele = root.Clone();
@@ -148,7 +152,7 @@ namespace TabulateSmarterTestContentPackage.Validators
             return valid;
         }
 
-        public static bool ImgElementsHaveValidAltReference(ItemContext it, XPathNavigator contentElement, XPathNavigator html, bool brailleSupported)
+        private static bool ImgElementsHaveValidAltReference(ItemContext it, XPathNavigator contentElement, XPathNavigator html, bool brailleSupported)
         {
             bool success = true;
             foreach (XPathNavigator imgEle in html.Select("//img"))
@@ -161,35 +165,70 @@ namespace TabulateSmarterTestContentPackage.Validators
         //<summary>This method takes a <img> element tag and determines whether
         //the provided <img> element contains a valid "alt" attribute </summary>
         //<param name="image"> The <img> tag to be validated </param>
-        public static bool ImgElementHasValidAltReference(ItemContext it, XPathNavigator contentElement, XPathNavigator imgEle, bool brailleSupported)
+        private static bool ImgElementHasValidAltReference(ItemContext it, XPathNavigator contentElement, XPathNavigator imgEle, bool brailleSupported)
         {
-            string id = imgEle.GetAttribute("id", string.Empty);
-            if (string.IsNullOrEmpty(id))
+            bool foundId = false;
+            bool foundReadAloud = false;
+            bool foundBrailleText = !brailleSupported; // Suppress errors if braill not supported
+
+            CheckAltReference(contentElement, imgEle, ref foundId, ref foundReadAloud, ref foundBrailleText);
+
+            // If not found on the image element itself, check its parent
+            if (!foundId || !foundReadAloud || !foundBrailleText)
+            {
+                var parentEle = imgEle.Clone();
+                if (parentEle.MoveToParent())
+                {
+                    CheckAltReference(contentElement, parentEle, ref foundId, ref foundReadAloud, ref foundBrailleText);
+
+                    // TODO: Remove this
+                    if (foundReadAloud)
+                    {
+                        System.Diagnostics.Debug.WriteLine(parentEle.Name);
+                    }
+                }
+            }
+
+            if (!foundId)
             {
                 ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
                     "Img element does not contain an id attribute necessary to provide alt text.", $"Value: {StartTagXml(imgEle)}");
-                return false;
+            }
+            else
+            {
+                if (!foundReadAloud)
+                {
+                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
+                        "Img element does not reference alt text for text-to-speech (no corresponding readAloud element).", $"Value: {StartTagXml(imgEle)}");
+                }
+                if (!foundBrailleText)
+                {
+                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
+                        "Img element does not reference alt text for braille presentation (no corresponding brailleText element).", $"Value: {StartTagXml(imgEle)}");
+                }
             }
 
+            return foundId && foundReadAloud && foundBrailleText;
+        }
+
+        private static void CheckAltReference(XPathNavigator contentElement, XPathNavigator checkEle, ref bool foundId, ref bool foundReadAloud, ref bool foundBrailleText)
+        {
+            string id = checkEle.GetAttribute("id", string.Empty);
+            if (string.IsNullOrEmpty(id))
+            {
+                return;
+            }
+            foundId = true;
+
             // Look for an accessibility element that references this item
-            bool readAloudFound = false;
-            bool brailleTextFound = false;
             var relatedEle = contentElement.SelectSingleNode($"apipAccessibility/accessibilityInfo/accessElement[contentLinkInfo/@itsLinkIdentifierRef='{id}']/relatedElementInfo");
             if (relatedEle != null)
             {
-                if (relatedEle.SelectSingleNode("readAloud") != null) readAloudFound = true;
-                if (relatedEle.SelectSingleNode("brailleText") != null) brailleTextFound = true;
+                if (relatedEle.SelectSingleNode("readAloud") != null) foundReadAloud = true;
+                if (relatedEle.SelectSingleNode("brailleText") != null) foundBrailleText = true;
             }
-            if (!readAloudFound)
-                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                    "Img element does not reference alt text for text-to-speech (no corresponding readAloud element).", $"Value: {StartTagXml(imgEle)}");
-            if (!brailleTextFound && brailleSupported)
-                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                    "Img element does not reference alt text for braille presentation (no corresponding brailleText element).", $"Value: {StartTagXml(imgEle)}");
-
-            return readAloudFound && (brailleTextFound || !brailleSupported);
         }
-                            
+
         private static bool HasProhibitedUnitSuffix(string value)
         {
             // Value should be a number for the magnitude followed by

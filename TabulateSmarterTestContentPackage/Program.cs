@@ -218,6 +218,8 @@ Validation Options:
     -v+mwa  Missing Wordlist Attachments: Reports errors for missing wordlist
             attachments (audio and images) even when the corresponding term
             is not referenced by any item.
+    -v+ats  Image Alternate Text for Spanish: Enables checking for alternate
+            text on images in the stacked Spanish version of an item.
 
 Error severity definitions:
     Severe     The error will prevent the test item from functioning properly
@@ -277,6 +279,7 @@ Error severity definitions:
             gValidationOptions.Disable("uwt"); // Disable Unreferenced Wordlist Terms
             gValidationOptions.Disable("mwa"); // Disable checking for attachments on unreferenced wordlist terms
             gValidationOptions.Disable("css"); // Disable reporting css color-contrast interference (temporary fix)
+            gValidationOptions.Disable("ats"); // Disable checking for image alt text in Spanish content.
 
             LogManager.DisableLogging();
 
