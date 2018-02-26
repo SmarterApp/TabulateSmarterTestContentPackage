@@ -2070,26 +2070,6 @@ namespace TabulateSmarterTestContentPackage
             return imgList;
         }
 
-        // Acceptable sub-elements: textToSpeechPronunciation, textToSpeechPronunciationAlternate, audioText, audioSortDesc, audioLongDesc
-        void CheckForNonEmptyReadAloudSubElement(ItemContext it, XmlNode xml, string id, string src, string enclosingSpanId)
-        {
-            if(!new List<string> {"textToSpeechPronunciation", "textToSpeechPronunciationAlternate", "audioText", "audioShortDesc", "audioLongDesc"}
-                .Select(t => $"relatedElementInfo/readAloud/{t}") // Select sub-elements from list above
-                .Any(element => ElementExistsAndIsNonEmpty(xml, element))) // Check if the sub-element exists and has a value
-            {
-                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, 
-                    "Img tag is missing alternative text in the <readAloud> accessibility element.", 
-                    "id ='{0}' src='{1}' spanId='{2}'", id, src, enclosingSpanId ?? string.Empty);
-            }
-
-        }
-
-        private static bool ElementExistsAndIsNonEmpty(XmlNode xml, string path)
-        {
-            var node = xml.SelectSingleNode(path);
-            return !string.IsNullOrEmpty(node?.InnerText);
-        }
-
         static string GetXmlContext(XmlNode node)
         {
             string context = string.Empty;
