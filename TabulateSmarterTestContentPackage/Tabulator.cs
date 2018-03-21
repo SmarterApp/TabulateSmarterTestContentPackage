@@ -27,6 +27,7 @@ namespace TabulateSmarterTestContentPackage
         const string cItemTypeTutorial = "tut";
         const string cScoreMetaHand = "HandScored";
         const string cScoreMetaMachine = "Automatic with Machine Rubric";
+        const string cSelectedResponseAnswerKey = "SR";
 
         static NameTable sXmlNt;
         static XmlNamespaceManager sXmlNs;
@@ -804,9 +805,15 @@ namespace TabulateSmarterTestContentPackage
 
                 // Count the answer key types
                 mAnswerKeyCounts.Increment(string.Concat(it.ItemType, " '", answerKey, "'"));
+                if (!Program.gValidationOptions.IsEnabled("akv")
+                    && (scoringType == ScoringType.Basic || it.ItemType.Equals("EBSR", StringComparison.Ordinal)))
+                {
+                    answerKey = cSelectedResponseAnswerKey;
+                }
+
 
                 // Check Scoring Engine metadata
-                if (metadataExpected != null && !string.Equals(metadataScoringEngine, metadataExpected, StringComparison.Ordinal))
+                    if (metadataExpected != null && !string.Equals(metadataScoringEngine, metadataExpected, StringComparison.Ordinal))
                 {
                     if (string.Equals(metadataScoringEngine, metadataExpected, StringComparison.OrdinalIgnoreCase))
                     {

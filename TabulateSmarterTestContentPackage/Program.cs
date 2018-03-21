@@ -220,6 +220,9 @@ Validation Options:
             is not referenced by any item.
     -v+ats  Image Alternate Text for Spanish: Enables checking for alternate
             text on images in the stacked Spanish version of an item.
+    -v+akv  Answer Key Value: Reports the actual answer key (e.g. 'C') in the
+            ItemReport for selected response items. Without this option simply
+            reports 'SR'.
 
 Error severity definitions:
     Severe     The error will prevent the test item from functioning properly
@@ -280,6 +283,7 @@ Error severity definitions:
             gValidationOptions.Disable("mwa"); // Disable checking for attachments on unreferenced wordlist terms
             gValidationOptions.Disable("css"); // Disable reporting css color-contrast interference (temporary fix)
             gValidationOptions.Disable("ats"); // Disable checking for image alt text in Spanish content.
+            gValidationOptions.Disable("akv"); // Disable reporting answer key values.
 
             LogManager.DisableLogging();
 
