@@ -1,4 +1,4 @@
-﻿using System.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 
 namespace TabulateSmarterTestContentPackage.Models
 {
@@ -10,9 +10,12 @@ namespace TabulateSmarterTestContentPackage.Models
 
         public static void Load()
         {
-            AslMean = double.Parse(ConfigurationManager.AppSettings["AslMean"] ?? c_defAslMean);
-            AslStandardDeviation = double.Parse(ConfigurationManager.AppSettings["AslStandardDeviation"] ?? c_defAslStandardDeviation);
-            AslToleranceInStdev = double.Parse(ConfigurationManager.AppSettings["AslToleranceInStdev"] ?? c_defAslToleranceInStdev);
+            ConfigurationBuilder builder = new ConfigurationBuilder();
+            var configuration = builder.Build();
+
+            AslMean = double.Parse(configuration["AslMean"] ?? c_defAslMean);
+            AslStandardDeviation = double.Parse(configuration["AslStandardDeviation"] ?? c_defAslStandardDeviation);
+            AslToleranceInStdev = double.Parse(configuration["AslToleranceInStdev"] ?? c_defAslToleranceInStdev);
         }
 
         public static double AslMean { get; private set; }
