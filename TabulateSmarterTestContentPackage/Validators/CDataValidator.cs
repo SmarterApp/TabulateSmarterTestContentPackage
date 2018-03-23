@@ -180,12 +180,6 @@ namespace TabulateSmarterTestContentPackage.Validators
                 if (parentEle.MoveToParent())
                 {
                     CheckAltReference(contentElement, parentEle, ref foundId, ref foundReadAloud, ref foundBrailleText);
-
-                    // TODO: Remove this
-                    if (foundReadAloud)
-                    {
-                        System.Diagnostics.Debug.WriteLine(parentEle.Name);
-                    }
                 }
             }
 
