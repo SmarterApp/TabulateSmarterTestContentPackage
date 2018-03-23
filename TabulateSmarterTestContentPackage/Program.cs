@@ -2,8 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using NLog;
-using TabulateSmarterTestContentPackage.Utilities;
-using Win32Interop;
 using System.IO;
 
 namespace TabulateSmarterTestContentPackage
@@ -85,6 +83,8 @@ Arguments:
                      same place as the reports.
     -dedup           Only report the first instance of an error on a
                      particular item (De-duplicate).
+    -w               Wait for a keypress for exiting - helpful when not
+                     running from a command-line window.
     <packageMoniker> The filename of a local package or the identifier of an
                      online item bank. (See below for details.)
     
@@ -270,7 +270,7 @@ Error severity definitions:
         static bool s_exitAfterIds;
         static bool s_exportRubrics;
         static bool s_deDuplicate;
-
+        static bool s_waitBeforeExit;
 
         private static void Main(string[] args)
         {
@@ -326,7 +326,14 @@ Error severity definitions:
             Console.WriteLine("Elapsed time: {0}.{1:d3} seconds", elapsedTicks / 1000, elapsedTicks % 1000);
             Logger.Info("Elapsed time: {0}.{1:d3} seconds", elapsedTicks / 1000, elapsedTicks % 1000);
 
-            if (ConsoleHelper.IsSoleConsoleOwner)
+#if DEBUG
+            if (System.Diagnostics.Debugger.IsAttached)
+            {
+                s_waitBeforeExit = true;
+            }
+#endif
+
+            if (s_waitBeforeExit)
             {
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.Write("Press any key to exit.");
@@ -433,6 +440,10 @@ Error severity definitions:
 
                     case "-dedup":
                         s_deDuplicate = true;
+                        break;
+
+                    case "-w":
+                        s_waitBeforeExit = true;
                         break;
 
                     default:
