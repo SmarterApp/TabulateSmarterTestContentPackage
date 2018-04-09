@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using NLog;
 using System.IO;
 
 namespace TabulateSmarterTestContentPackage
@@ -258,7 +257,6 @@ Error severity definitions:
         const string c_AggregatePrefix = "Aggregate";
 
         public static ValidationOptions gValidationOptions = new ValidationOptions();
-        public static Logger Logger = LogManager.GetCurrentClassLogger();
 
         // Parsed command line
         static List<Operation> s_operations = new List<Operation>();
@@ -284,8 +282,6 @@ Error severity definitions:
             gValidationOptions.Disable("css"); // Disable reporting css color-contrast interference (temporary fix)
             gValidationOptions.Disable("ats"); // Disable checking for image alt text in Spanish content.
             gValidationOptions.Disable("akv"); // Disable reporting answer key values.
-
-            LogManager.DisableLogging();
 
             try
             {
@@ -319,12 +315,10 @@ Error severity definitions:
             catch (Exception ex)
             {
                 Console.WriteLine(ex.Message);
-                Logger.Error(ex.Message);
             }
 
             var elapsedTicks = unchecked((uint)Environment.TickCount - (uint)startTicks);
             Console.WriteLine("Elapsed time: {0}.{1:d3} seconds", elapsedTicks / 1000, elapsedTicks % 1000);
-            Logger.Info("Elapsed time: {0}.{1:d3} seconds", elapsedTicks / 1000, elapsedTicks % 1000);
 
 #if DEBUG
             if (System.Diagnostics.Debugger.IsAttached)

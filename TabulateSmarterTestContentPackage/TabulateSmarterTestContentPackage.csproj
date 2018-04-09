@@ -9,7 +9,6 @@
 
   <ItemGroup>
     <PackageReference Include="NETStandard.Library" Version="2.0.1" />
-    <PackageReference Include="NLog.Web.AspNetCore" Version="4.4.1" />
   </ItemGroup>
 
 </Project>

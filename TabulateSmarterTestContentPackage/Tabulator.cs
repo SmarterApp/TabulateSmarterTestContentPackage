@@ -6,7 +6,6 @@ using System.IO;
 using System.Linq;
 using System.Xml;
 using System.Text.RegularExpressions;
-using NLog;
 using TabulateSmarterTestContentPackage.Extensions;
 using TabulateSmarterTestContentPackage.Extractors;
 using TabulateSmarterTestContentPackage.Mappers;
@@ -18,9 +17,6 @@ namespace TabulateSmarterTestContentPackage
 {
     public class Tabulator : IDisposable
     {
-
-        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-
         const string cImsManifest = "imsmanifest.xml";
         const string cItemTypeStim = "stim";
         const string cItemTypeWordlist = "wordList";
@@ -971,8 +967,6 @@ namespace TabulateSmarterTestContentPackage
             {
                 AslVideoValidator.Validate(it, xml, englishCharacterCount, mAslStat);
             }
-
-            Logger.Info($"Tabulating {it.ItemId}");
 
             var scoringSeparation = scoringInformation.GroupBy(
                 x => !string.IsNullOrEmpty(x.Domain) && x.Domain.Equals("paper", StringComparison.OrdinalIgnoreCase)).ToList();
