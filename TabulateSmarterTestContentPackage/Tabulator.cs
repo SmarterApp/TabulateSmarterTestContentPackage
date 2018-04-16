@@ -6,7 +6,6 @@ using System.IO;
 using System.Linq;
 using System.Xml;
 using System.Text.RegularExpressions;
-using TabulateSmarterTestContentPackage.Extensions;
 using TabulateSmarterTestContentPackage.Extractors;
 using TabulateSmarterTestContentPackage.Mappers;
 using TabulateSmarterTestContentPackage.Models;
@@ -2052,23 +2051,6 @@ namespace TabulateSmarterTestContentPackage
                     "Invalid html content.", "context='{0}' error='{1}'", GetXmlContext(content), err.Message);
             }
             return html;
-        }
-
-        List<HtmlImageTag> ExtractImageList(XmlDocument htmlDocument)
-        {
-            // Assemble img tags and map their src and id attributes for validation
-            var imgList = new List<HtmlImageTag>();
-            imgList.AddRange(htmlDocument.SelectNodes("//img").Cast<XmlNode>()
-                .Select(x => new HtmlImageTag
-                {
-                    Source = x.Attributes["src"]?.InnerText ?? string.Empty,
-                    Id = x.Attributes["id"]?.InnerText ?? string.Empty,
-                    // Check to see if the enclosing element is a span. If so, add the id
-                    EnclosingSpanId = x.ParentNode.Name.Equals("span", StringComparison.OrdinalIgnoreCase) ?
-                        x.ParentNode.Attributes["id"]?.InnerText ?? string.Empty :
-                        string.Empty
-                }));
-            return imgList;
         }
 
         static string GetXmlContext(XmlNode node)

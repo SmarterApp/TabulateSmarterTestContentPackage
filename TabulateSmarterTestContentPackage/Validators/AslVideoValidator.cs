@@ -1,13 +1,6 @@
 ﻿using System;
-using System.IO;
-using System.Linq;
 using System.Text.RegularExpressions;
-using System.Xml;
-using System.Xml.Linq;
 using System.Xml.XPath;
-using TabulateSmarterTestContentPackage.Extensions;
-using TabulateSmarterTestContentPackage.Extractors;
-using TabulateSmarterTestContentPackage.Mappers;
 using TabulateSmarterTestContentPackage.Models;
 using TabulateSmarterTestContentPackage.Utilities;
 
@@ -48,21 +41,6 @@ namespace TabulateSmarterTestContentPackage.Validators
             }
 
             accumulator.AddDatum(secondToCountRatio);
-        }
-
-        public static int GetContentLengthInCharacters(XmlDocument xmlDocument)
-        {
-            var cData = CDataExtractor.ExtractCData(xmlDocument.MapToXDocument()
-                .XPathSelectElement("itemrelease/item/content[@language='ENU']/stem"))?.FirstOrDefault();
-            int? characterCount = 0;
-            if (cData != null)
-            {
-                var cDataSection = new XDocument().LoadXml($"<root>{cData.Value}</root>");
-                characterCount = cDataSection.DescendantNodes()
-                    .Where(x => x.NodeType == XmlNodeType.Text)
-                    .Sum(x => x.ToString().Length);
-            }
-            return characterCount ?? 0;
         }
 
         private static void ValidateFilename(string fileName, ItemContext itemContext)
