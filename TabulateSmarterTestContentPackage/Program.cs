@@ -329,8 +329,10 @@ Error severity definitions:
 
             if (s_waitBeforeExit)
             {
+                var holdColor = Console.ForegroundColor;
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.Write("Press any key to exit.");
+                Console.ForegroundColor = holdColor;
                 Console.ReadKey(true);
             }
         }
