@@ -60,6 +60,7 @@ namespace TabulateSmarterTestContentPackage
         const string cWordlistReportFn = "WordlistReport.csv";
         const string cGlossaryReportFn = "GlossaryReport.csv";
         const string cErrorReportFn = "ErrorReport.csv";
+        const string cJsonErrorReportFn = "Validation.json";
         const string cIdReportFn = "IdReport.csv";
         const string cRubricExportFn = "Rubrics";
 
@@ -131,6 +132,7 @@ namespace TabulateSmarterTestContentPackage
         public bool ExitAfterSelect { get; set; }
         public bool ExportRubrics { get; set; }
         public bool DeDuplicate { get; set; }
+        public bool JsonValidation { get; set; }
 
         public void SelectItems(IEnumerable<ItemIdentifier> itemIds)
         {
@@ -182,6 +184,9 @@ namespace TabulateSmarterTestContentPackage
             ReportingUtility.ErrorReportPath = string.Concat(mReportPathPrefix, cErrorReportFn);
             File.Delete(ReportingUtility.ErrorReportPath); // Delete does not throw exception if file does not exist.
             ReportingUtility.DeDuplicate = DeDuplicate;
+            ReportingUtility.JsonValidation = JsonValidation;
+            ReportingUtility.JsonErrorReportPath = string.Concat(mReportPathPrefix, cJsonErrorReportFn);
+            File.Delete(ReportingUtility.JsonErrorReportPath);
 
             // Delete any existing reports
             File.Delete(mReportPathPrefix + cIdReportFn);
