@@ -512,7 +512,7 @@ namespace TabulateSmarterTestContentPackage
             ii.ItemType = itemType;
 
             // If wordlist, transfer to the wordList queue
-            if (ii.ItemType.Equals(cItemTypeWordlist, StringComparison.Ordinal))
+            if (ii.ItemType.Equals(cItemTypeWordlist, StringComparison.Ordinal) && !mPackage.SingleItemBank)
             {
                 if (mWordlistQueue.Add(ii))
                 {
@@ -523,7 +523,7 @@ namespace TabulateSmarterTestContentPackage
             }
 
             // If tutorial, transfer to the tutorial queue
-            if (ii.ItemType.Equals(cItemTypeTutorial))
+            if (ii.ItemType.Equals(cItemTypeTutorial) && !mPackage.SingleItemBank)
             {
                 if (mTutorialQueue.Add(ii))
                 {
@@ -1112,7 +1112,7 @@ namespace TabulateSmarterTestContentPackage
                 {
                     ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Item stimulus ID is not an integer.", $"Item stm_pass_id='{stimId}'");
                 }
-                else
+                else if (!mPackage.SingleItemBank)
                 {
                     // Look for the stimulus
                     var iiStimulus = new ItemIdentifier(cItemTypeStim, it.BankKey, nStimId);
@@ -1181,7 +1181,7 @@ namespace TabulateSmarterTestContentPackage
                 {
                     ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, "Tutorial id missing from item.");
                 }
-                else if (Program.gValidationOptions.IsEnabled("trd"))
+                else if (Program.gValidationOptions.IsEnabled("trd") && !mPackage.SingleItemBank)
                 {
                     var bankKey = xml.XpEval("itemrelease/item/tutorial/@bankkey");
 
@@ -2313,6 +2313,10 @@ namespace TabulateSmarterTestContentPackage
         // Returns the aggregate translation Bitflags
         private int ValidateWordlistVocabulary(string bankKey, string wordlistId, ItemContext itemIt, List<int> termIndices, List<string> terms)
         {
+
+            if (mPackage.SingleItemBank)
+                return 0;
+
             // Make sure the wordlist exists
             ItemIdentifier ii = new ItemIdentifier(cItemTypeWordlist, bankKey, wordlistId);
             FileFolder ff;

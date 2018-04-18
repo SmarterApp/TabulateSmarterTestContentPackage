@@ -508,6 +508,8 @@ Error severity definitions:
         {
             foreach (var operation in s_operations)
             {
+                bool itemBank = File.Exists(Path.Combine(operation.PackagePath, Path.GetFileName(operation.PackagePath) + ".xml"));
+
                 // Local package
                 if (operation.PackagePath != null)
                 {
@@ -515,6 +517,7 @@ Error severity definitions:
                     string directory = Path.GetDirectoryName(operation.PackagePath);
                     string pattern = Path.GetFileName(operation.PackagePath);
                     string[] packages;
+
                     if (zip)
                     {
                         packages = Directory.GetFiles(directory, pattern, SearchOption.TopDirectoryOnly);
@@ -523,11 +526,11 @@ Error severity definitions:
                     {
                         packages = Directory.GetDirectories(directory, pattern, SearchOption.TopDirectoryOnly);
                     }
+
                     foreach (var packagePath in packages)
                     {
-                        using (TestPackage package = zip ? (TestPackage)new ZipPackage(packagePath) : (TestPackage)new FsPackage(packagePath))
+                        using (TestPackage package = zip ? (TestPackage)new ZipPackage(packagePath) : (itemBank ? (TestPackage)new ItemBankPackage(packagePath) : (TestPackage)new FsPackage(packagePath)))
                         {
-
                             // Figure out the reporting prefix
                             string reportPrefix;
                             if (operation.ReportPrefix != null)
@@ -564,7 +567,7 @@ Error severity definitions:
                     }
                 }
 
-                // Item bank
+                //Remote item bank
                 else
                 {
                     using (TestPackage package = new ItemBankPackage(operation.BankUrl, operation.BankAccessToken, operation.BankNamespace))

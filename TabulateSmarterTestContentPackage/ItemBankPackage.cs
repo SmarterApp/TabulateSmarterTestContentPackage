@@ -12,16 +12,30 @@ namespace TabulateSmarterTestContentPackage
 {
     class ItemBankPackage : TestPackage
     {
+        bool m_localPackage;
+        string m_localPhysicalRoot;
+
         string m_name;
         GitLab m_gitLab;
         string m_namespace;
 
         public ItemBankPackage(string url, string accessToken, string ns)
         {
+            m_localPackage = false;
+
             var uri = new Uri(url);
             m_name = uri.Host;
             m_gitLab = new GitLab(url, accessToken);
             m_namespace = ns;
+        }
+
+        public ItemBankPackage(string physicalRoot)
+        {
+            m_localPackage = true;
+            SingleItemBank = true;
+
+            m_name = Path.GetFileName(physicalRoot);
+            m_localPhysicalRoot = physicalRoot;
         }
 
         public override string Name => m_name;
@@ -36,9 +50,20 @@ namespace TabulateSmarterTestContentPackage
                     return false;
                 }
 
-                string projectId = m_gitLab.ProjectIdFromName(m_namespace, ii.FullId);
-                ff = new ItemBankProject(this, ii, projectId);
-                return true;
+                if (m_localPackage)
+                {
+                    ff = new FsFolder(m_localPhysicalRoot);
+
+                    //force population of other properties
+                    ff.TryGetFolder(m_localPhysicalRoot, out ff);
+                    return true;
+                }
+                else
+                {
+                    string projectId = m_gitLab.ProjectIdFromName(m_namespace, ii.FullId);
+                    ff = new ItemBankProject(this, ii, projectId);
+                    return true;
+                }
             }
             catch (HttpNotFoundException)
             {
@@ -49,7 +74,38 @@ namespace TabulateSmarterTestContentPackage
 
         protected override IEnumerator<ItemIdentifier> GetItemEnumerator()
         {
-            return new PackageItemEnumerator(m_gitLab.GetProjectsInNamespace(m_namespace).GetEnumerator());
+            if (m_localPackage)
+            {
+                var xml = XDocument.Load(Path.Combine(m_localPhysicalRoot, m_name + ".xml"));
+                int itemId = 0, bankKey = 0;
+                string itemType = "";
+
+                if (xml.Element("itemrelease").Elements("passage").Any())
+                {
+                    itemType = "stim";
+                    itemId = int.Parse(xml.Element("itemrelease").Element("passage").Attribute("id").Value);
+                    bankKey = int.Parse(xml.Element("itemrelease").Element("passage").Attribute("bankkey").Value);
+                }
+                else if (xml.Element("itemrelease").Elements("item").Any())
+                {
+                    itemType = "item";
+                    itemId = int.Parse(xml.Element("itemrelease").Element("item").Attribute("id").Value);
+                    bankKey = int.Parse(xml.Element("itemrelease").Element("item").Attribute("bankkey").Value);
+                }
+                else
+                {
+                    throw new InvalidDataException("Invalid stimulus or item file");
+                }
+
+                return new List<ItemIdentifier>()
+                {
+                     new ItemIdentifier(itemType, bankKey, itemId)
+                }.GetEnumerator();
+            }
+            else
+            {
+                return new PackageItemEnumerator(m_gitLab.GetProjectsInNamespace(m_namespace).GetEnumerator());
+            }
         }
 
         public override void Dispose()
