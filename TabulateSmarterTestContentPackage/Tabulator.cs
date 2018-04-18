@@ -200,7 +200,7 @@ namespace TabulateSmarterTestContentPackage
                 // DOK is "Depth of Knowledge"
                 // In the case of multiple standards/claims/targets, these headers will not be sufficient
                 // TODO: Add CsvHelper library to allow expandable headers
-                mItemReport.WriteLine("Folder,BankKey,ItemId,ItemType,Version,Subject,Grade,Status,AnswerKey,AsmtType,WordlistId,StimId,TutorialId,ASL," +
+                mItemReport.WriteLine("Folder,BankKey,ItemId,ItemType,Version,Subject,Grade,Status,AnswerKey,AnswerOptions,AsmtType,WordlistId,StimId,TutorialId,ASL," +
                                       "BrailleType,Translation,TransGloss,Media,Size,DOK,AllowCalculator,MathematicalPractice,MaxPoints," +
                                       "Claim,Target,CCSS,ClaimContentTarget,SecondaryCCSS,SecondaryClaimContentTarget," +
                                       "CAT_MeasurementModel,CAT_ScorePoints,CAT_Dimension,CAT_Weight,CAT_Parameters,PP_MeasurementModel," +
@@ -806,9 +806,8 @@ namespace TabulateSmarterTestContentPackage
                     answerKey = cSelectedResponseAnswerKey;
                 }
 
-
                 // Check Scoring Engine metadata
-                    if (metadataExpected != null && !string.Equals(metadataScoringEngine, metadataExpected, StringComparison.Ordinal))
+                if (metadataExpected != null && !string.Equals(metadataScoringEngine, metadataExpected, StringComparison.Ordinal))
                 {
                     if (string.Equals(metadataScoringEngine, metadataExpected, StringComparison.OrdinalIgnoreCase))
                     {
@@ -847,6 +846,18 @@ namespace TabulateSmarterTestContentPackage
                 }
 
             } // Answer key
+
+            // See how many answer options there are
+            var answerOptions = string.Empty;
+            if (scoringType == ScoringType.Basic)
+            {
+                var options = xml.SelectNodes("itemrelease/item/content[@language='ENU']/optionlist/option");
+                if (options.Count == 0)
+                {
+                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Item does not have any answer options.", $"itemtype='{it.ItemType}'");
+                }
+                answerOptions = options.Count.ToString();
+            }
 
             // Rubric
             // If non-embedded answer key (either hand-scored or QRX scoring but not EBSR type check for a rubric (human scoring guidance)
@@ -980,13 +991,13 @@ namespace TabulateSmarterTestContentPackage
             var scoringSeparation = scoringInformation.GroupBy(
                 x => !string.IsNullOrEmpty(x.Domain) && x.Domain.Equals("paper", StringComparison.OrdinalIgnoreCase)).ToList();
 
-            //"Folder,BankKey,ItemId,ItemType,Version,Subject,Grade,Status,AnswerKey,AsmtType,WordlistId,StimId,TutorialId,ASL," +
+            //"Folder,BankKey,ItemId,ItemType,Version,Subject,Grade,Status,AnswerKey,AnswerOptions,AsmtType,WordlistId,StimId,TutorialId,ASL," +
             //"BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice,MaxPoints," +
             //"Claim,Target,PrimaryCommonCore,PrimaryClaimContentTarget,SecondaryCommonCore,SecondaryClaimContentTarget," +
             //"CAT_MeasurementModel,CAT_ScorePoints,CAT_Dimension,CAT_Weight,CAT_Parameters,PP_MeasurementModel," +
             //"PP_ScorePoints,PP_Dimension,PP_Weight,PP_Parameters"
             mItemReport.WriteLine(string.Join(",", CsvEncode(it.FolderDescription), it.BankKey.ToString(), it.ItemId.ToString(), CsvEncode(it.ItemType), CsvEncode(version), CsvEncode(subject), 
-                CsvEncode(grade), CsvEncode(GetStatus(it, xmlMetadata)), CsvEncode(answerKey), CsvEncode(assessmentType), CsvEncode(wordlistId), CsvEncode(stimId), CsvEncode(tutorialId),
+                CsvEncode(grade), CsvEncode(GetStatus(it, xmlMetadata)), CsvEncode(answerKey), CsvEncode(answerOptions), CsvEncode(assessmentType), CsvEncode(wordlistId), CsvEncode(stimId), CsvEncode(tutorialId),
                 CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), TransGlossFromFlags(mItemTranslatedGlossaryBitflags), CsvEncode(media), size.ToString(), CsvEncode(depthOfKnowledge), CsvEncode(allowCalculator), 
                 CsvEncode(mathematicalPractice), CsvEncode(maximumNumberOfPoints),
                 CsvEncode(standards[0].Claim), CsvEncodeExcel(standards[0].Target),
@@ -1376,13 +1387,13 @@ namespace TabulateSmarterTestContentPackage
             // Translation
             var translation = GetTranslation(it, xml, xmlMetadata);
 
-            //"Folder,BankKey,ItemId,ItemType,Version,Subject,Grade,Status,AnswerKey,AsmtType,WordlistId,StimId,TutorialId,ASL," +
+            //"Folder,BankKey,ItemId,ItemType,Version,Subject,Grade,Status,AnswerKey,AnswerOptions,AsmtType,WordlistId,StimId,TutorialId,ASL," +
             //"BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice,MaxPoints," +
             //"Claim,Target,PrimaryCommonCore,PrimaryClaimContentTarget,SecondaryCommonCore,SecondaryClaimContentTarget," +
             //"CAT_MeasurementModel,CAT_ScorePoints,CAT_Dimension,CAT_Weight,CAT_Parameters,PP_MeasurementModel," +
             //"PP_ScorePoints,PP_Dimension,PP_Weight,PP_Parameters"
             mItemReport.WriteLine(string.Join(",", CsvEncode(it.FolderDescription), it.BankKey.ToString(), it.ItemId.ToString(), CsvEncode(it.ItemType), CsvEncode(version),
-                CsvEncode(subject), CsvEncode(grade), CsvEncode(GetStatus(it, xmlMetadata)), CsvEncode(answerKey), CsvEncode(assessmentType), CsvEncode(wordlistId), string.Empty, string.Empty, CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), TransGlossFromFlags(mItemTranslatedGlossaryBitflags),
+                CsvEncode(subject), CsvEncode(grade), CsvEncode(GetStatus(it, xmlMetadata)), CsvEncode(answerKey), string.Empty, CsvEncode(assessmentType), CsvEncode(wordlistId), string.Empty, string.Empty, CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), TransGlossFromFlags(mItemTranslatedGlossaryBitflags),
                 string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty,
                 string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty));
   
