@@ -196,7 +196,7 @@ namespace TabulateSmarterTestContentPackage
                 ReportingUtility.JsonErrorReportPath = Path.Combine(mReportPathPrefix.TrimEnd('_'), cJsonErrorReportFn);
             }
             File.Delete(ReportingUtility.JsonErrorReportPath);
-            File.WriteAllText(ReportingUtility.JsonErrorReportPath, ""); //Normally created on first error, force create here so it is present even when there are no errors
+            File.WriteAllText(ReportingUtility.JsonErrorReportPath, "[]"); //Normally created on first error, force create here so it is present even when there are no errors
 
             // Delete any existing reports
             File.Delete(mReportPathPrefix + cIdReportFn);
@@ -576,6 +576,13 @@ namespace TabulateSmarterTestContentPackage
                     if (mPackage.SingleItemBank)
                     {
                         TabulateTutorial(it);
+                        break;
+                    }
+                    goto default;
+                case "wordList":
+                    if (mPackage.SingleItemBank)
+                    {
+                        TabulateWordList(it);
                         break;
                     }
                     goto default;
@@ -2280,7 +2287,7 @@ namespace TabulateSmarterTestContentPackage
 
             // See if the wordlist has been referenced
             int refCount = mWordlistRefCounts.Count(it.ToString());
-            if (refCount == 0)
+            if (refCount == 0 && !mPackage.SingleItemBank)
             {
                 ReportingUtility.ReportError(it, ErrorCategory.Wordlist, ErrorSeverity.Benign, "Wordlist is not referenced by any item.");
             }
