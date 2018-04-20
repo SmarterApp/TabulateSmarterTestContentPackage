@@ -4,6 +4,7 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp2.0</TargetFramework>
     <StartupObject>TabulateSmarterTestContentPackage.Program</StartupObject>
+    <RuntimeIdentifiers>win-x64;win-x86</RuntimeIdentifiers>
     <NeutralLanguage />
   </PropertyGroup>
 
