@@ -60,7 +60,7 @@ namespace TabulateSmarterTestContentPackage
         const string cWordlistReportFn = "WordlistReport.csv";
         const string cGlossaryReportFn = "GlossaryReport.csv";
         const string cErrorReportFn = "ErrorReport.csv";
-        const string cJsonErrorReportFn = "Validation.json";
+        const string cJsonErrorReportFn = "validation.json";
         const string cIdReportFn = "IdReport.csv";
         const string cRubricExportFn = "Rubrics";
 
@@ -185,8 +185,18 @@ namespace TabulateSmarterTestContentPackage
             File.Delete(ReportingUtility.ErrorReportPath); // Delete does not throw exception if file does not exist.
             ReportingUtility.DeDuplicate = DeDuplicate;
             ReportingUtility.JsonValidation = JsonValidation;
-            ReportingUtility.JsonErrorReportPath = string.Concat(mReportPathPrefix, cJsonErrorReportFn);
+
+            // For zip file inputs use root folder for the validation.json
+            if (!Directory.Exists(mReportPathPrefix.TrimEnd('_')))
+            {
+                ReportingUtility.JsonErrorReportPath = Path.Combine(Path.GetDirectoryName(mReportPathPrefix.TrimEnd('_')), cJsonErrorReportFn);
+            }
+            else
+            {
+                ReportingUtility.JsonErrorReportPath = Path.Combine(mReportPathPrefix.TrimEnd('_'), cJsonErrorReportFn);
+            }
             File.Delete(ReportingUtility.JsonErrorReportPath);
+            File.WriteAllText(ReportingUtility.JsonErrorReportPath, ""); //Normally created on first error, force create here so it is present even when there are no errors
 
             // Delete any existing reports
             File.Delete(mReportPathPrefix + cIdReportFn);
@@ -562,7 +572,13 @@ namespace TabulateSmarterTestContentPackage
                     ReportingUtility.ReportError(it, ErrorCategory.Unsupported, ErrorSeverity.Severe, "Item type is not fully supported by the open source TDS.", "itemType='{0}'", it.ItemType);
                     TabulateInteraction(it);
                     break;
-
+                case "tut":
+                    if (mPackage.SingleItemBank)
+                    {
+                        TabulateTutorial(it);
+                        break;
+                    }
+                    goto default;
                 default:
                     ReportingUtility.ReportError(it, ErrorCategory.Unsupported, ErrorSeverity.Severe, "Unexpected item type.", "itemType='{0}'", it.ItemType);
                     break;
