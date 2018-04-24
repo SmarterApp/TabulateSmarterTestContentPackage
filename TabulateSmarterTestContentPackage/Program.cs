@@ -263,6 +263,7 @@ Error severity definitions:
         static string s_aggregateReportPrefix = null;
         static bool s_aggregate = false;
         static bool s_showHelp = false;
+        static bool s_json = false;
         static int s_bankKey = c_DefaultBankKey;
         static bool s_reportIds;
         static bool s_exitAfterIds;
@@ -352,6 +353,10 @@ Error severity definitions:
 
                     case "-h":
                         s_showHelp = true;
+                        break;
+
+                    case "-j":
+                        s_json = true;
                         break;
 
                     case "-bk":
@@ -505,6 +510,8 @@ Error severity definitions:
         {
             foreach (var operation in s_operations)
             {
+                bool itemBank = File.Exists(Path.Combine(operation.PackagePath, Path.GetFileName(operation.PackagePath) + ".xml"));
+
                 // Local package
                 if (operation.PackagePath != null)
                 {
@@ -512,6 +519,7 @@ Error severity definitions:
                     string directory = Path.GetDirectoryName(operation.PackagePath);
                     string pattern = Path.GetFileName(operation.PackagePath);
                     string[] packages;
+
                     if (zip)
                     {
                         packages = Directory.GetFiles(directory, pattern, SearchOption.TopDirectoryOnly);
@@ -520,11 +528,11 @@ Error severity definitions:
                     {
                         packages = Directory.GetDirectories(directory, pattern, SearchOption.TopDirectoryOnly);
                     }
+
                     foreach (var packagePath in packages)
                     {
-                        using (TestPackage package = zip ? (TestPackage)new ZipPackage(packagePath) : (TestPackage)new FsPackage(packagePath))
+                        using (TestPackage package = zip ? (TestPackage)new ZipPackage(packagePath) : (itemBank ? (TestPackage)new ItemBankPackage(packagePath) : (TestPackage)new FsPackage(packagePath)))
                         {
-
                             // Figure out the reporting prefix
                             string reportPrefix;
                             if (operation.ReportPrefix != null)
@@ -550,6 +558,7 @@ Error severity definitions:
                                 tab.ExitAfterSelect = s_exitAfterIds;
                                 tab.ExportRubrics = s_exportRubrics;
                                 tab.DeDuplicate = s_deDuplicate;
+                                tab.JsonValidation = s_json;
                                 if (operation.IdFilename != null)
                                 {
                                     tab.SelectItems(new IdReadable(operation.IdFilename, c_DefaultBankKey));
@@ -560,7 +569,7 @@ Error severity definitions:
                     }
                 }
 
-                // Item bank
+                //Remote item bank
                 else
                 {
                     using (TestPackage package = new ItemBankPackage(operation.BankUrl, operation.BankAccessToken, operation.BankNamespace))
@@ -575,6 +584,7 @@ Error severity definitions:
                             tab.ExitAfterSelect = s_exitAfterIds;
                             tab.ExportRubrics = s_exportRubrics;
                             tab.DeDuplicate = s_deDuplicate;
+                            tab.JsonValidation = s_json;
                             if (operation.IdFilename != null)
                             {
                                 tab.SelectItems(new IdReadable(operation.IdFilename, c_DefaultBankKey));

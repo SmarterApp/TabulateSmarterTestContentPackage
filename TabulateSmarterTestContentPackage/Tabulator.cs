@@ -60,6 +60,7 @@ namespace TabulateSmarterTestContentPackage
         const string cWordlistReportFn = "WordlistReport.csv";
         const string cGlossaryReportFn = "GlossaryReport.csv";
         const string cErrorReportFn = "ErrorReport.csv";
+        const string cJsonErrorReportFn = "validation.json";
         const string cIdReportFn = "IdReport.csv";
         const string cRubricExportFn = "Rubrics";
 
@@ -131,6 +132,7 @@ namespace TabulateSmarterTestContentPackage
         public bool ExitAfterSelect { get; set; }
         public bool ExportRubrics { get; set; }
         public bool DeDuplicate { get; set; }
+        public bool JsonValidation { get; set; }
 
         public void SelectItems(IEnumerable<ItemIdentifier> itemIds)
         {
@@ -182,6 +184,19 @@ namespace TabulateSmarterTestContentPackage
             ReportingUtility.ErrorReportPath = string.Concat(mReportPathPrefix, cErrorReportFn);
             File.Delete(ReportingUtility.ErrorReportPath); // Delete does not throw exception if file does not exist.
             ReportingUtility.DeDuplicate = DeDuplicate;
+            ReportingUtility.JsonValidation = JsonValidation;
+
+            // For zip file inputs use root folder for the validation.json
+            if (!Directory.Exists(mReportPathPrefix.TrimEnd('_')))
+            {
+                ReportingUtility.JsonErrorReportPath = Path.Combine(Path.GetDirectoryName(mReportPathPrefix.TrimEnd('_')), cJsonErrorReportFn);
+            }
+            else
+            {
+                ReportingUtility.JsonErrorReportPath = Path.Combine(mReportPathPrefix.TrimEnd('_'), cJsonErrorReportFn);
+            }
+            File.Delete(ReportingUtility.JsonErrorReportPath);
+            File.WriteAllText(ReportingUtility.JsonErrorReportPath, "[]"); //Normally created on first error, force create here so it is present even when there are no errors
 
             // Delete any existing reports
             File.Delete(mReportPathPrefix + cIdReportFn);
@@ -507,7 +522,7 @@ namespace TabulateSmarterTestContentPackage
             ii.ItemType = itemType;
 
             // If wordlist, transfer to the wordList queue
-            if (ii.ItemType.Equals(cItemTypeWordlist, StringComparison.Ordinal))
+            if (ii.ItemType.Equals(cItemTypeWordlist, StringComparison.Ordinal) && !mPackage.SingleItemBank)
             {
                 if (mWordlistQueue.Add(ii))
                 {
@@ -518,7 +533,7 @@ namespace TabulateSmarterTestContentPackage
             }
 
             // If tutorial, transfer to the tutorial queue
-            if (ii.ItemType.Equals(cItemTypeTutorial))
+            if (ii.ItemType.Equals(cItemTypeTutorial) && !mPackage.SingleItemBank)
             {
                 if (mTutorialQueue.Add(ii))
                 {
@@ -557,7 +572,20 @@ namespace TabulateSmarterTestContentPackage
                     ReportingUtility.ReportError(it, ErrorCategory.Unsupported, ErrorSeverity.Severe, "Item type is not fully supported by the open source TDS.", "itemType='{0}'", it.ItemType);
                     TabulateInteraction(it);
                     break;
-
+                case "tut":
+                    if (mPackage.SingleItemBank)
+                    {
+                        TabulateTutorial(it);
+                        break;
+                    }
+                    goto default;
+                case "wordList":
+                    if (mPackage.SingleItemBank)
+                    {
+                        TabulateWordList(it);
+                        break;
+                    }
+                    goto default;
                 default:
                     ReportingUtility.ReportError(it, ErrorCategory.Unsupported, ErrorSeverity.Severe, "Unexpected item type.", "itemType='{0}'", it.ItemType);
                     break;
@@ -1121,7 +1149,7 @@ namespace TabulateSmarterTestContentPackage
                 {
                     ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Item stimulus ID is not an integer.", $"Item stm_pass_id='{stimId}'");
                 }
-                else
+                else if (!mPackage.SingleItemBank)
                 {
                     // Look for the stimulus
                     var iiStimulus = new ItemIdentifier(cItemTypeStim, it.BankKey, nStimId);
@@ -2266,7 +2294,7 @@ namespace TabulateSmarterTestContentPackage
 
             // See if the wordlist has been referenced
             int refCount = mWordlistRefCounts.Count(it.ToString());
-            if (refCount == 0)
+            if (refCount == 0 && !mPackage.SingleItemBank)
             {
                 ReportingUtility.ReportError(it, ErrorCategory.Wordlist, ErrorSeverity.Benign, "Wordlist is not referenced by any item.");
             }
@@ -2315,6 +2343,10 @@ namespace TabulateSmarterTestContentPackage
         // Returns the aggregate translation Bitflags
         private int ValidateWordlistVocabulary(string bankKey, string wordlistId, ItemContext itemIt, List<int> termIndices, List<string> terms)
         {
+
+            if (mPackage.SingleItemBank)
+                return 0;
+
             // Make sure the wordlist exists
             ItemIdentifier ii = new ItemIdentifier(cItemTypeWordlist, bankKey, wordlistId);
             FileFolder ff;
