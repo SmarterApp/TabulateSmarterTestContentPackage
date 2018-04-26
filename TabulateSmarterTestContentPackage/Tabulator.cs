@@ -522,7 +522,7 @@ namespace TabulateSmarterTestContentPackage
             ii.ItemType = itemType;
 
             // If wordlist, transfer to the wordList queue
-            if (ii.ItemType.Equals(cItemTypeWordlist, StringComparison.Ordinal) && !mPackage.SingleItemBank)
+            if (ii.ItemType.Equals(cItemTypeWordlist, StringComparison.Ordinal))
             {
                 if (mWordlistQueue.Add(ii))
                 {
@@ -533,7 +533,7 @@ namespace TabulateSmarterTestContentPackage
             }
 
             // If tutorial, transfer to the tutorial queue
-            if (ii.ItemType.Equals(cItemTypeTutorial) && !mPackage.SingleItemBank)
+            if (ii.ItemType.Equals(cItemTypeTutorial))
             {
                 if (mTutorialQueue.Add(ii))
                 {
@@ -572,20 +572,7 @@ namespace TabulateSmarterTestContentPackage
                     ReportingUtility.ReportError(it, ErrorCategory.Unsupported, ErrorSeverity.Severe, "Item type is not fully supported by the open source TDS.", "itemType='{0}'", it.ItemType);
                     TabulateInteraction(it);
                     break;
-                case "tut":
-                    if (mPackage.SingleItemBank)
-                    {
-                        TabulateTutorial(it);
-                        break;
-                    }
-                    goto default;
-                case "wordList":
-                    if (mPackage.SingleItemBank)
-                    {
-                        TabulateWordList(it);
-                        break;
-                    }
-                    goto default;
+
                 default:
                     ReportingUtility.ReportError(it, ErrorCategory.Unsupported, ErrorSeverity.Severe, "Unexpected item type.", "itemType='{0}'", it.ItemType);
                     break;
@@ -1149,7 +1136,7 @@ namespace TabulateSmarterTestContentPackage
                 {
                     ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Item stimulus ID is not an integer.", $"Item stm_pass_id='{stimId}'");
                 }
-                else if (!mPackage.SingleItemBank)
+                else
                 {
                     // Look for the stimulus
                     var iiStimulus = new ItemIdentifier(cItemTypeStim, it.BankKey, nStimId);
@@ -1212,7 +1199,7 @@ namespace TabulateSmarterTestContentPackage
             } // if Performance Task
 
             // Check for tutorial details
-            if (Program.gValidationOptions.IsEnabled("trd"))
+            if (Program.gValidationOptions.IsEnabled("trd") && !(mPackage is SingleItemPackage))
             {
                 var bankKey = xml.XpEval("itemrelease/item/tutorial/@bankkey");
 
@@ -2294,7 +2281,7 @@ namespace TabulateSmarterTestContentPackage
 
             // See if the wordlist has been referenced
             int refCount = mWordlistRefCounts.Count(it.ToString());
-            if (refCount == 0 && !mPackage.SingleItemBank)
+            if (refCount == 0 && !(mPackage is SingleItemPackage))
             {
                 ReportingUtility.ReportError(it, ErrorCategory.Wordlist, ErrorSeverity.Benign, "Wordlist is not referenced by any item.");
             }
@@ -2343,16 +2330,15 @@ namespace TabulateSmarterTestContentPackage
         // Returns the aggregate translation Bitflags
         private int ValidateWordlistVocabulary(string bankKey, string wordlistId, ItemContext itemIt, List<int> termIndices, List<string> terms)
         {
-
-            if (mPackage.SingleItemBank)
-                return 0;
-
             // Make sure the wordlist exists
             ItemIdentifier ii = new ItemIdentifier(cItemTypeWordlist, bankKey, wordlistId);
             FileFolder ff;
             if (!mPackage.TryGetItem(ii, out ff))
             {
-                ReportingUtility.ReportError(itemIt, ErrorCategory.Item, ErrorSeverity.Degraded, "Item references non-existent wordlist (WIT)", "wordlistId='{0}'", wordlistId);
+                if (!(mPackage is SingleItemPackage))
+                {
+                    ReportingUtility.ReportError(itemIt, ErrorCategory.Item, ErrorSeverity.Degraded, "Item references non-existent wordlist (WIT)", "wordlistId='{0}'", wordlistId);
+                }
                 return 0;
             }
  

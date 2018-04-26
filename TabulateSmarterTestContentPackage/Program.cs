@@ -531,7 +531,7 @@ Error severity definitions:
 
                     foreach (var packagePath in packages)
                     {
-                        using (TestPackage package = zip ? (TestPackage)new ZipPackage(packagePath) : (itemBank ? (TestPackage)new ItemBankPackage(packagePath) : (TestPackage)new FsPackage(packagePath)))
+                        using (TestPackage package = zip ? (TestPackage)new ZipPackage(packagePath) : (itemBank ? (TestPackage)new SingleItemPackage(packagePath) : (TestPackage)new FsPackage(packagePath)))
                         {
                             // Figure out the reporting prefix
                             string reportPrefix;
