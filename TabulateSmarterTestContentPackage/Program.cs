@@ -2,12 +2,13 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
+using System.Collections;
 
 namespace TabulateSmarterTestContentPackage
 {
     internal class Program
     {
-// 78 character margin                                                       |
+        // 78 character margin                                                       |
         private const string cSyntax =
 @"Syntax: TabulateSmarterTestContentPackage [options] [-ids <filename>] <packageMoniker> ...
 
@@ -239,20 +240,8 @@ Error severity definitions:
                may be missing data but if that term isn’t referenced in an
                item then it is benign.
 ";
-// 78 character margin                                                       |
+        // 78 character margin                                                       |
 
-        class Operation
-        {
-            public string PackagePath;
-            public string BankUrl;
-            public string BankNamespace;
-            public string BankAccessToken;
-            public string IdFilename;
-            public string ReportPrefix;
-        }
-
-        const string c_DefaultBankUrl = "https://itembank.smarterbalanced.org";
-        const string c_DefaultBankNamespace = "itemreviewapp";
         const int c_DefaultBankKey = 200;
         const string c_AggregatePrefix = "Aggregate";
         const string c_ErrorReportFn = "ErrorReport.csv";
@@ -260,7 +249,7 @@ Error severity definitions:
         public static ValidationOptions gValidationOptions = new ValidationOptions();
 
         // Parsed command line
-        static List<Operation> s_operations = new List<Operation>();
+        static List<TabulateOperation> s_operations = new List<TabulateOperation>();
         static string s_aggregateReportPrefix = null;
         static bool s_aggregate = false;
         static bool s_showHelp = false;
@@ -341,7 +330,7 @@ Error severity definitions:
 
         static void ParseCommandLine(string[] args)
         {
-            Operation bankOperation = null;
+            TabulateOperation bankOperation = null;
 
             for (int i = 0; i < args.Length; ++i)
             {
@@ -413,7 +402,7 @@ Error severity definitions:
                             {
                                 EnqueueOperation(ref bankOperation);
                             }
-                            if (bankOperation == null) bankOperation = new Operation();
+                            if (bankOperation == null) bankOperation = new TabulateOperation();
                             bankOperation.BankUrl = uri.ToString();
                         }
                         break;
@@ -425,7 +414,7 @@ Error severity definitions:
                         {
                             EnqueueOperation(ref bankOperation);
                         }
-                        if (bankOperation == null) bankOperation = new Operation();
+                        if (bankOperation == null) bankOperation = new TabulateOperation();
                         bankOperation.BankNamespace = args[i];
                         break;
 
@@ -436,7 +425,7 @@ Error severity definitions:
                         {
                             EnqueueOperation(ref bankOperation);
                         }
-                        if (bankOperation == null) bankOperation = new Operation();
+                        if (bankOperation == null) bankOperation = new TabulateOperation();
                         bankOperation.BankAccessToken = args[i];
                         break;
 
@@ -475,7 +464,7 @@ Error severity definitions:
                             {
                                 throw new ArgumentException("No match for path: " + arg);
                             }
-                            Operation operation = new Operation();
+                            TabulateOperation operation = new TabulateOperation();
                             operation.PackagePath = arg;
                             EnqueueOperation(ref operation);
                         }
@@ -487,22 +476,10 @@ Error severity definitions:
             EnqueueOperation(ref bankOperation);
         }
 
-        static void EnqueueOperation(ref Operation operation)
+        static void EnqueueOperation(ref TabulateOperation operation)
         {
             if (operation == null) return;
-            if (operation.PackagePath != null)
-            {
-                System.Diagnostics.Debug.Assert(operation.BankUrl == null);
-                System.Diagnostics.Debug.Assert(operation.BankNamespace == null);
-                System.Diagnostics.Debug.Assert(operation.BankAccessToken == null);
-            }
-            else
-            {
-                System.Diagnostics.Debug.Assert(operation.PackagePath == null);
-                if (operation.BankAccessToken == null) throw new ArgumentException("Item Bank requires '-at' AccessToken argument.");
-                if (operation.BankUrl == null) operation.BankUrl = c_DefaultBankUrl;
-                if (operation.BankNamespace == null) operation.BankNamespace = c_DefaultBankNamespace;
-            }
+            operation.Validate(); // Throws exception if validation fails
             s_operations.Add(operation);
             operation = null;
         }
@@ -511,82 +488,14 @@ Error severity definitions:
         {
             foreach (var operation in s_operations)
             {
-                bool itemBank = File.Exists(Path.Combine(operation.PackagePath, Path.GetFileName(operation.PackagePath) + ".xml"));
-
-                // Local package
-                if (operation.PackagePath != null)
+                foreach (var testPackage in operation.TestPackages)
                 {
-                    bool zip = operation.PackagePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
-                    string directory = Path.GetDirectoryName(operation.PackagePath);
-                    string pattern = Path.GetFileName(operation.PackagePath);
-                    string[] packages;
-
-                    if (zip)
+                    using (testPackage)
                     {
-                        packages = Directory.GetFiles(directory, pattern, SearchOption.TopDirectoryOnly);
-                    }
-                    else
-                    {
-                        packages = Directory.GetDirectories(directory, pattern, SearchOption.TopDirectoryOnly);
-                    }
+                        string reportPrefix = operation.GenerateReportPrefix(testPackage.Name);
 
-                    foreach (var packagePath in packages)
-                    {
-                        using (TestPackage package = zip ? (TestPackage)new ZipPackage(packagePath) : (itemBank ? (TestPackage)new SingleItemPackage(packagePath) : (TestPackage)new FsPackage(packagePath)))
-                        {
-                            // Figure out the reporting prefix
-                            string reportPrefix;
-                            if (operation.ReportPrefix != null)
-                            {
-                                if (packages.Length > 1) // Wildcard
-                                {
-                                    reportPrefix = string.Concat(operation.ReportPrefix, "_", package.Name);
-                                }
-                                else
-                                {
-                                    reportPrefix = operation.ReportPrefix;
-                                }
-                            }
-                            else
-                            {
-                                reportPrefix = zip ? packagePath.Substring(0, packagePath.Length-4) : packagePath;
-                            }
-
-                            // Tabulate the package
-                            using (var tab = new Tabulator(reportPrefix))
-                            {
-                                tab.ReportIds = s_reportIds;
-                                tab.ExitAfterSelect = s_exitAfterIds;
-                                tab.ExportRubrics = s_exportRubrics;
-                                tab.DeDuplicate = s_deDuplicate;
-                                if (operation.IdFilename != null)
-                                {
-                                    tab.SelectItems(new IdReadable(operation.IdFilename, c_DefaultBankKey));
-                                }
-                                tab.Tabulate(package);
-                            }
-
-                            if (s_json)
-                            {
-                                CsvToJson.ConvertErrorReport(
-                                    string.Concat(reportPrefix, "_", c_ErrorReportFn),
-                                    CsvToJson.GenerateErrorReportJsonFilename(reportPrefix, package));
-                            }
-
-                        }
-                    }
-                }
-
-                //Remote item bank
-                else
-                {
-                    using (TestPackage package = new ItemBankPackage(operation.BankUrl, operation.BankAccessToken, operation.BankNamespace))
-                    {
-                        if (operation.ReportPrefix == null)
-                        {
-                            throw new ArgumentException("Item bank tabulation must specify '-o' report prefix.");
-                        }
-                        using (var tab = new Tabulator(operation.ReportPrefix))
+                        // Tabulate the package
+                        using (var tab = new Tabulator(reportPrefix))
                         {
                             tab.ReportIds = s_reportIds;
                             tab.ExitAfterSelect = s_exitAfterIds;
@@ -596,8 +505,17 @@ Error severity definitions:
                             {
                                 tab.SelectItems(new IdReadable(operation.IdFilename, c_DefaultBankKey));
                             }
-                            tab.Tabulate(package);
+                            tab.Tabulate(testPackage);
                         }
+
+                        // If JSON error report required - do the conversion
+                        if (s_json)
+                        {
+                            CsvToJson.ConvertErrorReport(
+                                string.Concat(reportPrefix, "_", c_ErrorReportFn),
+                                CsvToJson.GenerateErrorReportJsonFilename(reportPrefix, testPackage));
+                        }
+
                     }
                 }
             }
@@ -607,7 +525,7 @@ Error severity definitions:
         {
             // Figure out the reporting prefix
             string reportPrefix;
-            if (s_aggregateReportPrefix  != null)
+            if (s_aggregateReportPrefix != null)
             {
                 reportPrefix = s_aggregateReportPrefix;
             }
@@ -630,44 +548,15 @@ Error severity definitions:
 
                 foreach (var operation in s_operations)
                 {
-                    // Local package
-                    if (operation.PackagePath != null)
+                    foreach (var testPackage in operation.TestPackages)
                     {
-                        bool zip = operation.PackagePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
-                        string directory = Path.GetDirectoryName(operation.PackagePath);
-                        string pattern = Path.GetFileName(operation.PackagePath);
-                        string[] packages;
-                        if (zip)
-                        {
-                            packages = Directory.GetFiles(directory, pattern, SearchOption.TopDirectoryOnly);
-                        }
-                        else
-                        {
-                            packages = Directory.GetDirectories(directory, pattern, SearchOption.TopDirectoryOnly);
-                        }
-                        foreach (var packageName in packages)
-                        {
-                            using (TestPackage package = zip ? (TestPackage)new ZipPackage(packageName) : (TestPackage)new FsPackage(packageName))
-                            {
-                                if (operation.IdFilename != null)
-                                {
-                                    tab.SelectItems(new IdReadable(operation.IdFilename, c_DefaultBankKey));
-                                }
-                                tab.Tabulate(package);
-                            }
-                        }
-                    }
-
-                    // Item bank package
-                    else
-                    {
-                        using (TestPackage package = new ItemBankPackage(operation.BankUrl, operation.BankAccessToken, operation.BankNamespace))
+                        using (testPackage)
                         {
                             if (operation.IdFilename != null)
                             {
                                 tab.SelectItems(new IdReadable(operation.IdFilename, c_DefaultBankKey));
                             }
-                            tab.Tabulate(package);
+                            tab.Tabulate(testPackage);
                         }
                     }
                 }
@@ -717,6 +606,178 @@ Error severity definitions:
         }
 
     }
+
+    /*
+     * The command-line parser fills in the properties one at a time which is why
+     * they are public values without a constructor.
+     */
+    internal class TabulateOperation
+    {
+        const string c_DefaultBankUrl = "https://itembank.smarterbalanced.org";
+        const string c_DefaultBankNamespace = "itemreviewapp";
+
+        public string PackagePath;
+        public string BankUrl;
+        public string BankNamespace;
+        public string BankAccessToken;
+        public string IdFilename;
+        public string ReportPrefix;
+
+        // Throws an exception if validation fails. It represents a command-line syntax error.
+        public void Validate()
+        {
+            if (PackagePath == null) // Item Bank Path
+            {
+                if (BankAccessToken == null) throw new ArgumentException("Item Bank requires '-at' AccessToken argument.");
+                if (BankUrl == null) BankUrl = c_DefaultBankUrl;
+                if (BankNamespace == null) BankNamespace = c_DefaultBankNamespace;
+            }
+            else
+            {
+                // It's a programmer error if any of these are non-null
+                System.Diagnostics.Debug.Assert(BankUrl == null);
+                System.Diagnostics.Debug.Assert(BankNamespace == null);
+                System.Diagnostics.Debug.Assert(BankAccessToken == null);
+            }
+        }
+
+        static readonly char[] s_wildcards = new char[] { '*', '?' };
+
+        public string GenerateReportPrefix(string packageName)
+        {
+            if (ReportPrefix != null)
+            {
+                if (PackagePath != null && PackagePath.IndexOfAny(s_wildcards) >= 0) // Wildcard
+                {
+                    return string.Concat(ReportPrefix, "_", packageName);
+                }
+                else
+                {
+                    return ReportPrefix;
+                }
+            }
+            else if (PackagePath != null)
+            {
+                return Path.Combine(Path.GetDirectoryName(PackagePath), packageName);
+            }
+            else
+            {
+                // This should be caught earlier but putting exception in just in case
+                throw new ArgumentException("Item bank tabulation must specify '-o' report prefix.");
+            }
+        }
+
+        public IEnumerable<TestPackage> TestPackages
+        {
+            get
+            {
+                if (PackagePath == null)
+                {
+                    return new TestPackage[]
+                    {
+                        new ItemBankPackage(BankUrl, BankAccessToken, BankNamespace)
+                    }.AsEnumerable();
+                }
+                else
+                {
+                    return new LocalPackageEnumerable(PackagePath);
+                }
+            }
+        }
+
+        class LocalPackageEnumerable : IEnumerable<TestPackage>
+        {
+            string m_packagePath;
+
+            public LocalPackageEnumerable(string packagePath)
+            {
+                m_packagePath = packagePath;
+            }
+
+            public IEnumerator<TestPackage> GetEnumerator()
+            {
+                return new LocalPackageEnumerator(m_packagePath);
+            }
+
+            IEnumerator IEnumerable.GetEnumerator()
+            {
+                return GetEnumerator();
+            }
+        }
+
+        class LocalPackageEnumerator : IEnumerator<TestPackage>
+        {
+            bool m_zip;
+            IEnumerator<string> m_enumerator;
+
+            public LocalPackageEnumerator(string packagePath)
+            {
+                m_zip = packagePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
+                string directory = Path.GetDirectoryName(packagePath);
+                string pattern = Path.GetFileName(packagePath);
+                string[] packages;
+
+                if (m_zip)
+                {
+                    packages = Directory.GetFiles(directory, pattern, SearchOption.TopDirectoryOnly);
+                }
+                else
+                {
+                    packages = Directory.GetDirectories(directory, pattern, SearchOption.TopDirectoryOnly);
+                }
+
+                m_enumerator = packages.AsEnumerable().GetEnumerator();
+            }
+
+            public TestPackage Current
+            {
+                get
+                {
+                    string path = m_enumerator.Current;
+
+                    if (m_zip)
+                    {
+                        return new ZipPackage(path);
+                    }
+
+                    // SingleItem Mode
+                    else if (File.Exists(Path.Combine(path, Path.GetFileName(path) + ".xml")))
+                    {
+                        return new SingleItemPackage(path);
+                    }
+
+                    // Local package mode
+                    else
+                    {
+                        return new FsPackage(path);
+                    }
+                }
+            }
+
+            object IEnumerator.Current
+            {
+                get { return Current; }
+            }
+
+            public void Dispose()
+            {
+                m_enumerator.Dispose();
+            }
+
+            public bool MoveNext()
+            {
+                return m_enumerator.MoveNext();
+            }
+
+            public void Reset()
+            {
+                m_enumerator.Reset();
+            }
+        }
+
+    }
+
+
 
     internal class ValidationOptions : Dictionary<string, bool>
     {
