@@ -25,7 +25,6 @@ namespace TabulateSmarterTestContentPackage
         }
 
         public abstract string Name { get; }
-        public bool SingleItemBank {  get; protected set; }
 
         /// <summary>
         /// An enumerable collection of the IDs of all items and stimuli in the package.
