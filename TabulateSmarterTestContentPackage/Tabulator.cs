@@ -60,7 +60,6 @@ namespace TabulateSmarterTestContentPackage
         const string cWordlistReportFn = "WordlistReport.csv";
         const string cGlossaryReportFn = "GlossaryReport.csv";
         const string cErrorReportFn = "ErrorReport.csv";
-        const string cJsonErrorReportFn = "validation.json";
         const string cIdReportFn = "IdReport.csv";
         const string cRubricExportFn = "Rubrics";
 
@@ -132,7 +131,6 @@ namespace TabulateSmarterTestContentPackage
         public bool ExitAfterSelect { get; set; }
         public bool ExportRubrics { get; set; }
         public bool DeDuplicate { get; set; }
-        public bool JsonValidation { get; set; }
 
         public void SelectItems(IEnumerable<ItemIdentifier> itemIds)
         {
@@ -184,19 +182,6 @@ namespace TabulateSmarterTestContentPackage
             ReportingUtility.ErrorReportPath = string.Concat(mReportPathPrefix, cErrorReportFn);
             File.Delete(ReportingUtility.ErrorReportPath); // Delete does not throw exception if file does not exist.
             ReportingUtility.DeDuplicate = DeDuplicate;
-            ReportingUtility.JsonValidation = JsonValidation;
-
-            // For zip file inputs use root folder for the validation.json
-            if (!Directory.Exists(mReportPathPrefix.TrimEnd('_')))
-            {
-                ReportingUtility.JsonErrorReportPath = Path.Combine(Path.GetDirectoryName(mReportPathPrefix.TrimEnd('_')), cJsonErrorReportFn);
-            }
-            else
-            {
-                ReportingUtility.JsonErrorReportPath = Path.Combine(mReportPathPrefix.TrimEnd('_'), cJsonErrorReportFn);
-            }
-            File.Delete(ReportingUtility.JsonErrorReportPath);
-            File.WriteAllText(ReportingUtility.JsonErrorReportPath, "[]"); //Normally created on first error, force create here so it is present even when there are no errors
 
             // Delete any existing reports
             File.Delete(mReportPathPrefix + cIdReportFn);

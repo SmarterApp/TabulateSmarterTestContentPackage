@@ -9,20 +9,28 @@ namespace TabulateSmarterTestContentPackage
     {
         string m_name;
         ItemIdentifier m_ii;
+        string m_physicalPath;
         FileFolder m_folder;
 
-        public SingleItemPackage(string rootFolder)
+        public SingleItemPackage(string physicalPath)
         {
-            m_name = Path.GetFileName(rootFolder);
+            m_name = Path.GetFileName(physicalPath);
 
             if (!ItemIdentifier.TryParse(m_name, out m_ii))
             {
                 throw new ArgumentException($"SingleItemPackage does not specify a valid Item ID. folderName='{m_name}'");
             }
 
+            m_physicalPath = physicalPath;
+
             // This two-step method fills in the internal variables
-            var ff = new FsFolder(rootFolder);
-            ff.TryGetFolder(rootFolder, out m_folder);
+            var ff = new FsFolder(physicalPath);
+            ff.TryGetFolder(physicalPath, out m_folder);
+        }
+
+        public string PhysicalPath
+        {
+            get { return m_physicalPath; }
         }
 
         public override string Name

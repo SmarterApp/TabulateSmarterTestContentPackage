@@ -255,6 +255,7 @@ Error severity definitions:
         const string c_DefaultBankNamespace = "itemreviewapp";
         const int c_DefaultBankKey = 200;
         const string c_AggregatePrefix = "Aggregate";
+        const string c_ErrorReportFn = "ErrorReport.csv";
 
         public static ValidationOptions gValidationOptions = new ValidationOptions();
 
@@ -558,13 +559,20 @@ Error severity definitions:
                                 tab.ExitAfterSelect = s_exitAfterIds;
                                 tab.ExportRubrics = s_exportRubrics;
                                 tab.DeDuplicate = s_deDuplicate;
-                                tab.JsonValidation = s_json;
                                 if (operation.IdFilename != null)
                                 {
                                     tab.SelectItems(new IdReadable(operation.IdFilename, c_DefaultBankKey));
                                 }
                                 tab.Tabulate(package);
                             }
+
+                            if (s_json)
+                            {
+                                CsvToJson.ConvertErrorReport(
+                                    string.Concat(reportPrefix, "_", c_ErrorReportFn),
+                                    CsvToJson.GenerateErrorReportJsonFilename(reportPrefix, package));
+                            }
+
                         }
                     }
                 }
@@ -584,7 +592,6 @@ Error severity definitions:
                             tab.ExitAfterSelect = s_exitAfterIds;
                             tab.ExportRubrics = s_exportRubrics;
                             tab.DeDuplicate = s_deDuplicate;
-                            tab.JsonValidation = s_json;
                             if (operation.IdFilename != null)
                             {
                                 tab.SelectItems(new IdReadable(operation.IdFilename, c_DefaultBankKey));
