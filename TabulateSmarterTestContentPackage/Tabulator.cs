@@ -181,7 +181,7 @@ namespace TabulateSmarterTestContentPackage
                 // TODO: Add CsvHelper library to allow expandable headers
                 mItemReport.WriteLine("Folder,BankKey,ItemId,ItemType,Version,Subject,Grade,Status,AnswerKey,AnswerOptions,AsmtType,WordlistId,StimId,TutorialId,ASL," +
                                       "BrailleType,Translation,Glossary,Media,Size,DOK,AllowCalculator,MathematicalPractice,MaxPoints," +
-                                      "Claim,Target,CCSS,ClaimContentTarget,SecondaryCCSS,SecondaryClaimContentTarget," +
+                                      "Claim,Target,CCSS,ClaimContentTarget,SecondaryCCSS,SecondaryClaimContentTarget,PtWritingType," +
                                       "CAT_MeasurementModel,CAT_ScorePoints,CAT_Dimension,CAT_Weight,CAT_Parameters,PP_MeasurementModel," +
                                       "PP_ScorePoints,PP_Dimension,PP_Weight,PP_Parameters");
 
@@ -918,6 +918,9 @@ namespace TabulateSmarterTestContentPackage
             var standards = ItemStandardExtractor.Extract(it, xmlMetadata);
             var reportingStandard = ItemStandardExtractor.ValidateAndSummarize(it, standards, subject, grade);
 
+            // Performance Task Writing Type
+            var ptWritingType = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:PtWritingType", sXmlNs).Trim();
+
             // BrailleType (need this before validating content)
             string brailleType = GetBrailleType(it, xml, xmlMetadata);
 
@@ -973,7 +976,7 @@ namespace TabulateSmarterTestContentPackage
 
             //"Folder,BankKey,ItemId,ItemType,Version,Subject,Grade,Status,AnswerKey,AnswerOptions,AsmtType,WordlistId,StimId,TutorialId,ASL," +
             //"BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice,MaxPoints," +
-            //"Claim,Target,PrimaryCommonCore,PrimaryClaimContentTarget,SecondaryCommonCore,SecondaryClaimContentTarget," +
+            //"Claim,Target,PrimaryCommonCore,PrimaryClaimContentTarget,SecondaryCommonCore,SecondaryClaimContentTarget,PtWritingType," +
             //"CAT_MeasurementModel,CAT_ScorePoints,CAT_Dimension,CAT_Weight,CAT_Parameters,PP_MeasurementModel," +
             //"PP_ScorePoints,PP_Dimension,PP_Weight,PP_Parameters"
             mItemReport.WriteLine(string.Join(",", CsvEncode(it.FolderDescription), it.BankKey.ToString(), it.ItemId.ToString(), CsvEncode(it.ItemType), CsvEncode(version), CsvEncode(subject), 
@@ -985,6 +988,7 @@ namespace TabulateSmarterTestContentPackage
                 CsvEncode(reportingStandard.PrimaryClaimContentTarget),
                 CsvEncode(reportingStandard.SecondaryCCSS),
                 CsvEncode(reportingStandard.SecondaryClaimsContentTargets), 
+                CsvEncode(ptWritingType),
                 CsvEncode(scoringSeparation.FirstOrDefault(x => !x.Key)?.Select(x => x.MeasurementModel).Aggregate((x,y) => $"{x};{y}") ?? string.Empty), 
                 CsvEncode(scoringSeparation.FirstOrDefault(x => !x.Key)?.Select(x => x.ScorePoints).Aggregate((x, y) => $"{x};{y}") ?? string.Empty),
                 CsvEncode(scoringSeparation.FirstOrDefault(x => !x.Key)?.Select(x => x.Dimension).Aggregate((x, y) => $"{x};{y}") ?? string.Empty), 
@@ -1140,14 +1144,12 @@ namespace TabulateSmarterTestContentPackage
                 // PtWritingType Metadata (defined as optional in metadata but we'll still report a benign error if it's not on PT WER items)
                 if (string.Equals(it.ItemType, "wer", StringComparison.OrdinalIgnoreCase))
                 {
-                    var ptWritingType = xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:PtWritingType", sXmlNs);
-                    if (ptWritingType == null)
+                    if (string.IsNullOrEmpty(ptWritingType))
                     {
                         ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Benign, "Metadata for PT item is missing <PtWritingType> element.");
                     }
                     else
                     {
-                        ptWritingType = ptWritingType.Trim();
                         if (!sValidWritingTypes.Contains(ptWritingType))
                         {
                             // Fix capitalization
@@ -1370,14 +1372,14 @@ namespace TabulateSmarterTestContentPackage
             var translation = GetTranslation(it, xml, xmlMetadata);
 
             //"Folder,BankKey,ItemId,ItemType,Version,Subject,Grade,Status,AnswerKey,AnswerOptions,AsmtType,WordlistId,StimId,TutorialId,ASL," +
-            //"BrailleType,Translation,Media,Size,DOK,AllowCalculator,MathematicalPractice,MaxPoints," +
-            //"Claim,Target,PrimaryCommonCore,PrimaryClaimContentTarget,SecondaryCommonCore,SecondaryClaimContentTarget," +
+            //"BrailleType,Translation,Glossary,Media,Size,DOK,AllowCalculator,MathematicalPractice,MaxPoints," +
+            //"Claim,Target,PrimaryCommonCore,PrimaryClaimContentTarget,SecondaryCommonCore,SecondaryClaimContentTarget,PtWritingType," +
             //"CAT_MeasurementModel,CAT_ScorePoints,CAT_Dimension,CAT_Weight,CAT_Parameters,PP_MeasurementModel," +
             //"PP_ScorePoints,PP_Dimension,PP_Weight,PP_Parameters"
             mItemReport.WriteLine(string.Join(",", CsvEncode(it.FolderDescription), it.BankKey.ToString(), it.ItemId.ToString(), CsvEncode(it.ItemType), CsvEncode(version),
                 CsvEncode(subject), CsvEncode(grade), CsvEncode(GetStatus(it, xmlMetadata)), CsvEncode(answerKey), string.Empty, CsvEncode(assessmentType), CsvEncode(wordlistId),
                 string.Empty, string.Empty, CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), GlossStringFlags(aggregateGlossaryTypes),
-                string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty,
+                string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty,
                 string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty));
   
         } // TabulateTutorial
