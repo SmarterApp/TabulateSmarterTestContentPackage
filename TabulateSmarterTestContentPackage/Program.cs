@@ -279,17 +279,6 @@ Error severity definitions:
                 Models.TabulatorSettings.Load();
                 ParseCommandLine(args);
 
-                Console.WriteLine("Tabulator Flags");
-                Console.WriteLine(Enumerable.Repeat("-",20).Aggregate((x,y) => $"{x}{y}"));
-
-                gValidationOptions.Keys.ToList().ForEach(x =>
-                {
-                    Console.WriteLine($"[{x}: {gValidationOptions[x].ToString()}]");
-                });
-
-                Console.WriteLine(Enumerable.Repeat("-", 20).Aggregate((x, y) => $"{x}{y}"));
-                Console.WriteLine();
-
                 if (s_showHelp || s_operations.Count == 0)
                 {
                     Console.WriteLine(cSyntax);
