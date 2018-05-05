@@ -603,15 +603,6 @@ namespace TabulateSmarterTestContentPackage
                 ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Degraded, "Allow Calculator field not present for MATH subject item");
             }
 
-            // MathematicalPractice
-            var mathematicalPractice = MathematicalPracticeFromMetadata(xmlMetadata, sXmlNs);
-            if (string.IsNullOrEmpty(mathematicalPractice) &&
-                (string.Equals(metaSubject, "MATH", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(subject, "MATH", StringComparison.OrdinalIgnoreCase)))
-            {
-                ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Degraded, "Mathematical Practice field not present for MATH subject item");
-            }
-
             // MaximumNumberOfPoints
             var maximumNumberOfPoints = MaximumNumberOfPointsFromMetadata(xmlMetadata, sXmlNs);
             {
@@ -917,6 +908,15 @@ namespace TabulateSmarterTestContentPackage
             // Standards Alignment
             var standards = ItemStandardExtractor.Extract(it, xmlMetadata);
             var reportingStandard = ItemStandardExtractor.ValidateAndSummarize(it, standards, subject, grade);
+
+            // MathematicalPractice
+            var mathematicalPractice = MathematicalPracticeFromMetadata(xmlMetadata, sXmlNs);
+            if (string.IsNullOrEmpty(mathematicalPractice)
+                && string.Equals(subject, "MATH", StringComparison.OrdinalIgnoreCase)
+                && (standards[0].Claim.Equals("2", StringComparison.Ordinal) || standards[0].Claim.Equals("3", StringComparison.Ordinal) || standards[0].Claim.Equals("4", StringComparison.Ordinal)))
+            {
+                ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Degraded, "Mathematical Practice field not present for MATH claim 2, 3, or 4 item", $"claim='{standards[0].Claim}'");
+            }
 
             // Performance Task Writing Type
             var ptWritingType = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:PtWritingType", sXmlNs).Trim();
