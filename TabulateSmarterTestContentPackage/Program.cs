@@ -207,6 +207,8 @@ Validation Options:
             are tagged in one case but not in another.
     -v-tgs  Target Grade Suffix: Disables checking whether the grade suffix in
             a target matches the grade alignment in the item attributes.
+    -v-ubp  Unexpected Braille Prefix: Suppresses braille subtype errors when
+            a valid subtype is prefixed with ""TDS_BT_"".
 
     -v+all  Enable all optional validation and tabulation features.
     -v+umf  Unreferenced Media File: Enables checking whether media files are
@@ -220,7 +222,7 @@ Validation Options:
             is not referenced by any item.
     -v+ats  Image Alternate Text for Spanish: Enables checking for alternate
             text on images in the stacked Spanish version of an item.
-    -v+akv  Answer Key Value: Reports the actual answer key (e.g. 'C') in the
+    -v+akv  Answer Key Value: Reports the actual answer key (e.g. ""C"") in the
             ItemReport for selected response items. Without this option simply
             reports 'SR'.
 

@@ -1577,20 +1577,25 @@ namespace TabulateSmarterTestContentPackage
                     if (extension.Length > 0) extension = extension.Substring(1); // Strip leading "."
                     if (!string.Equals(extension, attachType, StringComparison.OrdinalIgnoreCase))
                     {
-                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, "Braille ebossing filename has unexpected extension.", "extension='{0}' expected='{1}' filename='{2}'", extension, attachType, filename);
+                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, "Braille embossing filename has unexpected extension.", "extension='{0}' expected='{1}' filename='{2}'", extension, attachType, filename);
                     }
 
                     // Get and parse the subtype (if any) - This is the Braille Form Code (e.g. EXN, UXT)
-                    string[] subtypeParts = (xmlEle.GetAttribute("subtype") ?? string.Empty).Split('_');
+                    var wholeSubtype = xmlEle.GetAttribute("subtype") ?? string.Empty;
+                    bool isTranscript = wholeSubtype.EndsWith("_transcript", StringComparison.OrdinalIgnoreCase);
+                    var subtype = isTranscript ? wholeSubtype.Substring(0, wholeSubtype.Length - 11) : wholeSubtype;
+                    if (subtype.StartsWith("TDS_BT_"))
+                    {
+                        subtype = subtype.Substring(7);
+                        ReportingUtility.ReportError("ubp", it, ErrorCategory.Item, ErrorSeverity.Degraded,
+                            "Unexpected braille subtype prefix.", $"prefix='TDS_BT_' subtype='{wholeSubtype}'");
+                    }
                     BrailleFormCode attachmentFormCode;
-                    if (!BrailleUtility.TryParseBrailleFormCode(subtypeParts[0], out attachmentFormCode))
+                    if (!BrailleUtility.TryParseBrailleFormCode(subtype, out attachmentFormCode))
                     {
                         ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, 
-                            "Braille embossing attachment has unknown subtype.", $"subtype='{subtypeParts[0]}'");
+                            "Braille embossing attachment has unknown subtype.", $"subtype='{wholeSubtype}'");
                     }
-
-                    // See if transcript
-                    bool isTranscript = subtypeParts.Length > 1 && subtypeParts[1].Equals("transcript", StringComparison.OrdinalIgnoreCase);
 
                     // Accumulate the type
                     if (!isTranscript)
@@ -1689,7 +1694,7 @@ namespace TabulateSmarterTestContentPackage
                         if (!match.Groups[6].Value.Equals(attachType, StringComparison.OrdinalIgnoreCase))
                         // Must match the type listed
                         {
-                            ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
+                            ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable,
                                 "Braille embossing filename extension is does not match type",
                                 $"extension='{match.Groups[6].Value}' expected='{attachType}' filename='{filename}'");
                         }
