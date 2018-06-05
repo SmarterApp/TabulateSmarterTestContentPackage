@@ -16,6 +16,20 @@ namespace TabulateSmarterTestContentPackage.Utilities
         static TextWriter m_ErrorReport { get; set; }
         static HashSet<ShaHash> s_ErrorsReported = new HashSet<ShaHash>();
 
+        private static void InitErrorReport()
+        {
+            if (m_ErrorReport != null) return;
+            m_ErrorReport = new StreamWriter(ErrorReportPath, false, Encoding.UTF8);
+            m_ErrorReport.WriteLine("Folder,BankKey,ItemId,ItemType,Category,Severity,ErrorMessage,Detail");
+
+            var application = System.Reflection.Assembly.GetExecutingAssembly();
+            string detail = $"version='{application.GetName().Version}' options='{Program.gValidationOptions.ReportOptions()}'";
+            m_ErrorReport.WriteLine(string.Join(",", string.Empty,
+                string.Empty, string.Empty, string.Empty,
+                ErrorCategory.System.ToString(), ErrorSeverity.Message.ToString(),
+                "Tabulator Start", Tabulator.CsvEncode(detail)));
+        }
+
         private static void InternalReportError(string folder, string itemType, string bankKey, string itemId, ErrorCategory category, ErrorSeverity severity, string msg, string detail)
         {
             // If deduplicate, find out if this error has already been reported for this particular item.
@@ -33,8 +47,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
 
             if (m_ErrorReport == null)
             {
-                m_ErrorReport = new StreamWriter(ErrorReportPath, false, Encoding.UTF8);
-                m_ErrorReport.WriteLine("Folder,BankKey,ItemId,ItemType,Category,Severity,ErrorMessage,Detail");
+                InitErrorReport();
             }
 
             if (CurrentPackageName != null)

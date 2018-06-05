@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.IO;
 using System.Collections;
+using System.Text;
 
 namespace TabulateSmarterTestContentPackage
 {
@@ -268,13 +269,13 @@ Error severity definitions:
             long startTicks = Environment.TickCount;
 
             // Default options
-            gValidationOptions.Disable("umf"); // Disable checking for Unreferenced Media Files
-            gValidationOptions.Disable("gtr"); // Disable Glossary Text Report
-            gValidationOptions.Disable("uwt"); // Disable Unreferenced Wordlist Terms
-            gValidationOptions.Disable("mwa"); // Disable checking for attachments on unreferenced wordlist terms
-            gValidationOptions.Disable("css"); // Disable reporting css color-contrast interference (temporary fix)
-            gValidationOptions.Disable("ats"); // Disable checking for image alt text in Spanish content.
-            gValidationOptions.Disable("akv"); // Disable reporting answer key values.
+            gValidationOptions.DisableByDefault("umf"); // Disable checking for Unreferenced Media Files
+            gValidationOptions.DisableByDefault("gtr"); // Disable Glossary Text Report
+            gValidationOptions.DisableByDefault("uwt"); // Disable Unreferenced Wordlist Terms
+            gValidationOptions.DisableByDefault("mwa"); // Disable checking for attachments on unreferenced wordlist terms
+            gValidationOptions.DisableByDefault("css"); // Disable reporting css color-contrast interference (temporary fix)
+            gValidationOptions.DisableByDefault("ats"); // Disable checking for image alt text in Spanish content.
+            gValidationOptions.DisableByDefault("akv"); // Disable reporting answer key values.
 
             try
             {
@@ -444,7 +445,7 @@ Error severity definitions:
                             }
                             else
                             {
-                                gValidationOptions[key] = value;
+                                gValidationOptions.SetEnabled(key, value);
                             }
                         }
                         else
@@ -770,16 +771,26 @@ Error severity definitions:
 
 
 
-    internal class ValidationOptions : Dictionary<string, bool>
+    internal class ValidationOptions : Dictionary<string, int>
     {
         public void Enable(string option)
         {
-            this[option] = true;
+            this[option] = 1;
         }
 
         public void Disable(string option)
         {
-            this[option] = false;
+            this[option] = 0;
+        }
+
+        public void SetEnabled(string option, bool enabled)
+        {
+            this[option] = enabled ? 1 : 0;
+        }
+
+        public void DisableByDefault(string option)
+        {
+            this[option] = -1;
         }
 
         public void EnableAll()
@@ -789,8 +800,23 @@ Error severity definitions:
 
         public bool IsEnabled(string option)
         {
-            bool value;
-            return !TryGetValue(option, out value) || value;
+            int value;
+            if (!TryGetValue(option, out value)) return true;
+            return value > 0;
+        }
+
+        public string ReportOptions()
+        {
+            var sb = new StringBuilder();
+            foreach (var option in Program.gValidationOptions)
+            {
+                if (sb.Length != 0) sb.Append(' ');
+                if (option.Value >= 0) // Don't report defaulted values
+                {
+                    sb.Append($"{option.Key}({((option.Value > 0) ? "On" : "Off")})");
+                }
+            }
+            return sb.ToString();
         }
     }
 }

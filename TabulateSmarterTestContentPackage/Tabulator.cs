@@ -172,13 +172,15 @@ namespace TabulateSmarterTestContentPackage
             // Prep the summary report
             mSummaryReport = new StreamWriter(string.Concat(mReportPathPrefix, cSummaryReportFn), false, Encoding.UTF8);
 
-            // Report options
-            mSummaryReport.Write($"Validation Options:");
-            foreach(var option in Program.gValidationOptions)
+            // Write the header
             {
-                mSummaryReport.Write($" {option.Key}({option.Value})");
+                var application = System.Reflection.Assembly.GetExecutingAssembly();
+                mSummaryReport.WriteLine($"TabulateSmarterTestContentPackage v{application.GetName().Version}");
+                mSummaryReport.WriteLine();
             }
-            mSummaryReport.WriteLine();
+
+            // Report options
+            mSummaryReport.WriteLine($"Validation Options: {Program.gValidationOptions.ReportOptions()}");
 
             // If tabulation not being suppressed, open the other reports
             if (!ExitAfterSelect)
