@@ -208,8 +208,8 @@ Validation Options:
             are tagged in one case but not in another.
     -v-tgs  Target Grade Suffix: Disables checking whether the grade suffix in
             a target matches the grade alignment in the item attributes.
-    -v-ubp  Unexpected Braille Prefix: Suppresses braille subtype errors when
-            a valid subtype is prefixed with ""TDS_BT_"".
+    -v-dbc  Deprecated Braille Coding: Suppresses braille errors when
+            deprecated older codes and conventions are used.
 
     -v+all  Enable all optional validation and tabulation features.
     -v+umf  Unreferenced Media File: Enables checking whether media files are
