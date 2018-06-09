@@ -23,7 +23,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
             m_ErrorReport.WriteLine("Folder,BankKey,ItemId,ItemType,Category,Severity,ErrorMessage,Detail");
 
             var application = System.Reflection.Assembly.GetExecutingAssembly();
-            string detail = $"version='{application.GetName().Version}' options='{Program.gValidationOptions.ReportOptions()}'";
+            string detail = $"version='{application.GetName().Version}' options='{Program.Options}'";
             m_ErrorReport.WriteLine(string.Join(",", string.Empty,
                 string.Empty, string.Empty, string.Empty,
                 ErrorCategory.System.ToString(), ErrorSeverity.Message.ToString(),

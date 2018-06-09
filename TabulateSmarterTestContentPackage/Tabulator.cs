@@ -180,7 +180,7 @@ namespace TabulateSmarterTestContentPackage
             }
 
             // Report options
-            mSummaryReport.WriteLine($"Validation Options: {Program.gValidationOptions.ReportOptions()}");
+            mSummaryReport.WriteLine($"Validation Options: {Program.Options}");
 
             // If tabulation not being suppressed, open the other reports
             if (!ExitAfterSelect)

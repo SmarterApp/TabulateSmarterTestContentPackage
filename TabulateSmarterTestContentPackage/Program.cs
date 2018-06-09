@@ -264,6 +264,20 @@ Error severity definitions:
         static bool s_deDuplicate;
         static bool s_waitBeforeExit;
 
+        public static string Options
+        {
+            get
+            {
+                string value = gValidationOptions.ReportOptions();
+                if (s_deDuplicate)
+                {
+                    if (value.Length > 0) value = value + " ";
+                    value = value + " dedup(On)";
+                }
+                return value;
+            }
+        }
+
         private static void Main(string[] args)
         {
             long startTicks = Environment.TickCount;
