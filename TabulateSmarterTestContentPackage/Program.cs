@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.IO;
 using System.Collections;
+using System.Text;
 
 namespace TabulateSmarterTestContentPackage
 {
@@ -207,6 +208,8 @@ Validation Options:
             are tagged in one case but not in another.
     -v-tgs  Target Grade Suffix: Disables checking whether the grade suffix in
             a target matches the grade alignment in the item attributes.
+    -v-dbc  Deprecated Braille Coding: Suppresses braille errors when
+            deprecated older codes and conventions are used.
 
     -v+all  Enable all optional validation and tabulation features.
     -v+umf  Unreferenced Media File: Enables checking whether media files are
@@ -220,7 +223,7 @@ Validation Options:
             is not referenced by any item.
     -v+ats  Image Alternate Text for Spanish: Enables checking for alternate
             text on images in the stacked Spanish version of an item.
-    -v+akv  Answer Key Value: Reports the actual answer key (e.g. 'C') in the
+    -v+akv  Answer Key Value: Reports the actual answer key (e.g. ""C"") in the
             ItemReport for selected response items. Without this option simply
             reports 'SR'.
 
@@ -261,18 +264,32 @@ Error severity definitions:
         static bool s_deDuplicate;
         static bool s_waitBeforeExit;
 
+        public static string Options
+        {
+            get
+            {
+                string value = gValidationOptions.ReportOptions();
+                if (s_deDuplicate)
+                {
+                    if (value.Length > 0) value = value + " ";
+                    value = value + " dedup(On)";
+                }
+                return value;
+            }
+        }
+
         private static void Main(string[] args)
         {
             long startTicks = Environment.TickCount;
 
             // Default options
-            gValidationOptions.Disable("umf"); // Disable checking for Unreferenced Media Files
-            gValidationOptions.Disable("gtr"); // Disable Glossary Text Report
-            gValidationOptions.Disable("uwt"); // Disable Unreferenced Wordlist Terms
-            gValidationOptions.Disable("mwa"); // Disable checking for attachments on unreferenced wordlist terms
-            gValidationOptions.Disable("css"); // Disable reporting css color-contrast interference (temporary fix)
-            gValidationOptions.Disable("ats"); // Disable checking for image alt text in Spanish content.
-            gValidationOptions.Disable("akv"); // Disable reporting answer key values.
+            gValidationOptions.DisableByDefault("umf"); // Disable checking for Unreferenced Media Files
+            gValidationOptions.DisableByDefault("gtr"); // Disable Glossary Text Report
+            gValidationOptions.DisableByDefault("uwt"); // Disable Unreferenced Wordlist Terms
+            gValidationOptions.DisableByDefault("mwa"); // Disable checking for attachments on unreferenced wordlist terms
+            gValidationOptions.DisableByDefault("css"); // Disable reporting css color-contrast interference (temporary fix)
+            gValidationOptions.DisableByDefault("ats"); // Disable checking for image alt text in Spanish content.
+            gValidationOptions.DisableByDefault("akv"); // Disable reporting answer key values.
 
             try
             {
@@ -442,7 +459,7 @@ Error severity definitions:
                             }
                             else
                             {
-                                gValidationOptions[key] = value;
+                                gValidationOptions.SetEnabled(key, value);
                             }
                         }
                         else
@@ -768,16 +785,26 @@ Error severity definitions:
 
 
 
-    internal class ValidationOptions : Dictionary<string, bool>
+    internal class ValidationOptions : Dictionary<string, int>
     {
         public void Enable(string option)
         {
-            this[option] = true;
+            this[option] = 1;
         }
 
         public void Disable(string option)
         {
-            this[option] = false;
+            this[option] = 0;
+        }
+
+        public void SetEnabled(string option, bool enabled)
+        {
+            this[option] = enabled ? 1 : 0;
+        }
+
+        public void DisableByDefault(string option)
+        {
+            this[option] = -1;
         }
 
         public void EnableAll()
@@ -787,8 +814,23 @@ Error severity definitions:
 
         public bool IsEnabled(string option)
         {
-            bool value;
-            return !TryGetValue(option, out value) || value;
+            int value;
+            if (!TryGetValue(option, out value)) return true;
+            return value > 0;
+        }
+
+        public string ReportOptions()
+        {
+            var sb = new StringBuilder();
+            foreach (var option in Program.gValidationOptions)
+            {
+                if (sb.Length != 0) sb.Append(' ');
+                if (option.Value >= 0) // Don't report defaulted values
+                {
+                    sb.Append($"{option.Key}({((option.Value > 0) ? "On" : "Off")})");
+                }
+            }
+            return sb.ToString();
         }
     }
 }
