@@ -6,9 +6,9 @@
     <StartupObject>TabulateSmarterTestContentPackage.Program</StartupObject>
     <RuntimeIdentifiers>win-x64;win-x86</RuntimeIdentifiers>
     <NeutralLanguage />
-    <Version>3.2</Version>
-    <AssemblyVersion>3.2.0</AssemblyVersion>
-    <FileVersion>3.2.0</FileVersion>
+    <Version>3.2.0.1</Version>
+    <AssemblyVersion>3.2.0.1</AssemblyVersion>
+    <FileVersion>3.2.0.1</FileVersion>
     <Authors>Smarter Balanced Assessment Consortium</Authors>
     <Company>Smarter Balanced Assessment Consortium</Company>
     <Description>Validates and tabulates the contents of a Smarter Balanced Test Content Package</Description>
