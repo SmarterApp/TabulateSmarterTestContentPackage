@@ -6,6 +6,17 @@
     <StartupObject>TabulateSmarterTestContentPackage.Program</StartupObject>
     <RuntimeIdentifiers>win-x64;win-x86</RuntimeIdentifiers>
     <NeutralLanguage />
+    <Version>3.2</Version>
+    <AssemblyVersion>3.2.0</AssemblyVersion>
+    <FileVersion>3.2.0</FileVersion>
+    <Authors>Smarter Balanced Assessment Consortium</Authors>
+    <Company>Smarter Balanced Assessment Consortium</Company>
+    <Description>Validates and tabulates the contents of a Smarter Balanced Test Content Package</Description>
+    <Copyright>Copyright 2016-2018 Regents of the University of California</Copyright>
+    <PackageLicenseUrl>https://opensource.org/licenses/ECL-2.0</PackageLicenseUrl>
+    <PackageProjectUrl>https://github.com/SmarterApp/TabulateSmarterTestContentPackage</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/SmarterApp/TabulateSmarterTestContentPackage</RepositoryUrl>
+    <RepositoryType>Git</RepositoryType>
   </PropertyGroup>
 
   <ItemGroup>

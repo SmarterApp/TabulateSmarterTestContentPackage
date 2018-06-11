@@ -5,6 +5,7 @@
         Severe = 4,
         Degraded = 3,
         Tolerable = 2,
-        Benign = 1
+        Benign = 1,
+        Message = 0
     }
 }

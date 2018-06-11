@@ -14,52 +14,54 @@ namespace TabulateSmarterTestContentPackage
         enum GlossaryTypes : int
         {
             None        = 0,
-            Arabic      = 0x0001,
-            Burmese     = 0x0002,
-            Cantonese   = 0x0004,
-            Korean      = 0x0008,
-            Mandarin    = 0x0010,
-            Punjabi     = 0x0020,
-            Russian     = 0x0040,
-            Spanish     = 0x0080,
-            Tagalog     = 0x0100,
-            Ukranian    = 0x0200,
-            Vietnamese  = 0x0400,
-            English     = 0x0800,
+            English     = 0x0001,
+            Arabic      = 0x0002,
+            Burmese     = 0x0004,
+            Cantonese   = 0x0008,
+            Filipino    = 0x0010,
+            Korean      = 0x0020,
+            Mandarin    = 0x0040,
+            Punjabi     = 0x0080,
+            Russian     = 0x0100,
+            Spanish     = 0x0200,
+            Ukranian    = 0x0400,
+            Vietnamese  = 0x0800,
             Illustration = 0x1000
         }
 
         // These are the keywords used in the XML files for the various languages
+        // They must be listed in the same order as the bitfields in the enum ablve
         static string[] sKnownGlossaries =
         {
+            "glossary", // English
             "arabicGlossary",
             "burmeseGlossary",
             "cantoneseGlossary",
+            "tagalGlossary", // Filipino
             "koreanGlossary",
             "mandarinGlossary",
             "punjabiGlossary",
             "russianGlossary",
             "esnGlossary",  // Spanish
-            "tagalGlossary",
             "ukrainianGlossary",
             "vietnameseGlossary",
-            "glossary", // English
             "illustration"
         };
 
-        static char[] sKnownGlossaryLetters = { 'A', 'B', 'C', 'K', 'M', 'P', 'R', 'S', 'T', 'U', 'V', 'E', 'I' };
+        // These letters must be in teh same order as the enum bitfield and sKnownGlossaries 
+        static char[] sKnownGlossaryLetters = { 'E', 'A', 'B', 'C', 'F', 'K', 'M', 'P', 'R', 'S', 'U', 'V', 'I' };
 
         static Dictionary<string, GlossaryTypes> sKnownGlossariesIndex;
 
         static GlossaryTypes sExpectedTranslatedGlossaries =
             GlossaryTypes.Arabic
             | GlossaryTypes.Cantonese
+            | GlossaryTypes.Filipino
             | GlossaryTypes.Korean
             | GlossaryTypes.Mandarin
             | GlossaryTypes.Punjabi
             | GlossaryTypes.Russian
             | GlossaryTypes.Spanish
-            | GlossaryTypes.Tagalog
             | GlossaryTypes.Ukranian
             | GlossaryTypes.Vietnamese;
 
