@@ -2323,7 +2323,12 @@ namespace TabulateSmarterTestContentPackage
 
                 if (mFilenameToResourceId.Count == 0)
                 {
-                    ReportingUtility.ReportError(cImsManifest, ErrorCategory.Manifest, ErrorSeverity.Benign, "Manifest is empty.");
+                    // Suppress error if the manifest is just one empty element
+                    if (xmlManifest.ChildNodes.Count == 1 && xmlManifest.FirstChild.ChildNodes.Count == 0 && xmlManifest.FirstChild.Attributes.Count == 0)
+                    {
+                        return true; // Deliberately empty manifest
+                    }
+                    ReportingUtility.ReportError(cImsManifest, ErrorCategory.Manifest, ErrorSeverity.Benign, "Manifest does not list any resources.");
                     return true;
                 }
 
