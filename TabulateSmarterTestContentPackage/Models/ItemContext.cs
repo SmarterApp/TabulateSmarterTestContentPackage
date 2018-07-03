@@ -77,7 +77,7 @@ namespace TabulateSmarterTestContentPackage.Models
             get
             {
                 // This is an inconsistency. Folder names use capitalized "Item" while item names use lower case.
-                return $"{(m_isStimulus ? "Stimuli/stim" : "Items/Item")}-{BankKey}-{ItemId}";
+                return $"{(m_isStimulus ? "Stimuli/stim" : "Items/item")}-{BankKey}-{ItemId}";
             }
         }
 
@@ -116,7 +116,7 @@ namespace TabulateSmarterTestContentPackage.Models
             if (parts.Length != 3) return false;
 
             string itemType = parts[0].ToLowerInvariant();
-            if (!itemType.Equals(c_itemPrefix, StringComparison.Ordinal) && !itemType.Equals(c_stimPrefix)) return false;
+            if (!itemType.Equals(c_itemPrefix, StringComparison.Ordinal) && !itemType.Equals(c_stimPrefix, StringComparison.Ordinal)) return false;
 
             int bankKey;
             if (!int.TryParse(parts[1], out bankKey)) return false;

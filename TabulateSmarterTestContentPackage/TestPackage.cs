@@ -431,7 +431,7 @@ namespace TabulateSmarterTestContentPackage
 
         private string ToPhysicalPath(string relativePath)
         {
-            return Path.Combine(m_PhysicalPath, relativePath.Replace('/', '\\'));
+            return Path.Combine(m_PhysicalPath, relativePath);
         }
 
         private string ToRootedName(string path)
