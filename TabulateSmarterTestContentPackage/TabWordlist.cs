@@ -65,6 +65,19 @@ namespace TabulateSmarterTestContentPackage
             | GlossaryTypes.Ukranian
             | GlossaryTypes.Vietnamese;
 
+        static GlossaryTypes sAllTranslatedGlossaries =
+            GlossaryTypes.Arabic
+            | GlossaryTypes.Burmese
+            | GlossaryTypes.Cantonese
+            | GlossaryTypes.Filipino
+            | GlossaryTypes.Korean
+            | GlossaryTypes.Mandarin
+            | GlossaryTypes.Punjabi
+            | GlossaryTypes.Russian
+            | GlossaryTypes.Spanish
+            | GlossaryTypes.Ukranian
+            | GlossaryTypes.Vietnamese;
+
         static void StaticInitWordlist()
         {
             sKnownGlossariesIndex = new Dictionary<string, GlossaryTypes>(sKnownGlossaries.Length);
@@ -350,13 +363,19 @@ namespace TabulateSmarterTestContentPackage
                     match = sRxImageAttachment.Match(html);
                     if (match.Success)
                     {
-                        // Use RegEx to find the audio glossary entry in the contents.
+                        // Use RegEx to find the illustration glossary entry in the contents.
                         string filename = match.Groups[1].Value;
                         ProcessGlossaryAttachment(filename, itemIt, ii, index, listType, termReferenced, wordlistTerms, attachmentFiles, attachmentToReference, ref imageType, ref imageSize);
                     }
                     else if (listType.Equals("illustration", StringComparison.Ordinal))
                     {
                         ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Degraded, "Illustration glossary entry does not include image.", "term='{0}' index='{1}'", term, index);
+                    }
+
+                    // Report error if translated glossary lacks audio
+                    if ((gt & sAllTranslatedGlossaries) != 0 && string.IsNullOrEmpty(audioType))
+                    {
+                        ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Degraded, "Translated glossary entry lacks audio.", "term='{0}' index='{1}'", term, index);
                     }
 
                     string folderDescription = string.Concat(mPackage.Name, "/", ii.FolderName);
