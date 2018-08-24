@@ -23,7 +23,7 @@ Command Line Examples:
         Tabulates all "".zip"" test packages in the ""D:\Packages"" folder.
 
     -a ""D:\Packages\*.zip""
-        Tabulates all "".zip"" test packages in teh ""D:\Packages"" folder
+        Tabulates all "".zip"" test packages in the ""D:\Packages"" folder
         and aggregates the results into one set of reports. The names being
         ""Aggregate_SummaryReport.txt"", ""Aggregate_ItemReport.csv"" and so
         forth.
