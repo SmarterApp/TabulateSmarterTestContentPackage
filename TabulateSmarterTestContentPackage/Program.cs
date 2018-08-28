@@ -509,7 +509,7 @@ Error severity definitions:
                             tab.DeDuplicate = s_deDuplicate;
                             if (operation.IdFilename != null)
                             {
-                                tab.SelectItems(new IdReadable(operation.IdFilename, c_DefaultBankKey));
+                                tab.SelectItems(new IdReadable(operation.IdFilename, s_bankKey));
                             }
                             tab.Tabulate(testPackage);
                         }
@@ -560,7 +560,7 @@ Error severity definitions:
                         {
                             if (operation.IdFilename != null)
                             {
-                                tab.SelectItems(new IdReadable(operation.IdFilename, c_DefaultBankKey));
+                                tab.SelectItems(new IdReadable(operation.IdFilename, s_bankKey));
                             }
                             tab.Tabulate(testPackage);
                         }
