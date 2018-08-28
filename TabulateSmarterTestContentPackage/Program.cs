@@ -601,7 +601,11 @@ Error severity definitions:
         // Returns true if the folder is valid and the file could be created
         static bool ValidateOutputPrefix(ref string path)
         {
-            string directory = Path.GetFullPath(Path.GetDirectoryName(path));
+            string directory = Path.GetDirectoryName(path);
+            if (string.IsNullOrEmpty(directory))
+                directory = Environment.CurrentDirectory;
+            else
+                directory = Path.GetFullPath(directory);
             string fileprefix = Path.GetFileName(path);
             if (!Directory.Exists(directory))
             {
