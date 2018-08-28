@@ -938,7 +938,7 @@ namespace TabulateSmarterTestContentPackage
             string wordlistId;
             int englishCharacterCount;
             GlossaryTypes aggregateGlossaryTypes;
-            ValidateContentAndWordlist(it, xml, !string.IsNullOrEmpty(brailleType), out wordlistId, out englishCharacterCount, out aggregateGlossaryTypes);
+            ValidateContentAndWordlist(it, xml, !string.IsNullOrEmpty(brailleType), standards[0], out wordlistId, out englishCharacterCount, out aggregateGlossaryTypes);
 
             // Stimulus ID
             var stimId = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='stm_pass_id']/val").Trim();
@@ -964,17 +964,6 @@ namespace TabulateSmarterTestContentPackage
 
             // DepthOfKnowledge
             var depthOfKnowledge = DepthOfKnowledgeFromMetadata(xmlMetadata, sXmlNs);
-
-            // Check for silencing tags
-            if (Program.gValidationOptions.IsEnabled("tss"))
-            {
-                if (HasTtsSilencingTags(xml) 
-                    && !(standards[0].Claim.StartsWith("2") && standards[0].Target.StartsWith("9")) )
-                {
-                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable, "Item has improper TTS Silencing Tag", "subject='{0}' claim='{1}' target='{2}'", subject, 
-                        standards[0].Claim, standards[0].Target);
-                }
-            }
 
             if (Program.gValidationOptions.IsEnabled("asl") && !string.IsNullOrEmpty(asl) && englishCharacterCount > 0)
             {
@@ -1279,7 +1268,7 @@ namespace TabulateSmarterTestContentPackage
             string wordlistId;
             int englishCharacterCount;
             GlossaryTypes aggregateGlossaryTypes;
-            ValidateContentAndWordlist(it, xml, !string.IsNullOrEmpty(brailleType), out wordlistId, out englishCharacterCount, out aggregateGlossaryTypes);
+            ValidateContentAndWordlist(it, xml, !string.IsNullOrEmpty(brailleType), null, out wordlistId, out englishCharacterCount, out aggregateGlossaryTypes);
 
             // ASL
             string asl = GetAslType(it, xml, xmlMetadata);
@@ -1373,7 +1362,7 @@ namespace TabulateSmarterTestContentPackage
             string wordlistId;
             int englishCharacterCount;
             GlossaryTypes aggregateGlossaryTypes;
-            ValidateContentAndWordlist(it, xml, !string.IsNullOrEmpty(brailleType), out wordlistId, out englishCharacterCount, out aggregateGlossaryTypes);
+            ValidateContentAndWordlist(it, xml, !string.IsNullOrEmpty(brailleType), null, out wordlistId, out englishCharacterCount, out aggregateGlossaryTypes);
 
             // ASL
             var asl = GetAslType(it, xml, xmlMetadata);
@@ -1755,13 +1744,6 @@ namespace TabulateSmarterTestContentPackage
             return result;
         }
 
-        private static bool HasTtsSilencingTags(XmlNode xml)
-        {
-            return xml.SelectNodes("//readAloud/textToSpeechPronunciation")
-                .Cast<XmlElement>()
-                .Any(node => node.InnerText.Length == 0);
-        }
-
         private class BrailleTypeComparer : IComparer<string>
         {
             public int Compare(string x, string y)
@@ -1782,7 +1764,8 @@ namespace TabulateSmarterTestContentPackage
             "himi"
         });
 
-        void ValidateContentAndWordlist(ItemContext it, XmlDocument xml, bool brailleSupported, out string rWordlistId, out int rEnglishCharacterCount, out GlossaryTypes rAggregateGlossaryTypes)
+        void ValidateContentAndWordlist(ItemContext it, XmlDocument xml, bool brailleSupported, ItemStandard primaryStandard,
+            out string rWordlistId, out int rEnglishCharacterCount, out GlossaryTypes rAggregateGlossaryTypes)
         {
             // Compose lists of referenced term Indices and Names
             var termIndices = new List<int>();
@@ -1829,7 +1812,7 @@ namespace TabulateSmarterTestContentPackage
 
                                     // Perform other CDATA validation
                                     // (Includes styles, img tags, etc)
-                                    CDataValidator.ValidateItemContent(it, contentElement, html, brailleSupported, language);
+                                    CDataValidator.ValidateItemContent(it, contentElement, html, brailleSupported, language, primaryStandard);
                                 }
                             }
                         }

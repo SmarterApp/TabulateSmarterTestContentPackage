@@ -43,13 +43,25 @@ namespace TabulateSmarterTestContentPackage.Validators
         static HashSet<string> s_prohibitedUnitSuffixes = new HashSet<string>
         { "cm", "mm", "in", "px", "pt", "pc" };
 
-        public static void ValidateItemContent(ItemContext it, IXPathNavigable contentElement, IXPathNavigable html, bool brailleSupported, string language)
+        public static void ValidateItemContent(ItemContext it, IXPathNavigable contentElement, IXPathNavigable html, bool brailleSupported, string language, ItemStandard primaryStandard)
         {
             var htmlNav = html.CreateNavigator();
 
             if (language.Equals("ENU", StringComparison.OrdinalIgnoreCase) || Program.gValidationOptions.IsEnabled("ats"))
             {
                 ImgElementsHaveValidAltReference(it, contentElement.CreateNavigator(), htmlNav, brailleSupported);
+            }
+
+            if (language.Equals("ENU", StringComparison.OrdinalIgnoreCase) && Program.gValidationOptions.IsEnabled("tss"))
+            {
+                // Silencing is appropriate for ELA Claim 2 Target 9
+                if (primaryStandard == null
+                    || !primaryStandard.Subject.Equals("ELA", StringComparison.Ordinal)
+                    || !primaryStandard.Claim.StartsWith("2")
+                    || !primaryStandard.Target.StartsWith("9"))
+                {
+                    ValidateTtsSilencingTags(it, contentElement.CreateNavigator(), htmlNav, brailleSupported);
+                }
             }
 
             ElementsFreeOfProhibitedAttributes(it, htmlNav);
@@ -221,6 +233,39 @@ namespace TabulateSmarterTestContentPackage.Validators
                 if (relatedEle.SelectSingleNode("readAloud") != null) foundReadAloud = true;
                 if (relatedEle.SelectSingleNode("brailleText") != null) foundBrailleText = true;
             }
+        }
+
+        private static void ValidateTtsSilencingTags(ItemContext it, XPathNavigator contentElement, XPathNavigator html, bool brailleSupported)
+        {
+            var accessibilityInfo = contentElement.SelectSingleNode("apipAccessibility/accessibilityInfo");
+            // Select all elements that have an ID attribute
+            foreach (XPathNavigator ele in html.Select("//*[@id]"))
+            {
+                // See if the content has anything other than spaces and punctuation
+                if (!StringHasText(ele.Value)) continue;
+
+                string id = ele.GetAttribute("id", string.Empty);
+
+                // Look for an accessibility element that references this item
+                var relatedEle = accessibilityInfo.SelectSingleNode($"accessElement[contentLinkInfo/@itsLinkIdentifierRef='{id}']/relatedElementInfo/readAloud/textToSpeechPronunciation");
+                if (relatedEle != null && relatedEle.InnerXml.Length == 0)
+                {
+                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable, "Item has improper TTS Silencing Tag", $"text='{ele.InnerXml}'");
+                }
+
+            }
+        }
+
+        private static bool StringHasText(string value)
+        {
+            foreach (char c in value)
+            {
+                if (!char.IsPunctuation(c) && !char.IsWhiteSpace(c) && !char.IsSymbol(c))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private static bool HasProhibitedUnitSuffix(string value)
