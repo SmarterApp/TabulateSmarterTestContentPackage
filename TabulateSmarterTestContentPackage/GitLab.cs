@@ -43,6 +43,14 @@ namespace TabulateSmarterTestContentPackage
             m_accessToken = accessToken;
         }
 
+        // Throws a detailed exception if access is denied.
+        public void VerifyAccess(string nameSpace)
+        {
+            string nsId;
+            bool isGroup;
+            GetNamespaceIdAndType(nameSpace, out nsId, out isGroup);
+        }
+
         public IEnumerable<XElement> GetProjectsInNamespace(string ns)
         {
             string nsId;
