@@ -3,9 +3,9 @@
 name: ContentSpecId.cs
 description: Class for Constructing, Parsing, and Converting Smarter Balanced Content Specification IDs
 url: https://raw.githubusercontent.com/SmarterApp/SC_ContentSpecId/master/ContentSpecId.cs
-version: 1.0
+version: 1.1
 keywords: CodeBit
-dateModified: 2018-07-23
+dateModified: 2018-08-29
 license: https://opensource.org/licenses/ECL-2.0
 # This is a CodeBit; see https://www.filemeta.org/CodeBit.html
 # Metadata in Yaml format using Schema.org properties. See https://schema.org.
@@ -929,9 +929,15 @@ namespace SmarterApp
         /// <remarks>Throws an exception if any property is invalid.</remarks>
         public string ToString(ContentSpecIdFormat format)
         {
+            // Enhanced format can handle partially-correct values.
+            if (format == ContentSpecIdFormat.Enhanced)
+            {
+                return ToStringEnhanced();
+            }
+
             if (ValidateFor(format) == ErrorSeverity.Invalid)
             {
-                throw new InvalidOperationException(m_validationError);
+                return string.Empty;
             }
 
             switch (format)
