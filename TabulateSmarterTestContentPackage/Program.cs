@@ -210,6 +210,7 @@ Validation Options:
             a target matches the grade alignment in the item attributes.
     -v-dbc  Deprecated Braille Coding: Suppresses braille errors when
             deprecated older codes and conventions are used.
+    -v-mst  Manifest: Disable checking for manifest errors.
 
     -v+all  Enable all optional validation and tabulation features.
     -v+umf  Unreferenced Media File: Enables checking whether media files are

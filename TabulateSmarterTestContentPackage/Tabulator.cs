@@ -2233,6 +2233,12 @@ namespace TabulateSmarterTestContentPackage
                     return false;
                 }
 
+                // Optionally suppress manifest validation
+                if (!Program.gValidationOptions.IsEnabled("mst"))
+                {
+                    return true;
+                }
+
                 // Load the manifest
                 XmlDocument xmlManifest = new XmlDocument(sXmlNt);
                 if (!TryLoadXml(rootFolder, cImsManifest, xmlManifest))
