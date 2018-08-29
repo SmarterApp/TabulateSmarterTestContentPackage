@@ -378,6 +378,13 @@ namespace TabulateSmarterTestContentPackage
                         ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Degraded, "Translated glossary entry lacks audio.", "term='{0}' index='{1}'", term, index);
                     }
 
+                    // Report error if Burmese translation includes Zawgyi characters
+                    if (gt == GlossaryTypes.Burmese && HasZawgyiCharacters(html))
+                    {
+                        ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Degraded, "Burmese translated glossary uses Zawgyi characters, should be Unicode.",
+                            $"term='{term}' index='{index}' translation='{html}'");
+                    }
+
                     string folderDescription = string.Concat(mPackage.Name, "/", ii.FolderName);
 
                     // Folder,WIT_ID,ItemId,Index,Term,Language,Length,Audio,AudioSize,Image,ImageSize
@@ -577,6 +584,26 @@ namespace TabulateSmarterTestContentPackage
                         $"term = '{term}' filename='{filename}' expectedFormat='{extension}' actualFormat='{foundFormat}'");
                 }
             }
+        }
+
+        const char c_minZawgyi = '\x1060';
+        const char c_maxZawgyi = '\x1097';
+
+        /// <summary>
+        /// Characters in the range of 0x1060 to 0x1097 inclusive are used in Zawgyi-encoded Burmese
+        /// but not in Unicode-encoded Burmese - unless certain dialects are included.
+        /// Therefore, the presence of these characters is an indication that Burmese text is
+        /// using the Zawgyi character set instead of the Unicode character set it should be using.
+        /// </summary>
+        /// <param name="s">String to check for Zawgyi characters</param>
+        /// <returns>True if any Zawgyi characters were detected. Otherwise false.</returns>
+        static bool HasZawgyiCharacters(string s)
+        {
+            foreach (char c in s)
+            {
+                if (c >= c_minZawgyi && c <= c_maxZawgyi) return true;
+            }
+            return false;
         }
 
         class TermAttachmentReference
