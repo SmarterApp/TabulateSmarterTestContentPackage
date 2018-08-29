@@ -434,7 +434,7 @@ namespace TabulateSmarterTestContentPackage
             // Validate all referenced attachments
             foreach(var pair in attachmentToReference)
             {
-                ValidateMediaFile(itemIt, ii, ff, pair.Key);
+                ValidateMediaFile(itemIt, ii, ff, pair.Key, wordlistTerms[pair.Value.TermIndex]);
             }
 
             return aggregateGlossariesFound;
@@ -551,7 +551,7 @@ namespace TabulateSmarterTestContentPackage
         const Int32 c_oggHeader = 0x5367674f;   // OggS in hex
         const Int32 c_m4aHeader = 0x70797466;   // ftyp in hex
 
-        static void ValidateMediaFile(ItemContext it, ItemIdentifier ii, FileFolder ff, string filename)
+        static void ValidateMediaFile(ItemContext it, ItemIdentifier ii, FileFolder ff, string filename, string term)
         {
             // Presently we only validate .ogg and .m4a file formats.
             // We have seen .m4a files named .ogg which caused problems with certain browsers.
@@ -574,7 +574,7 @@ namespace TabulateSmarterTestContentPackage
                 if (!string.Equals(extension, foundFormat, StringComparison.Ordinal))
                 {
                     ReportingUtility.ReportWitError(it, ii, ErrorSeverity.Degraded, "Audio Glossary file is not in expected format.",
-                        $"filename='{filename}' expectedFormat='{extension}' actualFormat='{foundFormat}'");
+                        $"term = '{term}' filename='{filename}' expectedFormat='{extension}' actualFormat='{foundFormat}'");
                 }
             }
         }
