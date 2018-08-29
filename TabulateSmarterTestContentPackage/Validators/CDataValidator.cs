@@ -43,7 +43,7 @@ namespace TabulateSmarterTestContentPackage.Validators
         static HashSet<string> s_prohibitedUnitSuffixes = new HashSet<string>
         { "cm", "mm", "in", "px", "pt", "pc" };
 
-        public static void ValidateItemContent(ItemContext it, IXPathNavigable contentElement, IXPathNavigable html, bool brailleSupported, string language, ItemStandard primaryStandard)
+        public static void ValidateItemContent(ItemContext it, IXPathNavigable contentElement, IXPathNavigable html, bool brailleSupported, string language, SmarterApp.ContentSpecId primaryStandard)
         {
             var htmlNav = html.CreateNavigator();
 
@@ -56,8 +56,8 @@ namespace TabulateSmarterTestContentPackage.Validators
             {
                 // Silencing is appropriate for ELA Claim 2 Target 9
                 if (primaryStandard == null
-                    || !primaryStandard.Subject.Equals("ELA", StringComparison.Ordinal)
-                    || !primaryStandard.Claim.StartsWith("2")
+                    || primaryStandard.Subject != SmarterApp.ContentSpecSubject.ELA
+                    || primaryStandard.Claim != SmarterApp.ContentSpecClaim.C2
                     || !primaryStandard.Target.StartsWith("9"))
                 {
                     ValidateTtsSilencingTags(it, contentElement.CreateNavigator(), htmlNav, brailleSupported);

@@ -916,14 +916,14 @@ namespace TabulateSmarterTestContentPackage
             }
 
             // Standards Alignment
-            var standards = ItemStandardExtractor.Extract(it, xmlMetadata);
-            var reportingStandard = ItemStandardExtractor.ValidateAndSummarize(it, standards, subject, grade);
+            var standards = ItemStandardExtractor.Extract(it, grade, xmlMetadata);
+            var reportingStandard = ItemStandardExtractor.Summarize(it, standards, subject, grade);
 
             // MathematicalPractice
             var mathematicalPractice = MathematicalPracticeFromMetadata(xmlMetadata, sXmlNs);
             if (string.IsNullOrEmpty(mathematicalPractice)
-                && string.Equals(subject, "MATH", StringComparison.OrdinalIgnoreCase)
-                && (standards[0].Claim.Equals("2", StringComparison.Ordinal) || standards[0].Claim.Equals("3", StringComparison.Ordinal) || standards[0].Claim.Equals("4", StringComparison.Ordinal)))
+                && standards[0].Subject == SmarterApp.ContentSpecSubject.Math
+                && (standards[0].Claim >= SmarterApp.ContentSpecClaim.C2 && standards[0].Claim <= SmarterApp.ContentSpecClaim.C4))
             {
                 ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Degraded, "Mathematical Practice field not present for MATH claim 2, 3, or 4 item", $"claim='{standards[0].Claim}'");
             }
@@ -982,7 +982,7 @@ namespace TabulateSmarterTestContentPackage
                 CsvEncode(grade), CsvEncode(GetStatus(it, xmlMetadata)), CsvEncode(answerKey), CsvEncode(answerOptions), CsvEncode(assessmentType), CsvEncode(wordlistId), CsvEncode(stimId), CsvEncode(tutorialId),
                 CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), GlossStringFlags(aggregateGlossaryTypes), CsvEncode(media), size.ToString(), CsvEncode(depthOfKnowledge), CsvEncode(allowCalculator), 
                 CsvEncode(mathematicalPractice), CsvEncode(maximumNumberOfPoints),
-                CsvEncode(standards[0].Claim), CsvEncodeExcel(standards[0].Target),
+                CsvEncode(standards[0].Claim.ToString()), CsvEncodeExcel(standards[0].Target),
                 CsvEncode(reportingStandard.PrimaryCCSS),
                 CsvEncode(reportingStandard.PrimaryClaimContentTarget),
                 CsvEncode(reportingStandard.SecondaryCCSS),
@@ -1764,7 +1764,7 @@ namespace TabulateSmarterTestContentPackage
             "himi"
         });
 
-        void ValidateContentAndWordlist(ItemContext it, XmlDocument xml, bool brailleSupported, ItemStandard primaryStandard,
+        void ValidateContentAndWordlist(ItemContext it, XmlDocument xml, bool brailleSupported, SmarterApp.ContentSpecId primaryStandard,
             out string rWordlistId, out int rEnglishCharacterCount, out GlossaryTypes rAggregateGlossaryTypes)
         {
             // Compose lists of referenced term Indices and Names
