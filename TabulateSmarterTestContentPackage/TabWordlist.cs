@@ -569,19 +569,23 @@ namespace TabulateSmarterTestContentPackage
             {
                 Int32 header0;
                 Int32 header4;
-                using (var file = new BinaryReader(ff.GetFile(filename).Open()))
+                FileFile fxz;
+                if (ff.TryGetFile(filename, out fxz)) // Tolerate missing file; it's reported in ProcessGlossaryAttachment.
                 {
-                    header0 = file.ReadInt32();
-                    header4 = file.ReadInt32();
-                }
+                    using (var file = new BinaryReader(fxz.Open()))
+                    {
+                        header0 = file.ReadInt32();
+                        header4 = file.ReadInt32();
+                    }
 
-                string foundFormat = (header0 == c_oggHeader) ? c_ogg
-                    : ((header4 == c_m4aHeader) ? c_m4a : "unknown");
+                    string foundFormat = (header0 == c_oggHeader) ? c_ogg
+                        : ((header4 == c_m4aHeader) ? c_m4a : "unknown");
 
-                if (!string.Equals(extension, foundFormat, StringComparison.Ordinal))
-                {
-                    ReportingUtility.ReportWitError(it, ii, ErrorSeverity.Degraded, "Audio Glossary file is not in expected format.",
-                        $"term = '{term}' filename='{filename}' expectedFormat='{extension}' actualFormat='{foundFormat}'");
+                    if (!string.Equals(extension, foundFormat, StringComparison.Ordinal))
+                    {
+                        ReportingUtility.ReportWitError(it, ii, ErrorSeverity.Degraded, "Audio Glossary file is not in expected format.",
+                            $"term = '{term}' filename='{filename}' expectedFormat='{extension}' actualFormat='{foundFormat}'");
+                    }
                 }
             }
         }
