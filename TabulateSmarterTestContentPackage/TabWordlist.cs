@@ -378,6 +378,13 @@ namespace TabulateSmarterTestContentPackage
                         ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Degraded, "Translated glossary entry lacks audio.", "term='{0}' index='{1}'", term, index);
                     }
 
+                    // Report error if Burmese translation includes Zawgyi characters
+                    if (gt == GlossaryTypes.Burmese && HasZawgyiCharacters(html))
+                    {
+                        ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Degraded, "Burmese translated glossary uses Zawgyi characters, should be Unicode.",
+                            $"term='{term}' index='{index}' translation='{html}'");
+                    }
+
                     string folderDescription = string.Concat(mPackage.Name, "/", ii.FolderName);
 
                     // Folder,WIT_ID,ItemId,Index,Term,Language,Length,Audio,AudioSize,Image,ImageSize
@@ -429,6 +436,12 @@ namespace TabulateSmarterTestContentPackage
                         ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Benign, "Unreferenced wordlist attachment file.", "filename='{0}'", pair.Key);
                     }
                 }
+            }
+
+            // Validate all referenced attachments
+            foreach(var pair in attachmentToReference)
+            {
+                ValidateMediaFile(itemIt, ii, ff, pair.Key, wordlistTerms[pair.Value.TermIndex]);
             }
 
             return aggregateGlossariesFound;
@@ -538,6 +551,63 @@ namespace TabulateSmarterTestContentPackage
             }
             return (result == 0) ? string.Empty : result.ToString();
             */
+        }
+
+        const string c_ogg = ".ogg";
+        const string c_m4a = ".m4a";
+        const Int32 c_oggHeader = 0x5367674f;   // OggS in hex
+        const Int32 c_m4aHeader = 0x70797466;   // ftyp in hex
+
+        static void ValidateMediaFile(ItemContext it, ItemIdentifier ii, FileFolder ff, string filename, string term)
+        {
+            // Presently we only validate .ogg and .m4a file formats.
+            // We have seen .m4a files named .ogg which caused problems with certain browsers.
+            string extension = Path.GetExtension(filename).ToLowerInvariant();
+
+            if (extension.Equals(c_ogg, StringComparison.Ordinal)
+                || extension.Equals(c_m4a, StringComparison.Ordinal))
+            {
+                Int32 header0;
+                Int32 header4;
+                FileFile fxz;
+                if (ff.TryGetFile(filename, out fxz)) // Tolerate missing file; it's reported in ProcessGlossaryAttachment.
+                {
+                    using (var file = new BinaryReader(fxz.Open()))
+                    {
+                        header0 = file.ReadInt32();
+                        header4 = file.ReadInt32();
+                    }
+
+                    string foundFormat = (header0 == c_oggHeader) ? c_ogg
+                        : ((header4 == c_m4aHeader) ? c_m4a : "unknown");
+
+                    if (!string.Equals(extension, foundFormat, StringComparison.Ordinal))
+                    {
+                        ReportingUtility.ReportWitError(it, ii, ErrorSeverity.Degraded, "Audio Glossary file is not in expected format.",
+                            $"term = '{term}' filename='{filename}' expectedFormat='{extension}' actualFormat='{foundFormat}'");
+                    }
+                }
+            }
+        }
+
+        const char c_minZawgyi = '\x1060';
+        const char c_maxZawgyi = '\x1097';
+
+        /// <summary>
+        /// Characters in the range of 0x1060 to 0x1097 inclusive are used in Zawgyi-encoded Burmese
+        /// but not in Unicode-encoded Burmese - unless certain dialects are included.
+        /// Therefore, the presence of these characters is an indication that Burmese text is
+        /// using the Zawgyi character set instead of the Unicode character set it should be using.
+        /// </summary>
+        /// <param name="s">String to check for Zawgyi characters</param>
+        /// <returns>True if any Zawgyi characters were detected. Otherwise false.</returns>
+        static bool HasZawgyiCharacters(string s)
+        {
+            foreach (char c in s)
+            {
+                if (c >= c_minZawgyi && c <= c_maxZawgyi) return true;
+            }
+            return false;
         }
 
         class TermAttachmentReference

@@ -23,7 +23,7 @@ Command Line Examples:
         Tabulates all "".zip"" test packages in the ""D:\Packages"" folder.
 
     -a ""D:\Packages\*.zip""
-        Tabulates all "".zip"" test packages in teh ""D:\Packages"" folder
+        Tabulates all "".zip"" test packages in the ""D:\Packages"" folder
         and aggregates the results into one set of reports. The names being
         ""Aggregate_SummaryReport.txt"", ""Aggregate_ItemReport.csv"" and so
         forth.
@@ -210,6 +210,7 @@ Validation Options:
             a target matches the grade alignment in the item attributes.
     -v-dbc  Deprecated Braille Coding: Suppresses braille errors when
             deprecated older codes and conventions are used.
+    -v-mst  Manifest: Disable checking for manifest errors.
 
     -v+all  Enable all optional validation and tabulation features.
     -v+umf  Unreferenced Media File: Enables checking whether media files are
@@ -509,7 +510,7 @@ Error severity definitions:
                             tab.DeDuplicate = s_deDuplicate;
                             if (operation.IdFilename != null)
                             {
-                                tab.SelectItems(new IdReadable(operation.IdFilename, c_DefaultBankKey));
+                                tab.SelectItems(new IdReadable(operation.IdFilename, s_bankKey));
                             }
                             tab.Tabulate(testPackage);
                         }
@@ -560,7 +561,7 @@ Error severity definitions:
                         {
                             if (operation.IdFilename != null)
                             {
-                                tab.SelectItems(new IdReadable(operation.IdFilename, c_DefaultBankKey));
+                                tab.SelectItems(new IdReadable(operation.IdFilename, s_bankKey));
                             }
                             tab.Tabulate(testPackage);
                         }
@@ -601,7 +602,11 @@ Error severity definitions:
         // Returns true if the folder is valid and the file could be created
         static bool ValidateOutputPrefix(ref string path)
         {
-            string directory = Path.GetFullPath(Path.GetDirectoryName(path));
+            string directory = Path.GetDirectoryName(path);
+            if (string.IsNullOrEmpty(directory))
+                directory = Environment.CurrentDirectory;
+            else
+                directory = Path.GetFullPath(directory);
             string fileprefix = Path.GetFileName(path);
             if (!Directory.Exists(directory))
             {
