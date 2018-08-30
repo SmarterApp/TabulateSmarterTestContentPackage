@@ -116,7 +116,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                                 // Special case for "background-color". Transparent is acceptable.
                                 if (name.Equals("background-color", StringComparison.Ordinal))
                                 {
-                                    if (!value.Equals("transparent", StringComparison.OrdinalIgnoreCase))
+                                    if (!value.Equals("transparent", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(value))
                                     {
                                         ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
                                             $"Item content has style property that may interfere with color contrast.", $"style='{name}' element='{StartTagXml(ele)}'");
@@ -137,7 +137,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                                 }
 
                                 // Check for prohibited style properties
-                                else if (s_prohibitedStyleProperties.TryGetValue(name, out interferesWith))
+                                else if (s_prohibitedStyleProperties.TryGetValue(name, out interferesWith) && !string.IsNullOrEmpty(value))
                                 {
                                     ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
                                         $"Item content has style property that may interfere with {interferesWith}.", $"style='{name}' element='{StartTagXml(ele)}'");
