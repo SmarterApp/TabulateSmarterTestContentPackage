@@ -916,14 +916,14 @@ namespace TabulateSmarterTestContentPackage
             }
 
             // Standards Alignment
-            var standards = ItemStandardExtractor.Extract(it, xmlMetadata);
-            var reportingStandard = ItemStandardExtractor.ValidateAndSummarize(it, standards, subject, grade);
+            var standards = ItemStandardExtractor.Extract(it, grade, xmlMetadata);
+            var reportingStandard = ItemStandardExtractor.Summarize(it, standards, subject, grade);
 
             // MathematicalPractice
             var mathematicalPractice = MathematicalPracticeFromMetadata(xmlMetadata, sXmlNs);
             if (string.IsNullOrEmpty(mathematicalPractice)
-                && string.Equals(subject, "MATH", StringComparison.OrdinalIgnoreCase)
-                && (standards[0].Claim.Equals("2", StringComparison.Ordinal) || standards[0].Claim.Equals("3", StringComparison.Ordinal) || standards[0].Claim.Equals("4", StringComparison.Ordinal)))
+                && standards[0].Subject == SmarterApp.ContentSpecSubject.Math
+                && (standards[0].Claim >= SmarterApp.ContentSpecClaim.C2 && standards[0].Claim <= SmarterApp.ContentSpecClaim.C4))
             {
                 ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Degraded, "Mathematical Practice field not present for MATH claim 2, 3, or 4 item", $"claim='{standards[0].Claim}'");
             }
@@ -938,7 +938,7 @@ namespace TabulateSmarterTestContentPackage
             string wordlistId;
             int englishCharacterCount;
             GlossaryTypes aggregateGlossaryTypes;
-            ValidateContentAndWordlist(it, xml, !string.IsNullOrEmpty(brailleType), out wordlistId, out englishCharacterCount, out aggregateGlossaryTypes);
+            ValidateContentAndWordlist(it, xml, !string.IsNullOrEmpty(brailleType), standards[0], out wordlistId, out englishCharacterCount, out aggregateGlossaryTypes);
 
             // Stimulus ID
             var stimId = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='stm_pass_id']/val").Trim();
@@ -965,17 +965,6 @@ namespace TabulateSmarterTestContentPackage
             // DepthOfKnowledge
             var depthOfKnowledge = DepthOfKnowledgeFromMetadata(xmlMetadata, sXmlNs);
 
-            // Check for silencing tags
-            if (Program.gValidationOptions.IsEnabled("tss"))
-            {
-                if (HasTtsSilencingTags(xml) 
-                    && !(standards[0].Claim.StartsWith("2") && standards[0].Target.StartsWith("9")) )
-                {
-                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable, "Item has improper TTS Silencing Tag", "subject='{0}' claim='{1}' target='{2}'", subject, 
-                        standards[0].Claim, standards[0].Target);
-                }
-            }
-
             if (Program.gValidationOptions.IsEnabled("asl") && !string.IsNullOrEmpty(asl) && englishCharacterCount > 0)
             {
                 AslVideoValidator.Validate(it, xml, englishCharacterCount, mAslStat);
@@ -993,7 +982,7 @@ namespace TabulateSmarterTestContentPackage
                 CsvEncode(grade), CsvEncode(GetStatus(it, xmlMetadata)), CsvEncode(answerKey), CsvEncode(answerOptions), CsvEncode(assessmentType), CsvEncode(wordlistId), CsvEncode(stimId), CsvEncode(tutorialId),
                 CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), GlossStringFlags(aggregateGlossaryTypes), CsvEncode(media), size.ToString(), CsvEncode(depthOfKnowledge), CsvEncode(allowCalculator), 
                 CsvEncode(mathematicalPractice), CsvEncode(maximumNumberOfPoints),
-                CsvEncode(standards[0].Claim), CsvEncodeExcel(standards[0].Target),
+                CsvEncode(standards[0].Claim.ToString()), CsvEncodeExcel(standards[0].Target),
                 CsvEncode(reportingStandard.PrimaryCCSS),
                 CsvEncode(reportingStandard.PrimaryClaimContentTarget),
                 CsvEncode(reportingStandard.SecondaryCCSS),
@@ -1279,7 +1268,7 @@ namespace TabulateSmarterTestContentPackage
             string wordlistId;
             int englishCharacterCount;
             GlossaryTypes aggregateGlossaryTypes;
-            ValidateContentAndWordlist(it, xml, !string.IsNullOrEmpty(brailleType), out wordlistId, out englishCharacterCount, out aggregateGlossaryTypes);
+            ValidateContentAndWordlist(it, xml, !string.IsNullOrEmpty(brailleType), null, out wordlistId, out englishCharacterCount, out aggregateGlossaryTypes);
 
             // ASL
             string asl = GetAslType(it, xml, xmlMetadata);
@@ -1373,7 +1362,7 @@ namespace TabulateSmarterTestContentPackage
             string wordlistId;
             int englishCharacterCount;
             GlossaryTypes aggregateGlossaryTypes;
-            ValidateContentAndWordlist(it, xml, !string.IsNullOrEmpty(brailleType), out wordlistId, out englishCharacterCount, out aggregateGlossaryTypes);
+            ValidateContentAndWordlist(it, xml, !string.IsNullOrEmpty(brailleType), null, out wordlistId, out englishCharacterCount, out aggregateGlossaryTypes);
 
             // ASL
             var asl = GetAslType(it, xml, xmlMetadata);
@@ -1755,13 +1744,6 @@ namespace TabulateSmarterTestContentPackage
             return result;
         }
 
-        private static bool HasTtsSilencingTags(XmlNode xml)
-        {
-            return xml.SelectNodes("//readAloud/textToSpeechPronunciation")
-                .Cast<XmlElement>()
-                .Any(node => node.InnerText.Length == 0);
-        }
-
         private class BrailleTypeComparer : IComparer<string>
         {
             public int Compare(string x, string y)
@@ -1782,7 +1764,8 @@ namespace TabulateSmarterTestContentPackage
             "himi"
         });
 
-        void ValidateContentAndWordlist(ItemContext it, XmlDocument xml, bool brailleSupported, out string rWordlistId, out int rEnglishCharacterCount, out GlossaryTypes rAggregateGlossaryTypes)
+        void ValidateContentAndWordlist(ItemContext it, XmlDocument xml, bool brailleSupported, SmarterApp.ContentSpecId primaryStandard,
+            out string rWordlistId, out int rEnglishCharacterCount, out GlossaryTypes rAggregateGlossaryTypes)
         {
             // Compose lists of referenced term Indices and Names
             var termIndices = new List<int>();
@@ -1829,7 +1812,7 @@ namespace TabulateSmarterTestContentPackage
 
                                     // Perform other CDATA validation
                                     // (Includes styles, img tags, etc)
-                                    CDataValidator.ValidateItemContent(it, contentElement, html, brailleSupported, language);
+                                    CDataValidator.ValidateItemContent(it, contentElement, html, brailleSupported, language, primaryStandard);
                                 }
                             }
                         }
@@ -2248,6 +2231,12 @@ namespace TabulateSmarterTestContentPackage
                     Console.WriteLine($"   Not a content package; '{cImsManifest}' must exist in root.");
                     ReportingUtility.ReportError(string.Empty, ErrorCategory.Manifest, ErrorSeverity.Severe, $"Not a content package; '{cImsManifest}' must exist in root.");
                     return false;
+                }
+
+                // Optionally suppress manifest validation
+                if (!Program.gValidationOptions.IsEnabled("mst"))
+                {
+                    return true;
                 }
 
                 // Load the manifest

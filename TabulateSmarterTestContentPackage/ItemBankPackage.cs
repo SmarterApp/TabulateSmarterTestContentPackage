@@ -22,6 +22,7 @@ namespace TabulateSmarterTestContentPackage
             m_name = uri.Host;
             m_gitLab = new GitLab(url, accessToken);
             m_namespace = ns;
+            m_gitLab.VerifyAccess(m_namespace);
         }
 
         public override string Name => m_name;

@@ -37,209 +37,161 @@ namespace TabulateSmarterTestContentPackage.Extractors
             s_nsMetadata.AddNamespace("sa", "http://www.smarterapp.org/ns/1/assessment_item_metadata");
         }
 
-        public static IReadOnlyList<ItemStandard> Extract(ItemIdentifier ii, IXPathNavigable metadata)
+        public static IReadOnlyList<SmarterApp.ContentSpecId> Extract(ItemIdentifier ii, string strGrade, IXPathNavigable metadata)
         {
-            // Get the primary standard
-            var result = new List<ItemStandard>();
-            Extract(ii, metadata, "PrimaryStandard", result);
-            if (result.Count == 0)
+            var grade = SmarterApp.ContentSpecId.ParseGrade(strGrade);
+            if (grade == SmarterApp.ContentSpecGrade.Unspecified)
             {
-                ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "No PrimaryStandard found in metadata.");
-            }
-            if (result.Count != 1)
-            {
-                ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Found more than one PrimaryStandard.", $"count='{result.Count}'");
+                ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Invalid grade attribute.", $"grade='{strGrade}'");
             }
 
-            // Get any secondary standards
-            Extract(ii, metadata, "SecondaryStandard", result);
+            XPathNavigator root = metadata.CreateNavigator();
+
+            List<SmarterApp.ContentSpecId> result = null;
+
+            // Enumerate each standard publication
+            foreach (XPathNavigator publication in root.Select($".//sa:StandardPublication", s_nsMetadata))
+            {
+                string pubName = (publication.Evaluate("string(sa:Publication)", s_nsMetadata) as string) ?? string.Empty;
+                var pubStandards = new List<SmarterApp.ContentSpecId>();
+
+                Extract(ii, grade, publication, "PrimaryStandard", pubStandards);
+                if (pubStandards.Count == 0)
+                {
+                    ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "No PrimaryStandard found for StandardPublication.", $"publication='{pubName}'");
+                }
+                else if (pubStandards.Count != 1)
+                {
+                    ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Found more than one PrimaryStandard.", $"publication='{pubName}' count='{pubStandards.Count}'");
+                }
+
+                // Get any secondary standards
+                Extract(ii, grade, publication, "SecondaryStandard", pubStandards);
+
+                // If at least two standards, update the domain for the first
+                if (pubStandards.Count >= 2)
+                {
+                    pubStandards[0].SetDomainFromClaimOneId(pubStandards[1]);
+                }
+
+                if (pubStandards.Count == 0)
+                {
+                    continue;
+                }
+
+                // If no result yet, set it
+                if (result == null)
+                {
+                    result = pubStandards;
+                }
+
+                // Else merge and compare with prior publications
+                else
+                {
+                    int count = Math.Min(result.Count, pubStandards.Count);
+                    int i; // Counter persists after comparison
+                    for (i=0; i<count; ++i)
+                    {
+                        // Replace the result if parse was more successful
+                        if (result[i].ParseErrorSeverity > pubStandards[i].ParseErrorSeverity)
+                        {
+                            result[i] = pubStandards[i];
+                        }
+                        // If new standard was not a failure then compare
+                        else if (pubStandards[i].ParseErrorSeverity != SmarterApp.ErrorSeverity.Invalid)
+                        {
+                            // If standards don't match then report an error.
+                            if (!StandardsMatch(result[i], pubStandards[i]))
+                            {
+                                ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Standards from different publications don't match.",
+                                    $"pub1='{result[i].ParseFormat}' pub2='{pubStandards[i].ParseFormat}' "
+                                    + $"std1='{result[i].ToString(SmarterApp.ContentSpecIdFormat.Enhanced)}' std2='{pubStandards[i].ToString(SmarterApp.ContentSpecIdFormat.Enhanced)}'");
+                            }
+
+                            // If new publication has CCSS replace
+                            // That's because some publication formats don't include CCSS
+                            // and we want to make sure it's in place
+                            if (!string.IsNullOrEmpty(pubStandards[i].CCSS))
+                            {
+                                result[i] = pubStandards[i];
+                            }
+                        }
+                    }
+
+                    // So long as there are more results in the new publication, add them
+                    for (; i<pubStandards.Count; ++i)
+                    {
+                        result.Add(pubStandards[i]);
+                    }
+                }
+            }
+
+            // If at least two standards, update the domain for the first
+            // (This was already done on pubStandards, but we do it again because lists may have been merged)
+            if (result.Count >= 2)
+            {
+                result[0].SetDomainFromClaimOneId(result[1]);
+            }
 
             // Do not return an empty result - make a blank one if necessary
-            if (result.Count == 0)
+            if (result == null)
             {
-                result.Add(new ItemStandard());
+                result = new List<SmarterApp.ContentSpecId>();
+                result.Add(new SmarterApp.ContentSpecId());
             }
 
             return result;
         }
 
-        private static void Extract(ItemIdentifier ii, IXPathNavigable metadata, string standard, List<ItemStandard> result)
+        // Only match on Subject, Grade, Claim and Target.
+        // (ContentSpecId.Equals includes domain and ccss in the comparison)
+        private static bool StandardsMatch(SmarterApp.ContentSpecId a, SmarterApp.ContentSpecId b)
         {
-            XPathNavigator root = metadata.CreateNavigator();
-            ItemStandard std = new ItemStandard(); // A new standard has empty string for all values
-            HashSet<string> stdEncountered = new HashSet<string>();
-            HashSet<string> pubEncountered = new HashSet<string>();
+            return a.Subject == b.Subject
+                && a.Grade == b.Grade
+                && a.Claim == b.Claim
+                && string.Equals(a.Target, b.Target, StringComparison.Ordinal);
+        }
 
-            // Look at all values for the specified Primary or Secondary standard.
-            // Merge values if different publications. Add values if same publication.
-            foreach (XPathNavigator node in root.Select($".//sa:{standard}", s_nsMetadata))
+        private static void Extract(ItemIdentifier ii, SmarterApp.ContentSpecGrade grade, XPathNavigator publication, string tag, List<SmarterApp.ContentSpecId> result)
+        {
+            foreach (XPathNavigator standard in publication.Select(string.Concat("sa:", tag), s_nsMetadata))
             {
-                // Check whether we have processed this standard yet. Skip if so.
-                if (!stdEncountered.Add(node.Value))
+                string stdStr = standard.Value ?? string.Empty;
+
+                // Attempt to parse the standard
+                var csid = SmarterApp.ContentSpecId.TryParse(stdStr, grade);
+                if (csid.ParseErrorSeverity == SmarterApp.ErrorSeverity.Invalid)
                 {
-                    continue;
+                    ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, $"{tag} failed to parse.", $"value='{stdStr}' err='{csid.ParseErrorDescription}'");
+                }
+                else if (csid.ParseErrorSeverity == SmarterApp.ErrorSeverity.Corrected)
+                {
+                    ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, $"{tag} has correctable error.", $"value='{stdStr}' err='{csid.ParseErrorDescription}'");
+                }
+                else if (csid.Validate() == SmarterApp.ErrorSeverity.Invalid)
+                {
+                    ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, $"{tag} validation error.", $"value='{stdStr}' err='{csid.ValidationErrorDescription}'");
                 }
 
-                var parts = node.Value.Split(c_standardDelimiters);
-                if (parts.Length < 2)
+                //if (csid.ParseErrorSeverity != SmarterApp.ErrorSeverity.Invalid)
                 {
-                    ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, $"{standard} metadata does not match expected format.", $"standard='{node.Value}'");
-                    continue;
+                    result.Add(csid);
                 }
-
-                // If this publication has been encountered and the standard is not empty
-                // add existing value to the list
-                if (pubEncountered.Contains(parts[0]))
-                {
-                    if (!std.IsEmpty)
-                    {
-                        result.Add(std);
-                        std = new ItemStandard();
-                    }
-                    pubEncountered.Clear();
-                }
-
-                // Set the common field
-                if (string.IsNullOrEmpty(std.Standard))
-                {
-                    std.Standard = node.Value;
-                }
-                else
-                {
-                    std.Standard = string.Concat(std.Standard, ";", node.Value);
-                }
-
-                // Parse out the standard according to which publication
-                switch (parts[0])
-                {
-                    case "SBAC-MA-v4":
-                    case "SBAC-MA-v5":
-                        std.Subject = cSubjectMath;
-                        SetCheckMatch(ii, "Claim", std.Standard, ref std.Claim, parts, 1);
-                        SetCheckMatch(ii, "ContentDomain", std.Standard, ref std.ContentDomain, parts, 2);
-                        SetTargetCheckMatch(ii, std.Standard, std, parts, 3);
-                        SetCheckMatch(ii, "Emphasis", std.Standard, ref std.Emphasis, parts, 4);
-                        SetCheckMatch(ii, "CCSS", std.Standard, ref std.CCSS, parts, 5);
-                        break;
-
-                    case "SBAC-MA-v6":
-                        std.Subject = cSubjectMath;
-                        SetCheckMatch(ii, "Claim", std.Standard, ref std.Claim, parts, 1);
-                        SetCheckMatch(ii, "ContentCategory", std.Standard, ref std.ContentCategory, parts, 2);
-                        SetCheckMatch(ii, "TargetSet", std.Standard, ref std.TargetSet, parts, 3);
-                        SetTargetCheckMatch(ii, std.Standard, std, parts, 4);
-                        break;
-
-                    case "SBAC-ELA-v1":
-                        std.Subject = cSubjectEla;
-                        SetCheckMatch(ii, "Claim", std.Standard, ref std.Claim, parts, 1);
-                        SetTargetCheckMatch(ii, std.Standard, std, parts, 2);
-                        SetCheckMatch(ii, "CCSS", std.Standard, ref std.CCSS, parts, 3);
-                        break;
-                }
-
-                pubEncountered.Add(parts[0]);
-
-            }
-            if (!std.IsEmpty)
-            {
-                result.Add(std);
             }
         }
 
-        private static void SetCheckMatch(ItemIdentifier ii, string fieldName, string standard, ref string rDest, string[] vals, int index)
+        public static ReportingStandard Summarize(ItemIdentifier ii, IReadOnlyList<SmarterApp.ContentSpecId> standards, string expectedSubject, string expectedGrade)
         {
-            if (vals.Length <= index)
-            {
-                return;
-            }
-            SetCheckMatch(ii, fieldName, standard, ref rDest, vals[index]);
-        }
-
-        private static void SetCheckMatch(ItemIdentifier ii, string fieldName, string standard, ref string rDest, string value)
-        {
-            if (string.IsNullOrEmpty(rDest))
-            {
-                rDest = value;
-                return;
-            }
-            if (!string.Equals(rDest, value, System.StringComparison.Ordinal))
-            {
-                ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, $"Standard publications specify conflicting metadata.", $"property='{fieldName}' val1='{rDest}' val1='{value}' standards='{standard}'");
-            }
-        }
-
-        private static void SetTargetCheckMatch(ItemIdentifier ii, string standard, ItemStandard std, string[] vals, int index)
-        {
-            if (vals.Length <= index) return;
-
-            // Target may have a grade level suffix. If so, separate it and set both parts
-            string target = vals[index];
-            string grade;
-            int tlen = target.Length;
-            int cursor = target.Length;
-            while (cursor > 0 && char.IsDigit(target[cursor - 1])) --cursor;
-            if (cursor > 0 && target[cursor - 1] == '-')
-            {
-                cursor--;
-                grade = target.Substring(cursor + 1);
-                target = target.Substring(0, cursor);
-            }
-            else
-            {
-                grade = string.Empty;   // When target doesn't have a suffix, grade is empty
-            }
-
-            SetCheckMatch(ii, "Target", standard, ref std.Target, target);
-            SetCheckMatch(ii, "Grade", standard, ref std.Grade, grade);
-        }
-
-
-        public static ReportingStandard ValidateAndSummarize(ItemIdentifier ii, IReadOnlyList<ItemStandard> standards, string expectedSubject, string expectedGrade)
-        {
-            // Validate each of the standards in the list
-            foreach (var standard in standards)
-            {
-                // Validate claim
-                if (!sValidClaims.Contains(standard.Claim))
-                {
-                    ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Degraded, "Unexpected claim value (should be 1, 2, 3, or 4 with possible suffix).", $"Claim='{standard.Claim}'");
-                }
-
-                // Validate subject
-                if (!standard.Subject.Equals(expectedSubject, StringComparison.OrdinalIgnoreCase))
-                {
-                    ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable,
-                        "Metadata standard publication indicates subject different from item.",
-                        $"ItemAttributeSubject='{expectedSubject}' MetadataSubject='{standard.Subject}'");
-                }
-
-                // Validate grade (derived from target suffix)
-                if (!standard.Grade.Equals(expectedGrade, System.StringComparison.Ordinal) && Program.gValidationOptions.IsEnabled("tgs"))
-                {
-                    if (string.IsNullOrEmpty(standard.Grade))
-                    {
-                        ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable,
-                            "Grade level target suffix not included in standard reference.",
-                            $"ItemAttributeGrade='{expectedGrade}' StandardString='{standard.Standard}'");
-                    }
-                    else
-                    {
-                        ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable,
-                            "Target suffix indicates a different grade from item attribute.",
-                            $"ItemAttributeGrade='{expectedGrade}' TargetSuffixGrade='{standard.Grade}' StandardString='{standard.Standard}'");
-                    }
-                }
-            }
-
             // === Extract the Primary CCSS ===
 
             //   Special case for Math claims 2,3,4. In those cases the primary CCSS is
             //   supplied on a secondary standard string with claim 1.
             string primaryCCSS = string.Empty;
             int primaryCcssIndex = -1;
-            if (standards[0].Subject.Equals(cSubjectMath, StringComparison.OrdinalIgnoreCase)
-                && standards[0].Claim.Length > 0 && standards[0].Claim[0] >= '2' && standards[0].Claim[0] <= '4')
+            if (standards[0].Subject == SmarterApp.ContentSpecSubject.Math
+                && standards[0].Claim >= SmarterApp.ContentSpecClaim.C2 
+                && standards[0].Claim <= SmarterApp.ContentSpecClaim.C4)
             {
                 // If empty CCSS (which should be the case) find the CCSS on a claim 1 standard
                 if (string.IsNullOrEmpty(standards[0].CCSS)
@@ -247,7 +199,7 @@ namespace TabulateSmarterTestContentPackage.Extractors
                 {
                     for (int i = 1; i < standards.Count; ++i)
                     {
-                        if (standards[i].Claim.StartsWith("1")
+                        if (standards[i].Claim == SmarterApp.ContentSpecClaim.C1
                             && !string.IsNullOrEmpty(standards[i].CCSS)
                             && !standards[i].CCSS.Equals(cValueNA, StringComparison.OrdinalIgnoreCase))
                         {
@@ -285,7 +237,7 @@ namespace TabulateSmarterTestContentPackage.Extractors
             {
                 // primaryCCSS is already set to string.Empty;
                 ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable,
-                    "CCSS standard is missing from item.", $"claim='{standards[0].Claim}' standard='{standards[0].Standard}'");
+                    "CCSS standard is missing from item.", $"claim='{standards[0].Claim}' standard='{standards[0]}'");
             }
 
             // === Extract the Secondary CCSS ===
@@ -310,7 +262,7 @@ namespace TabulateSmarterTestContentPackage.Extractors
         }
 
         // Formats claim content target for reporting app.
-        public static string CombineClaimsContentTargets(IReadOnlyList<ItemStandard> itemStandards, int first, int count = 500)
+        public static string CombineClaimsContentTargets(IReadOnlyList<SmarterApp.ContentSpecId> itemStandards, int first, int count = 500)
         {
             int end = first + count;
             if (end > itemStandards.Count) end = itemStandards.Count;
@@ -318,9 +270,9 @@ namespace TabulateSmarterTestContentPackage.Extractors
             for (int i = first; i < end; ++i)
             {
                 if (result.Length > 0) result.Append(';');
-                if (itemStandards[i].Subject.Equals(cSubjectMath, StringComparison.Ordinal))
+                if (itemStandards[i].Subject == SmarterApp.ContentSpecSubject.Math)
                 {
-                    result.Append($"{itemStandards[i].Claim}|{itemStandards[i].ContentDomain}|{itemStandards[i].Target}");
+                    result.Append($"{itemStandards[i].Claim}|{itemStandards[i].LegacyDomain}|{itemStandards[i].Target}");
                 }
                 else
                 {
