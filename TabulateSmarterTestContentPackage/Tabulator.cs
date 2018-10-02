@@ -1165,9 +1165,15 @@ namespace TabulateSmarterTestContentPackage
             } // if Performance Task
 
             // Check for tutorial details
-            if (Program.gValidationOptions.IsEnabled("trd") && !(mPackage is SingleItemPackage))
+            if (Program.gValidationOptions.IsEnabled("trd")
+                && !string.IsNullOrEmpty(tutorialId)    // Missing tutorialId is reported earlier
+                && !(mPackage is SingleItemPackage))
             {
                 var bankKey = xml.XpEval("itemrelease/item/tutorial/@bankkey");
+                if (string.IsNullOrEmpty(bankKey))
+                {
+                    bankKey = it.BankKey.ToString();
+                }
 
                 // Look for the tutorial
                 var iiTutorial = new ItemIdentifier(cItemTypeTutorial, bankKey, tutorialId);
