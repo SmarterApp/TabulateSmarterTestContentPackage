@@ -247,7 +247,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                 string id = ele.GetAttribute("id", string.Empty);
 
                 // Look for an accessibility element that references this item
-                var relatedEle = accessibilityInfo.SelectSingleNode($"accessElement[contentLinkInfo/@itsLinkIdentifierRef='{id}']/relatedElementInfo/readAloud/textToSpeechPronunciation");
+                var relatedEle = accessibilityInfo?.SelectSingleNode($"accessElement[contentLinkInfo/@itsLinkIdentifierRef='{id}']/relatedElementInfo/readAloud/textToSpeechPronunciation");
                 if (relatedEle != null && relatedEle.InnerXml.Length == 0)
                 {
                     ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable, "Item has improper TTS Silencing Tag", $"text='{ele.InnerXml}'");

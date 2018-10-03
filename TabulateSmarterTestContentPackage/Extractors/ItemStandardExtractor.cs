@@ -126,18 +126,18 @@ namespace TabulateSmarterTestContentPackage.Extractors
                 }
             }
 
-            // If at least two standards, update the domain for the first
-            // (This was already done on pubStandards, but we do it again because lists may have been merged)
-            if (result.Count >= 2)
-            {
-                result[0].SetDomainFromClaimOneId(result[1]);
-            }
-
             // Do not return an empty result - make a blank one if necessary
             if (result == null)
             {
                 result = new List<SmarterApp.ContentSpecId>();
                 result.Add(new SmarterApp.ContentSpecId());
+            }
+
+            // If at least two standards, update the domain for the first
+            // (This was already done on pubStandards, but we do it again because lists may have been merged)
+            if (result.Count >= 2)
+            {
+                result[0].SetDomainFromClaimOneId(result[1]);
             }
 
             return result;
