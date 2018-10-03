@@ -238,7 +238,6 @@ namespace TabulateSmarterTestContentPackage.Validators
         private static void ValidateTtsSilencingTags(ItemContext it, XPathNavigator contentElement, XPathNavigator html, bool brailleSupported)
         {
             var accessibilityInfo = contentElement.SelectSingleNode("apipAccessibility/accessibilityInfo");
-
             // Select all elements that have an ID attribute
             foreach (XPathNavigator ele in html.Select("//*[@id]"))
             {
