@@ -3,9 +3,9 @@
 name: ContentSpecId.cs
 description: Class for Constructing, Parsing, and Converting Smarter Balanced Content Specification IDs
 url: https://raw.githubusercontent.com/SmarterApp/SC_ContentSpecId/master/ContentSpecId.cs
-version: 1.1
+version: 1.2
 keywords: CodeBit
-dateModified: 2018-08-29
+dateModified: 2018-10-02
 license: https://opensource.org/licenses/ECL-2.0
 # This is a CodeBit; see https://www.filemeta.org/CodeBit.html
 # Metadata in Yaml format using Schema.org properties. See https://schema.org.
@@ -819,6 +819,10 @@ namespace SmarterApp
             {
                 return ContentSpecGrade.GHS;
             }
+            else if (grade.Equals("KG"))
+            {
+                return ContentSpecGrade.GK;
+            }
             int n;
             if (int.TryParse(grade, out n))
             {
@@ -834,7 +838,7 @@ namespace SmarterApp
         /// <returns>A <see cref="ContentSpecGrade"/> if successful or <see cref="ContentSpecGrade.Unspecified"/> if not.</returns>
         public static ContentSpecGrade ConvertGrade(int grade)
         {
-            if (grade >= 3 && grade <= 8)
+            if (grade >= 1 && grade <= 8)
             {
                 return (ContentSpecGrade)grade;
             }
@@ -1080,28 +1084,17 @@ namespace SmarterApp
 
         bool TrySetGrade(string grade)
         {
-            if (string.Equals(grade, "HS", StringComparison.OrdinalIgnoreCase))
+            var g = ParseGrade(grade);
+            if (g != ContentSpecGrade.Unspecified)
             {
-                m_grade = ContentSpecGrade.GHS;
+                m_grade = g;
                 return true;
             }
-
-            int intGrade;
-            if (int.TryParse(grade, out intGrade))
+            else
             {
-                if (intGrade >= 1 && intGrade <= 8)
-                {
-                    m_grade = (ContentSpecGrade)intGrade;    // The grade IDs are compatible with integers when in range
-                    return true;
-                }
-                if (intGrade >= 9 && intGrade <= 12)
-                {
-                    m_grade = ContentSpecGrade.GHS;
-                    return true;
-                }
+                AppendParseError(ErrorSeverity.Invalid, $"Grade must be integer in range 1-12, 'KG', or 'HS'. Found '{grade}'.");
+                return false;
             }
-            AppendParseError(ErrorSeverity.Invalid, $"Grade must be integer in range 1-12 or 'HS'. Found '{grade}'.");
-            return false;
         }
 
         bool TrySetSubject(string subject)
