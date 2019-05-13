@@ -1367,7 +1367,7 @@ namespace SmarterApp
 
         #endregion
 
-        #region Derived Propoerties
+        #region Derived Properties
 
         public static string DeriveDomain(ContentSpecSubject subject, ContentSpecGrade grade, ContentSpecClaim claim, string target)
         {

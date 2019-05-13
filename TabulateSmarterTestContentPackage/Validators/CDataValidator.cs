@@ -55,10 +55,12 @@ namespace TabulateSmarterTestContentPackage.Validators
             if (language.Equals("ENU", StringComparison.OrdinalIgnoreCase) && Program.gValidationOptions.IsEnabled("tss"))
             {
                 // Silencing is appropriate for ELA Claim 2 Target 9
+                // on 2019-05-09, the checks for ELA, Claim 2, and Target 9 were all set to !=. Not sure if this was intentional or not, but
+                // shouldn't the logic be if the subject is equal to ELA, Claim equal to 2, and Target equal to 9?
                 if (primaryStandard == null
-                    || primaryStandard.Subject != SmarterApp.ContentSpecSubject.ELA
-                    || primaryStandard.Claim != SmarterApp.ContentSpecClaim.C2
-                    || !primaryStandard.Target.StartsWith("9"))
+                    || primaryStandard.Subject == SmarterApp.ContentSpecSubject.ELA
+                    || primaryStandard.Claim == SmarterApp.ContentSpecClaim.C2
+                    || primaryStandard.Target.StartsWith("9"))
                 {
                     ValidateTtsSilencingTags(it, contentElement.CreateNavigator(), htmlNav, brailleSupported);
                 }

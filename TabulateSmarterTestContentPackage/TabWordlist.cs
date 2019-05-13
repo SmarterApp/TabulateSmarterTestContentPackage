@@ -11,22 +11,25 @@ namespace TabulateSmarterTestContentPackage
     partial class Tabulator
     {
         [Flags]
+        // The bitfields are based on 1, 2, 4, 8. The pattern needs to be followed
         enum GlossaryTypes : int
         {
-            None        = 0,
-            English     = 0x0001,
-            Arabic      = 0x0002,
-            Burmese     = 0x0004,
-            Cantonese   = 0x0008,
-            Filipino    = 0x0010,
-            Korean      = 0x0020,
-            Mandarin    = 0x0040,
-            Punjabi     = 0x0080,
-            Russian     = 0x0100,
-            Spanish     = 0x0200,
-            Ukranian    = 0x0400,
-            Vietnamese  = 0x0800,
-            Illustration = 0x1000
+            None         = 0,
+            English      = 0x0001,
+            Arabic       = 0x0002,
+            Burmese      = 0x0004,
+            Cantonese    = 0x0008,
+            Filipino     = 0x0010,
+            Hmong        = 0x0020,
+            Korean       = 0x0040,
+            Mandarin     = 0x0080,
+            Punjabi      = 0x0100,
+            Russian      = 0x0200,
+            Somali       = 0x0400,
+            Spanish      = 0x0800,
+            Ukranian     = 0x1000,
+            Vietnamese   = 0x2000,
+            Illustration = 0x4000
         }
 
         // These are the keywords used in the XML files for the various languages
@@ -38,45 +41,54 @@ namespace TabulateSmarterTestContentPackage
             "burmeseGlossary",
             "cantoneseGlossary",
             "tagalGlossary", // Filipino
+            "hmongGlossary",
             "koreanGlossary",
             "mandarinGlossary",
             "punjabiGlossary",
             "russianGlossary",
+            "somaliGlossary",
             "esnGlossary",  // Spanish
             "ukrainianGlossary",
             "vietnameseGlossary",
             "illustration"
         };
 
-        // These letters must be in teh same order as the enum bitfield and sKnownGlossaries 
-        static char[] sKnownGlossaryLetters = { 'E', 'A', 'B', 'C', 'F', 'K', 'M', 'P', 'R', 'S', 'U', 'V', 'I' };
+        // These letters must be in the same order as the enum bitfield and sKnownGlossaries. There are two 'S' characters: the first is for Somali, the second is for Spanish
+        static char[] sKnownGlossaryLetters = { 'E', 'A', 'B', 'C', 'F', 'H', 'K', 'M', 'P', 'R', 'S', 'S', 'U', 'V', 'I' };
 
         static Dictionary<string, GlossaryTypes> sKnownGlossariesIndex;
 
         static GlossaryTypes sExpectedTranslatedGlossaries =
             GlossaryTypes.Arabic
+            | GlossaryTypes.Burmese
             | GlossaryTypes.Cantonese
             | GlossaryTypes.Filipino
+            | GlossaryTypes.Hmong
             | GlossaryTypes.Korean
             | GlossaryTypes.Mandarin
             | GlossaryTypes.Punjabi
             | GlossaryTypes.Russian
+            | GlossaryTypes.Somali
             | GlossaryTypes.Spanish
             | GlossaryTypes.Ukranian
-            | GlossaryTypes.Vietnamese;
+            | GlossaryTypes.Vietnamese
+            | GlossaryTypes.Illustration;
 
         static GlossaryTypes sAllTranslatedGlossaries =
             GlossaryTypes.Arabic
             | GlossaryTypes.Burmese
             | GlossaryTypes.Cantonese
             | GlossaryTypes.Filipino
+            | GlossaryTypes.Hmong
             | GlossaryTypes.Korean
             | GlossaryTypes.Mandarin
             | GlossaryTypes.Punjabi
             | GlossaryTypes.Russian
+            | GlossaryTypes.Somali
             | GlossaryTypes.Spanish
             | GlossaryTypes.Ukranian
-            | GlossaryTypes.Vietnamese;
+            | GlossaryTypes.Vietnamese
+            | GlossaryTypes.Illustration;
 
         static void StaticInitWordlist()
         {
@@ -152,7 +164,7 @@ namespace TabulateSmarterTestContentPackage
         static readonly Regex sRxImageAttachment = new Regex(@"<img[^>]*src=""([^""]*)""[^>]*>", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
         // Attachments don't have to follow the naming convention but they usually do. When they match then we compare values.
-        // Sample: item_116605_v1_116605_01btagalog_glossary_ogg_m4a.m4a
+        // Sample: item_116605_v1_116605_01btagalog_glossary_ogg_m4a.f
         static readonly Regex sRxAttachmentNamingConvention = new Regex(@"^item_(\d+)_v\d+_(\d+)_(\d+)([a-zA-Z]+)_glossary(?:_ogg)?(?:_m4a)?(?:_ogg)?\.(?:ogg|m4a)$", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
         // Validate the wordlist vocabulary for a particular item.
@@ -365,7 +377,14 @@ namespace TabulateSmarterTestContentPackage
                     {
                         // Use RegEx to find the illustration glossary entry in the contents.
                         string filename = match.Groups[1].Value;
+
                         ProcessGlossaryAttachment(filename, itemIt, ii, index, listType, termReferenced, wordlistTerms, attachmentFiles, attachmentToReference, ref imageType, ref imageSize);
+
+                        if (!wordlistId.Equals(match.Groups[1].Value, StringComparison.Ordinal)
+                         && !wordlistId.Equals(match.Groups[2].Value, StringComparison.Ordinal))
+                        {
+                            ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Degraded, "Wordlist attachment filename indicates wordlist ID mismatch.", "filename='{0}' filenameItemId='{1}' expectedItemId='{2}'", filename, match.Groups[1].Value, wordlistId);
+                        }
                     }
                     else if (listType.Equals("illustration", StringComparison.Ordinal))
                     {
@@ -564,8 +583,8 @@ namespace TabulateSmarterTestContentPackage
             // We have seen .m4a files named .ogg which caused problems with certain browsers.
             string extension = Path.GetExtension(filename).ToLowerInvariant();
 
-            if (extension.Equals(c_ogg, StringComparison.Ordinal)
-                || extension.Equals(c_m4a, StringComparison.Ordinal))
+            if (extension.Equals(c_ogg, StringComparison.Ordinal) ||
+                extension.Equals(c_m4a, StringComparison.Ordinal))
             {
                 Int32 header0;
                 Int32 header4;

@@ -10,6 +10,8 @@ namespace TabulateSmarterTestContentPackage.Extractors
 {
     public static class ItemStandardExtractor
     {
+        public static bool HasPrimaryStandard { get; set; }
+
         const string cSubjectMath = "MATH";
         const string cSubjectEla = "ELA";
         const string cValueNA = "NA";
@@ -55,9 +57,15 @@ namespace TabulateSmarterTestContentPackage.Extractors
                 string pubName = (publication.Evaluate("string(sa:Publication)", s_nsMetadata) as string) ?? string.Empty;
                 var pubStandards = new List<SmarterApp.ContentSpecId>();
 
+                // Get the primary standard
                 Extract(ii, grade, publication, "PrimaryStandard", pubStandards);
+                HasPrimaryStandard = true; // initially set to true
+
                 if (pubStandards.Count == 0)
                 {
+                    // If there are no primary standards, do not populate the Claim, Target, CCSS, and ClaimContentTarget fields in the item report. 
+                    // These fields are for reporting the primary standard values
+                    HasPrimaryStandard = false;
                     ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "No PrimaryStandard found for StandardPublication.", $"publication='{pubName}'");
                 }
                 else if (pubStandards.Count != 1)
