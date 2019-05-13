@@ -196,7 +196,7 @@ namespace TabulateSmarterTestContentPackage
                                       "PP_ScorePoints,PP_Dimension,PP_Weight,PP_Parameters");
 
                 mStimulusReport = new StreamWriter(string.Concat(mReportPathPrefix, cStimulusReportFn), false, Encoding.UTF8);
-                mStimulusReport.WriteLine("Folder,BankKey,StimulusId,Version,Subject,Status,WordlistId,ASL,BrailleType,Translation,Glossary,Media,Size,WordCount");
+                mStimulusReport.WriteLine("Folder,BankKey,StimulusId,Version,Subject,Status,WordlistId,ASL,BrailleType,Translation,Glossary,Media,Size,WordCount,StimulusLiteraryKnowledgeDemands,StimulusLiteraryNonFiction,StimulusReadabilityFK,StimulusReadabilityLexile");
 
                 mWordlistReport = new StreamWriter(string.Concat(mReportPathPrefix, cWordlistReportFn), false, Encoding.UTF8);
                 mWordlistReport.WriteLine("Folder,BankKey,WIT_ID,RefCount,TermCount,MaxGloss,MinGloss,AvgGloss");
@@ -586,7 +586,15 @@ namespace TabulateSmarterTestContentPackage
                 ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Incorrect metadata <InteractionType>.", "InteractionType='{0}' Expected='{1}'", metaItemType, it.ItemType.ToUpperInvariant());
 
             // Get the version
-            var version = xml.XpEvalE("itemrelease/item/@version");
+            var itemVersion = xml.XpEvalE("itemrelease/item/@version");
+            var metadataVersion = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:Version", sXmlNs);
+            // Check for consistence between the version number in item xml and metadata xml. The metadata XML stores the version number in "major.minor" format, while 
+            // the item xml stores the version in "major" format. Only the "major" number is to be compared.
+            var metadataVersionValues = metadataVersion.Split('.');
+            if (!itemVersion.Equals(metadataVersionValues[0]))
+            {
+                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable, "Major version number inconsistent between item and metadata.", "Item version='{0}' Metadata major version='{1}'", itemVersion, metadataVersionValues[0]);
+            }
 
             // Subject
             var subject = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='itm_item_subject']/val");
@@ -918,6 +926,7 @@ namespace TabulateSmarterTestContentPackage
             // Standards Alignment
             var standards = ItemStandardExtractor.Extract(it, grade, xmlMetadata);
             var reportingStandard = ItemStandardExtractor.Summarize(it, standards, subject, grade);
+            bool hasPrimaryStandard = ItemStandardExtractor.HasPrimaryStandard;
 
             // MathematicalPractice
             var mathematicalPractice = MathematicalPracticeFromMetadata(xmlMetadata, sXmlNs);
@@ -951,6 +960,10 @@ namespace TabulateSmarterTestContentPackage
             }
 
             // ASL
+            // When checking for ASL, the 'file' attribute value in the <attachment> element of the <attachmentlist> in the item xml is evaluated. This is only 1/2 the story.
+            // An additional check for the .webm (or .mp4, depending on which file is referenced in the 'file' attribute) needs to be checked. Both file types types
+            // are referenced in the <source> elements within the <attachment> element
+            // This initial check shoud only return the ASL type from the 'file' attribute without actually checking if the file(s) exist
             var asl = GetAslType(it, xml, xmlMetadata);
 
             // Translation
@@ -978,13 +991,14 @@ namespace TabulateSmarterTestContentPackage
             //"Claim,Target,PrimaryCommonCore,PrimaryClaimContentTarget,SecondaryCommonCore,SecondaryClaimContentTarget,PtWritingType," +
             //"CAT_MeasurementModel,CAT_ScorePoints,CAT_Dimension,CAT_Weight,CAT_Parameters,PP_MeasurementModel," +
             //"PP_ScorePoints,PP_Dimension,PP_Weight,PP_Parameters"
-            mItemReport.WriteLine(string.Join(",", CsvEncode(it.FolderDescription), it.BankKey.ToString(), it.ItemId.ToString(), CsvEncode(it.ItemType), CsvEncode(version), CsvEncode(subject), 
+            mItemReport.WriteLine(string.Join(",", CsvEncode(it.FolderDescription), it.BankKey.ToString(), it.ItemId.ToString(), CsvEncode(it.ItemType), CsvEncode(metadataVersionValues[0]), CsvEncode(subject), 
                 CsvEncode(grade), CsvEncode(GetStatus(it, xmlMetadata)), CsvEncode(answerKey), CsvEncode(answerOptions), CsvEncode(assessmentType), CsvEncode(wordlistId), CsvEncode(stimId), CsvEncode(tutorialId),
                 CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), GlossStringFlags(aggregateGlossaryTypes), CsvEncode(media), size.ToString(), CsvEncode(depthOfKnowledge), CsvEncode(allowCalculator), 
                 CsvEncode(mathematicalPractice), CsvEncode(maximumNumberOfPoints),
-                CsvEncode(standards[0].Claim.ToString()), CsvEncodeExcel(standards[0].Target),
-                CsvEncode(reportingStandard.PrimaryCCSS),
-                CsvEncode(reportingStandard.PrimaryClaimContentTarget),
+                hasPrimaryStandard ? CsvEncode(standards[0].Claim.ToString()) : "", 
+                hasPrimaryStandard ? CsvEncodeExcel(standards[0].Target) : "",
+                hasPrimaryStandard ? CsvEncode(reportingStandard.PrimaryCCSS) : "",
+                hasPrimaryStandard ? CsvEncode(reportingStandard.PrimaryClaimContentTarget) : "",
                 CsvEncode(reportingStandard.SecondaryCCSS),
                 CsvEncode(reportingStandard.SecondaryClaimsContentTargets), 
                 CsvEncode(ptWritingType),
@@ -1291,10 +1305,23 @@ namespace TabulateSmarterTestContentPackage
             // WordCount
             long wordCount = GetWordCount(it, xml);
 
+            // StimulusLiteraryKnowledgeDemands
+            string literaryKnowledgeDemands = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:StimulusLiteraryKnowledgeDemands", sXmlNs);
+
+            // StimulusLiteraryNonFiction
+            string literaryNonFiction = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:StimulusLiteraryNonFiction", sXmlNs);
+
+            // StimulusReadabilityFK
+            string readabilityFk = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:StimulusReadabilityFK", sXmlNs);
+
+            // StimulusReadabilityLexile
+            string readabilityLexile = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:StimulusReadabilityLexile", sXmlNs);
+
             // Folder,BankKey,StimulusId,Version,Subject,Status,WordlistId,ASL,BrailleType,Translation,Media,Size,WordCount
             mStimulusReport.WriteLine(string.Join(",", CsvEncode(it.FolderDescription), it.BankKey.ToString(), it.ItemId.ToString(),
                 CsvEncode(version), CsvEncode(subject), CsvEncode(GetStatus(it, xmlMetadata)), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType),
-                CsvEncode(translation), GlossStringFlags(aggregateGlossaryTypes), CsvEncode(media), size.ToString(), wordCount.ToString()));
+                CsvEncode(translation), GlossStringFlags(aggregateGlossaryTypes), CsvEncode(media), size.ToString(), wordCount.ToString(), CsvEncode(literaryKnowledgeDemands), 
+                CsvEncode(literaryNonFiction), CsvEncode(readabilityFk), CsvEncode(readabilityLexile)));
 
         } // TabulateStimulus
 
@@ -1482,7 +1509,12 @@ namespace TabulateSmarterTestContentPackage
 
         private string GetAslType(ItemContext it, XmlDocument xml, XmlDocument xmlMetadata)
         {
-            var aslFound = CheckForAttachment(it, xml, "ASL", "MP4");
+            //var aslFound = CheckForAttachment(it, xml, "ASL", "MP4");
+            // this is the file name from the 'file' attribute of the <attachment> element. 
+            // set the aslFound variable based on the filename value being there
+            var fileName = FileUtility.GetAttachmentFilename(it, xml, "ASL");
+            var aslFound = fileName == null ? false : true;
+
             if (!aslFound)
             {
                 ReportUnexpectedFiles(it, "ASL video", "^item_{0}_ASL", it.ItemId);

@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using System.Xml.XPath;
 using TabulateSmarterTestContentPackage.Models;
 using TabulateSmarterTestContentPackage.Utilities;
+using System.Collections.Generic;
 
 namespace TabulateSmarterTestContentPackage.Validators
 {
@@ -10,9 +11,64 @@ namespace TabulateSmarterTestContentPackage.Validators
     {
         public static void Validate(ItemContext it, IXPathNavigable xml, int englishCharacterCount, StatAccumulator accumulator)
         {
+            
             var attachmentFilename = FileUtility.GetAttachmentFilename(it, xml, "ASL");
-            if (string.IsNullOrEmpty(attachmentFilename)) return;
 
+            // so far, the attachmentFilename is the value from the <attachment> element. What needs to be checked is the following:
+            // 1. does the attachmentFilename match the value in the <source> element src attribute value?
+            // 2. are there two <source> elements?
+            // 3. do the files in the <source> elements exist?
+
+            if (string.IsNullOrEmpty(attachmentFilename)) {
+                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
+                    "ASL video file name missing from the item attachment 'file' attribute.");            
+                return;
+            }
+
+            var attachmentSourcePath = $"itemrelease/item/content/attachmentlist/attachment[@type='ASL']";
+            var xmlEle = xml.CreateNavigator().SelectSingleNode(attachmentSourcePath);
+            var aslFileNames = new List<string>();
+            if (xmlEle.HasChildren)
+            {                
+                xmlEle.MoveToFirstChild();
+                aslFileNames.Add(xmlEle.GetAttribute("src", ""));
+                while (xmlEle.MoveToNext())
+                {
+                    aslFileNames.Add(xmlEle.GetAttribute("src", ""));
+                }
+            }
+            else
+            {
+                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
+                    "ASL video files are missing from the attachment source list.", $"Filename: {attachmentFilename}");
+                return;
+            }
+            
+            // check if there are two source elements
+            if (aslFileNames.Count != 2)
+            {
+                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
+                    "ASL video files must have 2 file references.", $"expected: 2 found: {aslFileNames.Count}");
+                return;
+            }
+
+            // check if the MP4 file name in the <attachment> element matches at least one of the <source> elements
+            if (!aslFileNames.Contains(attachmentFilename))
+            {            
+                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
+                    "ASL video file name attribute value not found in source element.", $"Expected file name: {attachmentFilename}");                                               
+            }
+
+            // check if the file exists
+            foreach(string currentSource in aslFileNames)
+            {
+                if (!it.FfItem.FileExists(currentSource))
+                {
+                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
+                        "ASL video file is missing.", $"Filename: {currentSource}");
+                }
+            }
+            
             ValidateFilename(attachmentFilename, it);
 
             FileFile file;
