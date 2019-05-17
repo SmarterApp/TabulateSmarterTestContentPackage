@@ -1513,7 +1513,7 @@ namespace TabulateSmarterTestContentPackage
             // this is the file name from the 'file' attribute of the <attachment> element. 
             // set the aslFound variable based on the filename value being there
             var fileName = FileUtility.GetAttachmentFilename(it, xml, "ASL");
-            var aslFound = fileName == null ? false : true;
+            var aslFound = fileName == "" ? false : true;
 
             if (!aslFound)
             {
