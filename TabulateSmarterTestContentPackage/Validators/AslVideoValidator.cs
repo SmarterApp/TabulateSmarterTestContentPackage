@@ -25,7 +25,9 @@ namespace TabulateSmarterTestContentPackage.Validators
                 return;
             }
 
-            var attachmentSourcePath = $"itemrelease/item/content/attachmentlist/attachment[@type='ASL']";
+            var attachmentSourcePath = !it.IsStimulus
+                                        ? "itemrelease/item/content/attachmentlist/attachment[@type='ASL']"
+                                        : "itemrelease/passage/content/attachmentlist/attachment[@type='ASL']";
             var xmlEle = xml.CreateNavigator().SelectSingleNode(attachmentSourcePath);
             var aslFileNames = new List<string>();
             if (xmlEle.HasChildren)

@@ -1292,6 +1292,10 @@ namespace TabulateSmarterTestContentPackage
 
             // ASL
             string asl = GetAslType(it, xml, xmlMetadata);
+            if (Program.gValidationOptions.IsEnabled("asl") && !string.IsNullOrEmpty(asl) && englishCharacterCount > 0)
+            {
+                AslVideoValidator.Validate(it, xml, englishCharacterCount, mAslStat);
+            }
 
             // Translation
             string translation = GetTranslation(it, xml, xmlMetadata);
