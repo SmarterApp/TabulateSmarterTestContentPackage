@@ -391,10 +391,12 @@ namespace TabulateSmarterTestContentPackage
                         ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Degraded, "Illustration glossary entry does not include image.", "term='{0}' index='{1}'", term, index);
                     }
 
-                    // Report error if translated glossary lacks audio
-                    if ((gt & sAllTranslatedGlossaries) != 0 && string.IsNullOrEmpty(audioType))
-                    {
-                        ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Degraded, "Translated glossary entry lacks audio.", "term='{0}' index='{1}'", term, index);
+                    // Report error if translated glossary lacks audio. This check should be for all glossary types, except Illustrations
+                    if (gt != GlossaryTypes.Illustration) { 
+                        if ((gt & sAllTranslatedGlossaries) != 0 && string.IsNullOrEmpty(audioType))
+                        {
+                            ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Degraded, "Translated glossary entry lacks audio.", "term='{0}' index='{1}'", term, index);
+                        }
                     }
 
                     // Report error if Burmese translation includes Zawgyi characters
