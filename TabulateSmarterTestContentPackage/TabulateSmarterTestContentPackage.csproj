@@ -7,8 +7,8 @@
     <RuntimeIdentifiers>win-x64;win-x86</RuntimeIdentifiers>
     <NeutralLanguage />
     <Version>3.4.2.1</Version>
-    <AssemblyVersion>3.4.2.1</AssemblyVersion>
-    <FileVersion>3.4.2.0</FileVersion>
+    <AssemblyVersion>3.4.2.2</AssemblyVersion>
+    <FileVersion>3.4.2.2</FileVersion>
     <Authors>Smarter Balanced Assessment Consortium</Authors>
     <Company>Smarter Balanced Assessment Consortium</Company>
     <Description>Validates and tabulates the contents of a Smarter Balanced Test Content Package</Description>
