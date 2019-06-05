@@ -950,7 +950,8 @@ namespace TabulateSmarterTestContentPackage
             ValidateContentAndWordlist(it, xml, !string.IsNullOrEmpty(brailleType), standards[0], out wordlistId, out englishCharacterCount, out aggregateGlossaryTypes);
 
             // Stimulus ID
-            var stimId = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='stm_pass_id']/val").Trim();
+            // Retrieve the Stimulus ID from the <associatedpassage> element
+            var stimId = xml.XpEvalE("itemrelease/item/associatedpassage").Trim();            
 
             // Tutorial ID
             var tutorialId = xml.XpEvalE("itemrelease/item/tutorial/@id").Trim();
@@ -1110,13 +1111,13 @@ namespace TabulateSmarterTestContentPackage
                 var metaStimId = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:AssociatedStimulus", sXmlNs);
                 if (!string.Equals(stimId, metaStimId, StringComparison.OrdinalIgnoreCase))
                 {
-                    ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Item stimulus ID doesn't match metadata AssociatedStimulus.", "Item stm_pass_id='{0}' Metadata AssociatedStimulus='{1}'", stimId, metaStimId);
+                    ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Item stimulus ID doesn't match metadata AssociatedStimulus.", "Item assocatedpassage='{0}' Metadata AssociatedStimulus='{1}'", stimId, metaStimId);
                 }
 
                 int nStimId;
                 if (!int.TryParse(stimId, out nStimId))
                 {
-                    ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Item stimulus ID is not an integer.", $"Item stm_pass_id='{stimId}'");
+                    ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Item stimulus ID is not an integer.", $"Item associatedpassage='{stimId}'");
                 }
                 else
                 {
@@ -1143,7 +1144,7 @@ namespace TabulateSmarterTestContentPackage
             {
                 if (string.IsNullOrEmpty(stimId))
                 {
-                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "PT Item missing associated passage ID (stm_pass_id).");
+                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "PT Item missing associated passage ID (associatedpassage).");
                 }
 
                 // PtSequence
