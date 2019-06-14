@@ -187,11 +187,17 @@ namespace TabulateSmarterTestContentPackage.Validators
 
             bool isEquationImage = false;               // flag if a the contentLinkInfo element is type "Equation".
             bool foundReadAloudAudioShortDesc = false;  // flag if readAloud has the child element audioShortDesc
+            bool emptyReadAloudAudioShortDesc = true;   // flag if readAloud child element audioShortDesc is empty
             bool foundReadAloudTTSPro = false;          // flag if readAloud has the child element textToSpeechPronunciation 
+            bool emptyReadAloudTTSPro = true;           // flag if readAloud child element textToSpeechPronunciation is empty
             bool foundReadAloudAudioText = false;       // flag if readAloud has the child element audioText
+            bool emptyReadAloudAudioText = true;        // flag if readAloud child element audioText is empty
             bool foundBrailleTextString = false;        // flag if brailleText has the child element brailleTextString
+            bool emptyBrailleTextString = true;         // flag if braillText child element brailleTextString is empty
 
-            CheckAltReference(contentElement, imgEle, brailleSupported, ref foundId, ref foundReadAloud, ref foundBrailleText, ref foundReadAloudAudioShortDesc, ref foundReadAloudTTSPro, ref foundReadAloudAudioText, ref foundBrailleTextString, ref isEquationImage);
+            CheckAltReference(contentElement, imgEle, brailleSupported, ref foundId, ref foundReadAloud, ref foundBrailleText, 
+                              ref foundReadAloudAudioShortDesc, ref foundReadAloudTTSPro, ref foundReadAloudAudioText, ref foundBrailleTextString, 
+                              ref emptyReadAloudAudioShortDesc, ref emptyReadAloudTTSPro, ref emptyReadAloudAudioText, ref emptyBrailleTextString, ref isEquationImage);
 
             // If not found on the image element itself, check its parent
             if (!foundId || !foundReadAloud || !foundBrailleText)
@@ -199,7 +205,9 @@ namespace TabulateSmarterTestContentPackage.Validators
                 var parentEle = imgEle.Clone();
                 if (parentEle.MoveToParent())
                 {
-                    CheckAltReference(contentElement, parentEle, brailleSupported, ref foundId, ref foundReadAloud, ref foundBrailleText, ref foundReadAloudAudioShortDesc, ref foundReadAloudTTSPro, ref foundReadAloudAudioText, ref foundBrailleTextString, ref isEquationImage);
+                    CheckAltReference(contentElement, imgEle, brailleSupported, ref foundId, ref foundReadAloud, ref foundBrailleText,
+                                      ref foundReadAloudAudioShortDesc, ref foundReadAloudTTSPro, ref foundReadAloudAudioText, ref foundBrailleTextString,
+                                      ref emptyReadAloudAudioShortDesc, ref emptyReadAloudTTSPro, ref emptyReadAloudAudioText, ref emptyBrailleTextString, ref isEquationImage);
                 }
             }
 
@@ -217,19 +225,46 @@ namespace TabulateSmarterTestContentPackage.Validators
                 }
                 else
                 {
-                    if (!foundReadAloudAudioShortDesc && isEquationImage) // this error should only apply to image elements for equations
+                    if (isEquationImage)
                     {
-                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                            "Img element for an equation resource does not have an audioShortDesc child element within the readAloud element.", $"Value: {StartTagXml(imgEle)}");
+                        if (foundReadAloudAudioShortDesc)
+                        {
+                            if (emptyReadAloudAudioShortDesc)
+                            {
+                                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
+                                    "Img element for an equation resource has an empty audioShortDesc element.", $"Value: {StartTagXml(imgEle)}");
+                            }
+                        }
+                        else
+                        {
+                            ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
+                                "Img element for an equation resource does not have an audioShortDesc child element within the readAloud element.", $"Value: {StartTagXml(imgEle)}");
+                        }
                     }
-                    if (!isEquationImage)
+                    else // non equation image
                     {
-                        if (!foundReadAloudTTSPro) // this error should only apply to image elements that are not equations
+                        if (foundReadAloudTTSPro)
+                        {
+                            if (emptyReadAloudTTSPro)
+                            {
+                                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
+                                    "Img element for a graphic resource has an empty textToSpeechPronunciation element.", $"Value: {StartTagXml(imgEle)}");
+                            }
+                        }
+                        else
                         {
                             ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
                                 "Img element for a graphic resource does not have a textToSpeechPronunciation child element within the readAloud element.", $"Value: {StartTagXml(imgEle)}");
                         }
-                        if (!foundReadAloudAudioText) // this error should only apply to image element that are not equations
+                        if (foundReadAloudAudioText)
+                        {
+                            if (emptyReadAloudAudioText)
+                            {
+                                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
+                                    "Img element for a graphic resource has an empty audioText element.", $"Value: {StartTagXml(imgEle)}");
+                            }
+                        }
+                        else
                         {
                             ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
                                 "Img element for a graphic resource does not have a audioText child element within the readAloud element.", $"Value: {StartTagXml(imgEle)}");
@@ -237,29 +272,41 @@ namespace TabulateSmarterTestContentPackage.Validators
                     }
                 }
                 
-                if (brailleSupported)
+                if (!isEquationImage) // only check the brailleTextString for non equation images
                 {
-                    if (!foundBrailleText)
+                    if (brailleSupported)
                     {
-                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                            "Img element does not reference alt text for braille presentation (no corresponding brailleText element).", $"Value: {StartTagXml(imgEle)}");
-                    }
-                    else
-                    {
-                        if (!foundBrailleTextString && !isEquationImage)
+                        if (!foundBrailleText)
                         {
                             ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                "Img element for a graphic resource does not have a brailleTextString child element within the brailleText element.", $"Value: {StartTagXml(imgEle)}");
+                                "Img element does not reference alt text for braille presentation (no corresponding brailleText element).", $"Value: {StartTagXml(imgEle)}");
+                        }
+                        else
+                        {
+                            if (foundBrailleTextString)
+                            {
+                                if (emptyBrailleTextString)
+                                {
+                                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
+                                        "Img element for a graphic has an empty brailleTextString element.", $"Value: {StartTagXml(imgEle)}");
+                                }
+                            }
+                            else
+                            {
+                                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
+                                    "Img element for a graphic resource does not have a brailleTextString child element within the brailleText element.", $"Value: {StartTagXml(imgEle)}");
+                            }
                         }
                     }
-                }                
+                }              
             }
 
             return foundId && foundReadAloud && foundBrailleText;
         }
 
         private static void CheckAltReference(XPathNavigator contentElement, XPathNavigator checkEle, bool brailleSupported, ref bool foundId, ref bool foundReadAloud, ref bool foundBrailleText, 
-                                                ref bool foundReadAloudAudioShortDes, ref bool foundReadAloudTTSPro, ref bool foundReadAloudAudioText, ref bool foundBrailleTextString, ref bool isEquationImage)
+                                                ref bool foundReadAloudAudioShortDes, ref bool foundReadAloudTTSPro, ref bool foundReadAloudAudioText, ref bool foundBrailleTextString,
+                                                ref bool emptyReadAloudAudioShortDesc, ref bool emptyReadAloudTTSPro, ref bool emptyReadAloudAudioText, ref bool emptyBrailleTextString, ref bool isEquationImage)
         {
             string id = checkEle.GetAttribute("id", string.Empty);
             if (string.IsNullOrEmpty(id))
@@ -296,18 +343,21 @@ namespace TabulateSmarterTestContentPackage.Validators
                     {
                         if (readAloudAudioShortDescEle != null)
                         {
-                            if (readAloudAudioShortDescEle.Value != null) foundReadAloudAudioShortDes = true;
-                        } 
+                            foundReadAloudAudioShortDes = true;
+                            if (readAloudAudioShortDescEle.Value.Length != 0) emptyReadAloudAudioShortDesc = false;
+                        }
                     }
                     else
                     {
                         if (textToSpeechProEle != null)
                         {
-                            if (textToSpeechProEle.Value != null) foundReadAloudTTSPro = true;
+                            foundReadAloudTTSPro = true;
+                            if (textToSpeechProEle.Value.Length != 0) emptyReadAloudTTSPro = false;
                         }
                         if (audioTextEle != null)
                         {
-                            if (audioTextEle.Value != null) foundReadAloudAudioText = true;
+                            foundReadAloudAudioText = true;
+                            if (audioTextEle.Value.Length != 0) emptyReadAloudAudioText = false;
                         }
                     }
                 }
@@ -322,7 +372,8 @@ namespace TabulateSmarterTestContentPackage.Validators
                         {
                             if (brailleTextStringEle != null)
                             {
-                                if (brailleTextStringEle.Value != null) foundBrailleTextString = true;
+                                foundBrailleTextString = true;
+                                if (brailleTextStringEle.Value.Length != 0) emptyBrailleTextString = false;
                             }
                         }
                     }
