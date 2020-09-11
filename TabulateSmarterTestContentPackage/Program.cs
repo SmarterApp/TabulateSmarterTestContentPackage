@@ -318,13 +318,6 @@ Error severity definitions:
             var elapsedTicks = unchecked((uint)Environment.TickCount - (uint)startTicks);
             Console.WriteLine("Elapsed time: {0}.{1:d3} seconds", elapsedTicks / 1000, elapsedTicks % 1000);
 
-#if DEBUG
-            if (System.Diagnostics.Debugger.IsAttached)
-            {
-                s_waitBeforeExit = true;
-            }
-#endif
-
             if (s_waitBeforeExit)
             {
                 var holdColor = Console.ForegroundColor;
