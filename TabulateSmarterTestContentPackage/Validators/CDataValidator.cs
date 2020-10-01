@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Xml.XPath;
 using System.Xml;
@@ -77,9 +77,7 @@ namespace TabulateSmarterTestContentPackage.Validators
             {
                 if (s_prohibitedElements.TryGetValue(ele.Name, out string interferesWith))
                 {
-                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                        "Item content has element that may interfere with accessibility feature.",
-                        $"element='{StartTagXml(ele)}' feature='{interferesWith}'");
+                    ReportingUtility.ReportError(it, ErrorId.T0181, $"element='{StartTagXml(ele)}' feature='{interferesWith}'");
                     valid = false;
                 }
 
@@ -91,9 +89,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                         // Check for prohibited attribute
                         if (s_prohibitedAttributes.TryGetValue(attribute.Name, out interferesWith))
                         {
-                            ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                "Item content has attribute that may interfere with accessibility feature.",
-                                $"attribute='{attribute.Name}' element='{StartTagXml(ele)}' feature='{interferesWith}'");
+                            ReportingUtility.ReportError(it, ErrorId.T0182, $"attribute='{attribute.Name}' element='{StartTagXml(ele)}' feature='{interferesWith}'");
                             valid = false;
                         }
 
@@ -122,9 +118,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                                 {
                                     if (!value.Equals("transparent", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(value))
                                     {
-                                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                            "Item content has style property that may interfere with accessibility feature.",
-                                            $"style='{name}' element='{StartTagXml(ele)}'  feature='color contrast'");
+                                        ReportingUtility.ReportError(it, ErrorId.T0183, $"style='{name}' element='{StartTagXml(ele)}'  feature='color contrast'");
                                     }
                                 }
 
@@ -135,9 +129,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                                     {
                                         if (HasProhibitedUnitSuffix(part))
                                         {
-                                            ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                                "Item content has style property that may interfere with accessibility feature.",
-                                                $"style='{name}' element='{StartTagXml(ele)}' feature='zoom'");
+                                            ReportingUtility.ReportError(it, ErrorId.T0183, $"style='{name}' element='{StartTagXml(ele)}' feature='zoom'");
                                         }
                                     }
                                 }
@@ -145,9 +137,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                                 // Check for prohibited style properties
                                 else if (s_prohibitedStyleProperties.TryGetValue(name, out interferesWith) && !string.IsNullOrEmpty(value))
                                 {
-                                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                        "Item content has style property that may interfere with accessibility feature.",
-                                        $"style='{name}' element='{StartTagXml(ele)}' feature='{interferesWith}'");
+                                    ReportingUtility.ReportError(it, ErrorId.T0183, $"style='{name}' element='{StartTagXml(ele)}' feature='{interferesWith}'");
                                     valid = false;
                                 }
 
@@ -156,9 +146,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                                 {
                                     if (HasProhibitedUnitSuffix(value))
                                     {
-                                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                            "Item content has style property that may interfere with accessibility feature.",
-                                            $"style='{name}' element='{StartTagXml(ele)}' feature='zoom'");
+                                        ReportingUtility.ReportError(it, ErrorId.T0183, $"style='{name}' element='{StartTagXml(ele)}' feature='zoom'");
                                     }
                                 }
                             }
@@ -219,15 +207,13 @@ namespace TabulateSmarterTestContentPackage.Validators
 
             if (!foundId)
             {
-                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                    "Img element does not contain an id attribute necessary to provide alt text.", $"Value: {StartTagXml(imgEle)}");
+                ReportingUtility.ReportError(it, ErrorId.T0018, $"Value: {StartTagXml(imgEle)}");
             }
             else
             {
                 if (!foundReadAloud)
                 {
-                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                        "Img element does not reference alt text for text-to-speech (no corresponding readAloud element).", $"Value: {StartTagXml(imgEle)}");
+                    ReportingUtility.ReportError(it, ErrorId.T0021, $"Value: {StartTagXml(imgEle)}");
                 }
                 else
                 {
@@ -237,14 +223,12 @@ namespace TabulateSmarterTestContentPackage.Validators
                         {
                             if (emptyReadAloudAudioShortDesc)
                             {
-                                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                    "Img element for an equation resource has an empty audioShortDesc element.", $"Value: {StartTagXml(imgEle)}");
+                                ReportingUtility.ReportError(it, ErrorId.T0184, $"Value: {StartTagXml(imgEle)}");
                             }
                         }
                         else
                         {
-                            ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                "Img element for an equation resource does not have an audioShortDesc child element within the readAloud element.", $"Value: {StartTagXml(imgEle)}");
+                            ReportingUtility.ReportError(it, ErrorId.T0185, $"Value: {StartTagXml(imgEle)}");
                         }
                     }
                     else // non equation image
@@ -253,27 +237,23 @@ namespace TabulateSmarterTestContentPackage.Validators
                         {
                             if (emptyReadAloudTTSPro)
                             {
-                                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                    "Img element for a graphic resource has an empty textToSpeechPronunciation element.", $"Value: {StartTagXml(imgEle)}");
+                                ReportingUtility.ReportError(it, ErrorId.T0022, $"Value: {StartTagXml(imgEle)}");
                             }
                         }
                         else
                         {
-                            ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                "Img element for a graphic resource does not have a textToSpeechPronunciation child element within the readAloud element.", $"Value: {StartTagXml(imgEle)}");
+                            ReportingUtility.ReportError(it, ErrorId.T0186, $"Value: {StartTagXml(imgEle)}");
                         }
                         if (foundReadAloudAudioText)
                         {
                             if (emptyReadAloudAudioText)
                             {
-                                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                    "Img element for a graphic resource has an empty audioText element.", $"Value: {StartTagXml(imgEle)}");
+                                ReportingUtility.ReportError(it, ErrorId.T0020, $"Value: {StartTagXml(imgEle)}");
                             }
                         }
                         else
                         {
-                            ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                "Img element for a graphic resource does not have a audioText child element within the readAloud element.", $"Value: {StartTagXml(imgEle)}");
+                            ReportingUtility.ReportError(it, ErrorId.T0187, $"Value: {StartTagXml(imgEle)}");
                         }
                     }
                 }
@@ -284,8 +264,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                     {
                         if (!foundBrailleText)
                         {
-                            ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                "Img element does not reference alt text for braille presentation (no corresponding brailleText element).", $"Value: {StartTagXml(imgEle)}");
+                            ReportingUtility.ReportError(it, ErrorId.T0019, $"Value: {StartTagXml(imgEle)}");
                         }
                         else
                         {
@@ -293,14 +272,12 @@ namespace TabulateSmarterTestContentPackage.Validators
                             {
                                 if (emptyBrailleTextString)
                                 {
-                                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                        "Img element for a graphic has an empty brailleTextString element.", $"Value: {StartTagXml(imgEle)}");
+                                    ReportingUtility.ReportError(it, ErrorId.T0097, $"Value: {StartTagXml(imgEle)}");
                                 }
                             }
                             else
                             {
-                                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                    "Img element for a graphic resource does not have a brailleTextString child element within the brailleText element.", $"Value: {StartTagXml(imgEle)}");
+                                ReportingUtility.ReportError(it, ErrorId.T0188, $"Value: {StartTagXml(imgEle)}");
                             }
                         }
                     }
@@ -402,7 +379,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                 var relatedEle = accessibilityInfo?.SelectSingleNode($"accessElement[contentLinkInfo/@itsLinkIdentifierRef='{id}']/relatedElementInfo/readAloud/textToSpeechPronunciation");
                 if (relatedEle != null && relatedEle.InnerXml.Length == 0)
                 {
-                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable, "Item has improper TTS Silencing Tag", $"text='{ele.InnerXml}'");
+                    ReportingUtility.ReportError(it, ErrorId.T0033, $"text='{ele.InnerXml}'");
                 }
 
             }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Xml;
@@ -44,7 +44,7 @@ namespace TabulateSmarterTestContentPackage.Extractors
             var grade = SmarterApp.ContentSpecId.ParseGrade(strGrade);
             if (grade == SmarterApp.ContentSpecGrade.Unspecified)
             {
-                ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Invalid grade attribute.", $"grade='{strGrade}'");
+                ReportingUtility.ReportError(ii, ErrorId.T0024, $"grade='{strGrade}'");
             }
 
             XPathNavigator root = metadata.CreateNavigator();
@@ -66,11 +66,11 @@ namespace TabulateSmarterTestContentPackage.Extractors
                     // If there are no primary standards, do not populate the Claim, Target, CCSS, and ClaimContentTarget fields in the item report. 
                     // These fields are for reporting the primary standard values
                     HasPrimaryStandard = false;
-                    ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "No PrimaryStandard found for StandardPublication.", $"publication='{pubName}'");
+                    ReportingUtility.ReportError(ii, ErrorId.T0062, $"publication='{pubName}'");
                 }
                 else if (pubStandards.Count != 1)
                 {
-                    ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Found more than one PrimaryStandard.", $"publication='{pubName}' count='{pubStandards.Count}'");
+                    ReportingUtility.ReportError(ii, ErrorId.T0189, $"publication='{pubName}' count='{pubStandards.Count}'");
                 }
 
                 // Get any secondary standards
@@ -111,8 +111,7 @@ namespace TabulateSmarterTestContentPackage.Extractors
                             // If standards don't match then report an error.
                             if (!StandardsMatch(result[i], pubStandards[i]))
                             {
-                                ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Standards from different publications don't match.",
-                                    $"pub1='{result[i].ParseFormat}' pub2='{pubStandards[i].ParseFormat}' "
+                                ReportingUtility.ReportError(ii, ErrorId.T0073, $"pub1='{result[i].ParseFormat}' pub2='{pubStandards[i].ParseFormat}' "
                                     + $"std1='{result[i].ToString(SmarterApp.ContentSpecIdFormat.Enhanced)}' std2='{pubStandards[i].ToString(SmarterApp.ContentSpecIdFormat.Enhanced)}'");
                             }
 
@@ -171,15 +170,15 @@ namespace TabulateSmarterTestContentPackage.Extractors
                 var csid = SmarterApp.ContentSpecId.TryParse(stdStr, grade);
                 if (csid.ParseErrorSeverity == SmarterApp.ErrorSeverity.Invalid)
                 {
-                    ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Standard ID failed to parse.", $"tag='{tag}' value='{stdStr}' err='{csid.ParseErrorDescription}'");
+                    ReportingUtility.ReportError(ii, ErrorId.T0190, $"tag='{tag}' value='{stdStr}' err='{csid.ParseErrorDescription}'");
                 }
                 else if (csid.ParseErrorSeverity == SmarterApp.ErrorSeverity.Corrected)
                 {
-                    ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Standard ID has correctable error.", $"tag='{tag}' value='{stdStr}' err='{csid.ParseErrorDescription}'");
+                    ReportingUtility.ReportError(ii, ErrorId.T0191, $"tag='{tag}' value='{stdStr}' err='{csid.ParseErrorDescription}'");
                 }
                 else if (csid.Validate() == SmarterApp.ErrorSeverity.Invalid)
                 {
-                    ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Standard ID validation error.", $"tag='{tag}' value='{stdStr}' err='{csid.ValidationErrorDescription}'");
+                    ReportingUtility.ReportError(ii, ErrorId.T0192, $"tag='{tag}' value='{stdStr}' err='{csid.ValidationErrorDescription}'");
                 }
 
                 //if (csid.ParseErrorSeverity != SmarterApp.ErrorSeverity.Invalid)
@@ -218,19 +217,16 @@ namespace TabulateSmarterTestContentPackage.Extractors
                     }
                     if (primaryCcssIndex < 0)
                     {
-                        ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable,
-                            "Math Claim 2, 3, 4 primary alignment should be paired with a claim 1 secondary alignment.", $"claim='{standards[0].Claim}'");
+                        ReportingUtility.ReportError(ii, ErrorId.T0047, $"claim='{standards[0].Claim}'");
                     }
                     else if (string.IsNullOrEmpty(primaryCCSS) || primaryCCSS.Equals(cValueNA, StringComparison.OrdinalIgnoreCase))
                     {
-                        ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable,
-                            "Math Claim 2, 3, 4 primary alignment is missing CCSS standard.", $"claim='{standards[0].Claim}'");
+                        ReportingUtility.ReportError(ii, ErrorId.T0193, $"claim='{standards[0].Claim}'");
                     }
                 }
                 else
                 {
-                    ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable,
-                        "Expected blank CCSS for Math Claim 2, 3, or 4", $"claim='{standards[0].Claim}' CCSS='{standards[0].CCSS}'");
+                    ReportingUtility.ReportError(ii, ErrorId.T0016, $"claim='{standards[0].Claim}' CCSS='{standards[0].CCSS}'");
                 }
             }
             // Only accept value if it's non-empty and not NA
@@ -244,8 +240,7 @@ namespace TabulateSmarterTestContentPackage.Extractors
             else
             {
                 // primaryCCSS is already set to string.Empty;
-                ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable,
-                    "CCSS standard is missing from item.", $"claim='{standards[0].Claim}' standard='{standards[0]}'");
+                ReportingUtility.ReportError(ii, ErrorId.T0013, $"claim='{standards[0].Claim}' standard='{standards[0]}'");
             }
 
             // === Extract the Secondary CCSS ===

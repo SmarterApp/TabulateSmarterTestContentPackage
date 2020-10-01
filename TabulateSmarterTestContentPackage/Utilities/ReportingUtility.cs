@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Text;
 using System.Collections.Generic;
@@ -190,7 +190,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
         [Obsolete]
         public static void ReportError(ItemIdentifier ii, ErrorSeverity severity, Exception err)
         {
-            ReportError(ii, ErrorCategory.Exception, severity, err.GetType().Name, err.ToString());
+            ReportingUtility.ReportError(ii, ErrorId.T0194, err.ToString());
         }
 
         [Obsolete]
