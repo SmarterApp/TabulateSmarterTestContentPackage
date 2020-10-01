@@ -2344,7 +2344,7 @@ namespace TabulateSmarterTestContentPackage
             }
             catch (Exception err)
             {
-                ReportingUtility.ReportError(ErrorConstants.ManifestItemId, err);
+                ReportingUtility.ReportError(Errors.ManifestItemId, err);
             }
 
             return true;
