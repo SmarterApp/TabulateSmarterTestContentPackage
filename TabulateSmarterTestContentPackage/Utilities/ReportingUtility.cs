@@ -73,39 +73,68 @@ namespace TabulateSmarterTestContentPackage.Utilities
             ++ErrorCount;
         }
 
-        public static void ReportError(ItemIdentifier ii, ErrorId errorId)
-        {
-            throw new NotImplementedException();
-        }
-
         public static void ReportError(ItemIdentifier ii, ErrorId errorId, string detail)
         {
-            throw new NotImplementedException();
+            string folderName;
+            string itemType;
+            string bankKey;
+            string itemId;
+            if (ii == null)
+            {
+                folderName = string.Empty;
+                itemType = null;
+                bankKey = null;
+                itemId = null;
+            }
+            else if (object.ReferenceEquals(ii, Errors.ManifestItemId))
+            {
+                folderName = "imsmanifest.xml";
+                itemType = null;
+                bankKey = null;
+                itemId = null;
+            }
+            else
+            {
+                folderName = ii.FolderName;
+                itemType = ii.ItemType;
+                bankKey = ii.BankKey.ToString();
+                itemId = ii.ItemId.ToString();
+            }
+
+            var errorInfo = Errors.ErrorTable[(int)errorId];
+
+            InternalReportError(folderName, itemType, bankKey, itemId, errorInfo.Category, errorInfo.Severity, errorInfo.Message, detail);
+        }
+
+        public static void ReportError(ItemIdentifier ii, ErrorId errorId)
+        {
+            ReportError(ii, errorId, string.Empty);
         }
 
         public static void ReportError(ItemIdentifier ii, ErrorId errorId, string detail, params object[] args)
         {
-            throw new NotImplementedException();
+            ReportError(ii, errorId, string.Format(detail, args));
         }
 
         public static void ReportError(ItemIdentifier ii, Exception err)
         {
-            ReportingUtility.ReportError(ii, ErrorCategory.Exception, ErrorSeverity.Severe, "Exception Thrown", err.ToString());
-        }
-
-        public static void ReportWitError(ItemIdentifier ii, ItemIdentifier witIt, ErrorId errorId)
-        {
-            throw new NotImplementedException();
+            ReportError(ii, ErrorId.Exception, $"{err.GetType().FullName}: {err.Message}");
         }
 
         public static void ReportWitError(ItemIdentifier ii, ItemIdentifier witIt, ErrorId errorId, string detail)
         {
-            throw new NotImplementedException();
+            detail = string.Concat($"wordlistId='{witIt.ItemId}' ", detail);
+            ReportError(ii, errorId, detail);
+        }
+
+        public static void ReportWitError(ItemIdentifier ii, ItemIdentifier witIt, ErrorId errorId)
+        {
+            ReportWitError(ii, witIt, errorId, string.Empty);
         }
 
         public static void ReportWitError(ItemIdentifier ii, ItemIdentifier witIt, ErrorId errorId, string detail, params object[] args)
         {
-            throw new NotImplementedException();
+            ReportWitError(ii, witIt, errorId, string.Format(detail, args));
         }
 
 #pragma warning disable CS0612

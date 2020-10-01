@@ -6,10 +6,12 @@ namespace TabulateSmarterTestContentPackage.Utilities
     {
         public static readonly ItemIdentifier ManifestItemId = new ItemIdentifier("item", 0, 0);
 
-        static ErrorInfo[] ErrorTable = new ErrorInfo[]
+        public static ErrorInfo[] ErrorTable = new ErrorInfo[]
         {
+            new ErrorInfo(ErrorId.None, string.Empty, ErrorCategory.Unsupported, ErrorSeverity.Message, ErrorReviewArea.None),
             new ErrorInfo(ErrorId.T0001, "Allow Calculator field not present for MATH subject item", ErrorCategory.Metadata, ErrorSeverity.Degraded, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0002, "ASL video length doesn't correlate with text length; possible mismatch.", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Asl),
+            new ErrorInfo(ErrorId.T0003, "Exception Thrown", ErrorCategory.Exception, ErrorSeverity.Severe, ErrorReviewArea.Lead),
         };
     }
 
@@ -18,7 +20,9 @@ namespace TabulateSmarterTestContentPackage.Utilities
     {
         None = 0,
         T0001 = 1,
-        T0002 = 3,
+        T0002 = 2,
+        T0003 = 3,
+        Exception = 3
     }
 
     public enum ErrorReviewArea : int
