@@ -3,6 +3,7 @@ using System.IO;
 using System.Text;
 using System.Collections.Generic;
 using TabulateSmarterTestContentPackage.Models;
+using System.Security.Cryptography;
 
 namespace TabulateSmarterTestContentPackage.Utilities
 {
@@ -135,7 +136,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
             else
             {
                 string msgId = $"CTAB-{(int)errorInfo.Id:d4}";
-                string errKey = "(errKey)";
+                 string errKey = GenerateErrorKey(itemId, msgId, detail);
                 // "admin_year,asmt,severity,item_id,item_version,error_message_id,error_message,
                 // detail,notes,review_area,error_category,error_key,tool_id,tool_version,run_date,
                 // error_type,tdf_version"
@@ -185,6 +186,12 @@ namespace TabulateSmarterTestContentPackage.Utilities
                 s_ErrorReport = null;
             }
             s_ErrorsReported.Clear();
+        }
+
+        private static string GenerateErrorKey(string itemId, string errorMessageId, string detail)
+        {
+            var hash = new MD5Hash(string.Concat(itemId, errorMessageId, detail));
+            return hash.ToString();
         }
     }
 }
