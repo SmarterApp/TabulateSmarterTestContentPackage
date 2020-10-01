@@ -74,12 +74,14 @@ namespace TabulateSmarterTestContentPackage.Utilities
             string itemType;
             string bankKey;
             string itemId;
+            string version;
             if (ii == null)
             {
                 folderName = string.Empty;
                 itemType = null;
                 bankKey = null;
                 itemId = null;
+                version = null;
             }
             else if (object.ReferenceEquals(ii, Errors.ManifestItemId))
             {
@@ -87,6 +89,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
                 itemType = null;
                 bankKey = null;
                 itemId = null;
+                version = null;
             }
             else
             {
@@ -94,6 +97,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
                 itemType = ii.ItemType;
                 bankKey = ii.BankKey.ToString();
                 itemId = ii.ItemId.ToString();
+                version = ii.Version;
             }
 
             if (CurrentPackageName != null)
@@ -136,7 +140,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
                 // detail,notes,review_area,error_category,error_key,tool_id,tool_version,run_date,
                 // error_type,tdf_version"
                 s_ErrorReport.WriteLine(string.Join(",", AdminYear, Asmt, errorInfo.Severity,
-                    itemId, "(version)", msgId, errorInfo.Message, detail, string.Empty,
+                    itemId, version, msgId, errorInfo.Message, detail, string.Empty,
                     errorInfo.ReviewArea.ToString().ToLowerInvariant(), errorInfo.Category,
                     errKey, c_toolId, s_version, s_runDate, c_errType, string.Empty));
             }

@@ -563,6 +563,10 @@ namespace TabulateSmarterTestContentPackage
                 return;
             }
 
+            // Get the version
+            var itemVersion = xml.XpEvalE("itemrelease/item/@version");
+            it.Version = itemVersion; // Make version available for error reporting.
+
             IList<ItemScoring> scoringInformation = new List<ItemScoring>();
             // Load metadata
             var xmlMetadata = new XmlDocument(sXmlNt);
@@ -584,8 +588,7 @@ namespace TabulateSmarterTestContentPackage
             if (!string.Equals(metaItemType, it.ItemType.ToUpperInvariant(), StringComparison.Ordinal))
                 ReportingUtility.ReportError(it, ErrorId.T0113, "InteractionType='{0}' Expected='{1}'", metaItemType, it.ItemType.ToUpperInvariant());
 
-            // Get the version
-            var itemVersion = xml.XpEvalE("itemrelease/item/@version");
+            // Check for version match
             var metadataVersion = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:Version", sXmlNs);
             // Check for consistence between the version number in item xml and metadata xml. The metadata XML stores the version number in "major.minor" format, while 
             // the item xml stores the version in "major" format. Only the "major" number is to be compared.
@@ -1224,6 +1227,11 @@ namespace TabulateSmarterTestContentPackage
                 return;
             }
 
+            // Get the version
+            string version = xml.XpEvalE("itemrelease/passage/@version");
+            ii.Version = version;   // Make version available to error reporting
+            it.Version = version;
+
             // Load the metadata
             XmlDocument xmlMetadata = new XmlDocument(sXmlNt);
             if (!TryLoadXml(it.FfItem, "metadata.xml", xmlMetadata))
@@ -1235,9 +1243,6 @@ namespace TabulateSmarterTestContentPackage
             string metaItemType = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:InteractionType", sXmlNs);
             if (!string.Equals(metaItemType, cStimulusInteractionType, StringComparison.Ordinal))
                 ReportingUtility.ReportError(it, ErrorId.T0113, "InteractionType='{0}' Expected='{1}'", metaItemType, cStimulusInteractionType);
-
-            // Get the version
-            string version = xml.XpEvalE("itemrelease/passage/@version");
 
             // Subject
             string subject = xml.XpEvalE("itemrelease/passage/attriblist/attrib[@attid='itm_item_subject']/val");
@@ -1345,15 +1350,17 @@ namespace TabulateSmarterTestContentPackage
                 return;
             }
 
+            // Get the version
+            string version = xml.XpEvalE("itemrelease/item/@version");
+            ii.Version = version; // Make version available to error reporting
+            it.Version = version;
+
             // Read the metadata
             XmlDocument xmlMetadata = new XmlDocument(sXmlNt);
             if (!TryLoadXml(it.FfItem, "metadata.xml", xmlMetadata))
             {
                 ReportingUtility.ReportError(it, ErrorId.T0112, LoadXmlErrorDetail);
             }
-
-            // Get the version
-            string version = xml.XpEvalE("itemrelease/item/@version");
 
             // Subject
             string subject = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='itm_item_subject']/val");
