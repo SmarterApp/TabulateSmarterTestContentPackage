@@ -78,7 +78,8 @@ namespace TabulateSmarterTestContentPackage.Validators
                 if (s_prohibitedElements.TryGetValue(ele.Name, out string interferesWith))
                 {
                     ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                        $"Item content has element that may interfere with {interferesWith}.", $"element='{StartTagXml(ele)}'");
+                        "Item content has element that may interfere with accessibility feature.",
+                        $"element='{StartTagXml(ele)}' feature='{interferesWith}'");
                     valid = false;
                 }
 
@@ -91,7 +92,8 @@ namespace TabulateSmarterTestContentPackage.Validators
                         if (s_prohibitedAttributes.TryGetValue(attribute.Name, out interferesWith))
                         {
                             ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                $"Item content has attribute that may interfere with {interferesWith}.", $"attribute='{attribute.Name}' element='{StartTagXml(ele)}'");
+                                "Item content has attribute that may interfere with accessibility feature.",
+                                $"attribute='{attribute.Name}' element='{StartTagXml(ele)}' feature='{interferesWith}'");
                             valid = false;
                         }
 
@@ -121,7 +123,8 @@ namespace TabulateSmarterTestContentPackage.Validators
                                     if (!value.Equals("transparent", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(value))
                                     {
                                         ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                            $"Item content has style property that may interfere with color contrast.", $"style='{name}' element='{StartTagXml(ele)}'");
+                                            "Item content has style property that may interfere with accessibility feature.",
+                                            $"style='{name}' element='{StartTagXml(ele)}'  feature='color contrast'");
                                     }
                                 }
 
@@ -133,7 +136,8 @@ namespace TabulateSmarterTestContentPackage.Validators
                                         if (HasProhibitedUnitSuffix(part))
                                         {
                                             ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                                $"Item content has style property that may interfere with zoom.", $"style='{name}' element='{StartTagXml(ele)}'");
+                                                "Item content has style property that may interfere with accessibility feature.",
+                                                $"style='{name}' element='{StartTagXml(ele)}' feature='zoom'");
                                         }
                                     }
                                 }
@@ -142,7 +146,8 @@ namespace TabulateSmarterTestContentPackage.Validators
                                 else if (s_prohibitedStyleProperties.TryGetValue(name, out interferesWith) && !string.IsNullOrEmpty(value))
                                 {
                                     ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                        $"Item content has style property that may interfere with {interferesWith}.", $"style='{name}' element='{StartTagXml(ele)}'");
+                                        "Item content has style property that may interfere with accessibility feature.",
+                                        $"style='{name}' element='{StartTagXml(ele)}' feature='{interferesWith}'");
                                     valid = false;
                                 }
 
@@ -152,7 +157,8 @@ namespace TabulateSmarterTestContentPackage.Validators
                                     if (HasProhibitedUnitSuffix(value))
                                     {
                                         ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                            $"Item content has style property that may interfere with zoom.", $"style='{name}' element='{StartTagXml(ele)}'");
+                                            "Item content has style property that may interfere with accessibility feature.",
+                                            $"style='{name}' element='{StartTagXml(ele)}' feature='zoom'");
                                     }
                                 }
                             }

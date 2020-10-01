@@ -6,6 +6,16 @@ using TabulateSmarterTestContentPackage.Models;
 
 namespace TabulateSmarterTestContentPackage.Utilities
 {
+    /*
+    public enum ErrorId : int
+    {
+        None = 0000,
+        n0001_Calc = 0001,
+        n0002_AslVidLen = 0002,
+        n0003_AttachAttr = 0003
+    }
+    */
+
     public static class ReportingUtility
     {
         public static int ErrorCount { get; set; }
@@ -63,6 +73,44 @@ namespace TabulateSmarterTestContentPackage.Utilities
             ++ErrorCount;
         }
 
+        public static void ReportError(ItemIdentifier ii, ErrorId errorId)
+        {
+            throw new NotImplementedException();
+        }
+
+        public static void ReportError(ItemIdentifier ii, ErrorId errorId, string detail)
+        {
+            throw new NotImplementedException();
+        }
+
+        public static void ReportError(ItemIdentifier ii, ErrorId errorId, string detail, params object[] args)
+        {
+            throw new NotImplementedException();
+        }
+
+        public static void ReportError(ItemIdentifier ii, Exception err)
+        {
+            ReportingUtility.ReportError(ii, ErrorCategory.Exception, ErrorSeverity.Severe, "Exception Thrown", err.ToString());
+        }
+
+        public static void ReportWitError(ItemIdentifier ii, ItemIdentifier witIt, ErrorId errorId)
+        {
+            throw new NotImplementedException();
+        }
+
+        public static void ReportWitError(ItemIdentifier ii, ItemIdentifier witIt, ErrorId errorId, string detail)
+        {
+            throw new NotImplementedException();
+        }
+
+        public static void ReportWitError(ItemIdentifier ii, ItemIdentifier witIt, ErrorId errorId, string detail, params object[] args)
+        {
+            throw new NotImplementedException();
+        }
+
+#pragma warning disable CS0612
+
+        [Obsolete]
         public static void ReportError(ItemIdentifier ii, ErrorCategory category, ErrorSeverity severity, string msg, string detail = null)
         {
             string folderName;
@@ -86,11 +134,13 @@ namespace TabulateSmarterTestContentPackage.Utilities
             InternalReportError(folderName, itemType, bankKey, itemId, category, severity, msg, detail);
         }
 
+        [Obsolete]
         public static void ReportError(string folder, ErrorCategory category, ErrorSeverity severity, string msg, string detail = null)
         {
             InternalReportError(folder, null, null, null, category, severity, msg, detail);
         }
 
+        [Obsolete]
         public static void ReportError(FileFolder folder, ErrorCategory category, ErrorSeverity severity, string msg, string detail = null)
         {
             string folderName = folder.RootedName;
@@ -101,17 +151,20 @@ namespace TabulateSmarterTestContentPackage.Utilities
             InternalReportError(folderName, null, null, null, category, severity, msg, detail);
         }
 
+        [Obsolete]
         public static void ReportError(ItemIdentifier ii, ErrorCategory category, ErrorSeverity severity, string msg,
             string detail, params object[] args)
         {
             ReportError(ii, category, severity, msg, string.Format(System.Globalization.CultureInfo.InvariantCulture, detail, args));
         }
 
+        [Obsolete]
         public static void ReportError(ItemIdentifier ii, ErrorSeverity severity, Exception err)
         {
             ReportError(ii, ErrorCategory.Exception, severity, err.GetType().Name, err.ToString());
         }
 
+        [Obsolete]
         public static void ReportError(string validationOption, ItemIdentifier ii, ErrorCategory category,
             ErrorSeverity severity, string msg, string detail, params object[] args)
         {
@@ -121,6 +174,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
             }
         }
 
+        [Obsolete]
         public static void ReportError(string validationOption, ItemIdentifier ii, ErrorCategory category,
             ErrorSeverity severity, string msg, string detail = null)
         {
@@ -130,6 +184,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
             }
         }
 
+        [Obsolete]
         public static void ReportWitError(ItemIdentifier ii, ItemIdentifier witIt, ErrorSeverity severity, string msg,
             string detail = null)
         {
@@ -137,6 +192,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
             ReportError(ii, ErrorCategory.Wordlist, severity, msg, detail);
         }
 
+        [Obsolete]
         public static void ReportWitError(ItemIdentifier ii, ItemIdentifier witIt, ErrorSeverity severity, string msg,
             string detail, params object[] args)
         {

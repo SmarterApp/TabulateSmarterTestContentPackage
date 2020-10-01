@@ -343,7 +343,7 @@ namespace TabulateSmarterTestContentPackage
                         }
                         catch (Exception err)
                         {
-                            ReportingUtility.ReportError(ii, ErrorSeverity.Severe, err);
+                            ReportingUtility.ReportError(ii, err);
                         }
                     }
 
@@ -359,7 +359,7 @@ namespace TabulateSmarterTestContentPackage
                         }
                         catch (Exception err)
                         {
-                            ReportingUtility.ReportError(ii, ErrorSeverity.Severe, err);
+                            ReportingUtility.ReportError(ii, err);
                         }
                     }
 
@@ -375,7 +375,7 @@ namespace TabulateSmarterTestContentPackage
                         }
                         catch (Exception err)
                         {
-                            ReportingUtility.ReportError(ii, ErrorSeverity.Severe, err);
+                            ReportingUtility.ReportError(ii, err);
                         }
                     }
 
@@ -391,7 +391,7 @@ namespace TabulateSmarterTestContentPackage
                         }
                         catch (Exception err)
                         {
-                            ReportingUtility.ReportError(ii, ErrorSeverity.Severe, err);
+                            ReportingUtility.ReportError(ii, err);
                         }
                     }
                 }
@@ -413,7 +413,7 @@ namespace TabulateSmarterTestContentPackage
             catch (Exception err)
             {
                 Console.WriteLine("   Exception: " + err.Message);
-                ReportingUtility.ReportError(null, ErrorSeverity.Severe, err);
+                ReportingUtility.ReportError(null, err);
             }
         }
 
@@ -477,7 +477,7 @@ namespace TabulateSmarterTestContentPackage
             var xml = new XmlDocument(sXmlNt);
             if (!TryLoadXml(ffItem, ffItem.Name + ".xml", xml))
             {
-                ReportingUtility.ReportError(ffItem, ErrorCategory.Item, ErrorSeverity.Severe, "Invalid item file.", LoadXmlErrorDetail);
+                ReportingUtility.ReportError(ii, ErrorCategory.Item, ErrorSeverity.Severe, "Invalid item file.", LoadXmlErrorDetail);
                 return;
             }
 
@@ -490,7 +490,7 @@ namespace TabulateSmarterTestContentPackage
             }
             if (string.IsNullOrEmpty(itemType))
             {
-                ReportingUtility.ReportError(ffItem, ErrorCategory.Item, ErrorSeverity.Severe, "Item type not specified.", LoadXmlErrorDetail);
+                ReportingUtility.ReportError(ii, ErrorCategory.Item, ErrorSeverity.Severe, "Item type not specified.", LoadXmlErrorDetail);
                 return;
             }
             ii.ItemType = itemType;
@@ -568,8 +568,7 @@ namespace TabulateSmarterTestContentPackage
             var xmlMetadata = new XmlDocument(sXmlNt);
             if (!TryLoadXml(it.FfItem, "metadata.xml", xmlMetadata))
             {
-                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Invalid metadata.xml.",
-                    LoadXmlErrorDetail);
+                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Invalid metadata.xml.", LoadXmlErrorDetail);
             }
             else
             {
@@ -817,8 +816,7 @@ namespace TabulateSmarterTestContentPackage
 
                 if (!string.IsNullOrEmpty(machineScoringFilename) && scoringType != ScoringType.Qrx)
                 {
-                    ReportingUtility.ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Benign,
-                        "Unexpected machine scoring file found for selected-response or handscored item type.", $"Filename='{machineScoringFilename}' ItemType='{it.ItemType}'");
+                    ReportingUtility.ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Benign, "Unexpected machine scoring file found for selected-response or handscored item type.", $"Filename='{machineScoringFilename}' ItemType='{it.ItemType}'");
                 }
 
                 // Check for unreferenced machine scoring files
@@ -856,9 +854,7 @@ namespace TabulateSmarterTestContentPackage
                 {
                     if (!RubricExtractor.ExtractRubric(xml, rubricStream))
                     {
-                        ReportingUtility.ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Tolerable,
-                            "Rubric is missing for Hand-scored or QRX-scored item.",
-                            $"AnswerKey: '{answerKey}'");
+                        ReportingUtility.ReportError(it, ErrorCategory.AnswerKey, ErrorSeverity.Tolerable, "Rubric is missing for Hand-scored or QRX-scored item.", $"AnswerKey: '{answerKey}'");
                     }
                     else
                     {
@@ -872,16 +868,14 @@ namespace TabulateSmarterTestContentPackage
                             // If the dictionary shows a non-blank itemId, report the error on the other item with a matching hash.
                             if (!otherId.Equals(cBlankItemId))
                             {
-                                ReportingUtility.ReportError(otherId, ErrorCategory.Item, ErrorSeverity.Tolerable,
-                                    "Rubric is likely to be a blank template. Identical to the rubric of at least one other item.", $"rubricHash={hash}");
+                                ReportingUtility.ReportError(otherId, ErrorCategory.Item, ErrorSeverity.Tolerable, "Rubric is likely to be a blank template. Identical to the rubric of at least one other item.", $"rubricHash={hash}");
 
                                 // Set the id to blanks so that we don't report repeated errors on the prior item
                                 mRubrics[hash] = cBlankItemId;
                             }
 
                             // Report the error on the current item.
-                            ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable,
-                                "Rubric is likely to be a blank template. Identical to the rubric of at least one other item.", $"rubricHash={hash}");
+                            ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable, "Rubric is likely to be a blank template. Identical to the rubric of at least one other item.", $"rubricHash={hash}");
                         }
                         else
                         {
@@ -902,7 +896,7 @@ namespace TabulateSmarterTestContentPackage
                             }
                             catch(Exception err)
                             {
-                                ReportingUtility.ReportError(it, ErrorSeverity.Tolerable, err);
+                                ReportingUtility.ReportError(it, err);
                             }
                         }
 
@@ -1501,14 +1495,15 @@ namespace TabulateSmarterTestContentPackage
             string dependencyResourceId = null;
             if (!mFilenameToResourceId.TryGetValue(NormalizeFilenameInManifest(dependencyFilename), out dependencyResourceId))
             {
-                ReportingUtility.ReportError(it, ErrorCategory.Manifest, ErrorSeverity.Benign, dependencyType + " not found in manifest.", "DependencyFilename='{0}'", dependencyFilename);
+                ReportingUtility.ReportError(it, ErrorCategory.Manifest, ErrorSeverity.Benign, "Dependency not found in manifest.", $"type='{dependencyType}' DependencyFilename='{dependencyFilename}'");
             }
 
             // Check for dependency in manifest
-            if (!string.IsNullOrEmpty(itemResourceId) && !string.IsNullOrEmpty(dependencyResourceId))
+            if (Program.gValidationOptions.IsEnabled("pmd")
+                && !string.IsNullOrEmpty(itemResourceId) && !string.IsNullOrEmpty(dependencyResourceId)
+                && !mResourceDependencies.Contains(ToDependsOnString(itemResourceId, dependencyResourceId)))
             {
-                if (!mResourceDependencies.Contains(ToDependsOnString(itemResourceId, dependencyResourceId)))
-                    ReportingUtility.ReportError("pmd", it, ErrorCategory.Manifest, ErrorSeverity.Benign, string.Format("Manifest does not record dependency between item and {0}.", dependencyType), "ItemResourceId='{0}' {1}ResourceId='{2}'", itemResourceId, dependencyType, dependencyResourceId);
+                ReportingUtility.ReportError(it, ErrorCategory.Manifest, ErrorSeverity.Benign, "Manifest does not record dependency between items.", $"ItemResourceId='{itemResourceId}' {dependencyType}ResourceId='{dependencyResourceId}'");
             }
         }
 
@@ -1562,9 +1557,7 @@ namespace TabulateSmarterTestContentPackage
                     }
                     else if (processedIds.Contains(id))
                     {
-                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, 
-                            "Duplicate attachment IDs in attachmentlist element", 
-                            $"ID: {id}");
+                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Duplicate attachment IDs in attachmentlist element", $"ID: {id}");
                     }
                     else
                     {
@@ -1589,8 +1582,7 @@ namespace TabulateSmarterTestContentPackage
                     // Ensure that we are using consistent types
                     if (brailleFileType != BrailleFileType.NONE && brailleFileType != attachmentType)
                     {
-                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                            "More than one braille embossing file type in attachment list", $"previousType='{brailleFileType}' foundType='{attachmentType}'");
+                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, "More than one braille embossing file type in attachment list", $"previousType='{brailleFileType}' foundType='{attachmentType}'");
                     }
                     brailleFileType = attachmentType;
 
@@ -1618,17 +1610,15 @@ namespace TabulateSmarterTestContentPackage
                     var wholeSubtype = xmlEle.GetAttribute("subtype") ?? string.Empty;
                     bool isTranscript = wholeSubtype.EndsWith("_transcript", StringComparison.OrdinalIgnoreCase);
                     var subtype = isTranscript ? wholeSubtype.Substring(0, wholeSubtype.Length - 11) : wholeSubtype;
-                    if (subtype.StartsWith("TDS_BT_"))
+                    if (Program.gValidationOptions.IsEnabled("dbc") && subtype.StartsWith("TDS_BT_"))
                     {
                         subtype = subtype.Substring(7);
-                        ReportingUtility.ReportError("dbc", it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                            "Braille subtype prefix is deprecated.", $"prefix='TDS_BT_' subtype='{wholeSubtype}'");
+                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, "Braille subtype prefix is deprecated.", $"prefix='TDS_BT_' subtype='{wholeSubtype}'");
                     }
                     BrailleFormCode attachmentFormCode;
                     if (!BrailleUtility.TryParseBrailleFormCode(subtype, out attachmentFormCode))
                     {
-                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, 
-                            "Braille embossing attachment has unknown subtype.", $"subtype='{wholeSubtype}'");
+                        ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, "Braille embossing attachment has unknown subtype.",$"subtype='{wholeSubtype}'");
                     }
 
                     // Accumulate the type
@@ -1636,8 +1626,7 @@ namespace TabulateSmarterTestContentPackage
                     {
                         if ((allForms & attachmentFormCode) != 0)
                         {
-                            ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable,
-                                "Multiple braille embossing files of same form.", $"brailleForm='{attachmentFormCode}'");
+                            ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable, "Multiple braille embossing files of same form.", $"brailleForm='{attachmentFormCode}'");
                         }
                         allForms |= attachmentFormCode;
                     }
@@ -1645,8 +1634,7 @@ namespace TabulateSmarterTestContentPackage
                     {
                         if ((allTranscriptForms & attachmentFormCode) != 0)
                         {
-                            ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable,
-                                "Multiple braille embossing files of same form.", $"brailleForm='{attachmentFormCode}_transcript'");
+                            ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable, "Multiple braille embossing files of same form.", $"brailleForm='{attachmentFormCode}_transcript'");
                         }
                         allTranscriptForms |= attachmentFormCode;
                     }
@@ -1660,39 +1648,31 @@ namespace TabulateSmarterTestContentPackage
                         bool fnUsesAirConvention;
                         if (!BrailleUtility.TryParseBrailleFileNamingConvention(filename, out fnIsStim, out fnItemId, out fnFormCode, out fnIsTranscript, out fnFileType, out fnUsesAirConvention))
                         {
-                            ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                "Braille embossing filename does not match naming convention.",
-                                $"filename='{filename}'");
+                            ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, "Braille embossing filename does not match naming convention.", $"filename='{filename}'");
                         }
                         else
                         {
                             if (fnIsStim != it.IsStimulus)
                             {
-                                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
-                                    "Braille embossing filename indicates item/stim mismatch.",
-                                    $"value='{(fnIsStim ? "stim" : "item")}' expected='{(it.IsStimulus ? "stim" : "item")}' filename='{filename}'");
+                                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Braille embossing filename indicates item/stim mismatch.", $"value='{(fnIsStim ? "stim" : "item")}' expected='{(it.IsStimulus ? "stim" : "item")}' filename='{filename}'");
                             }
 
                             // ItemId
                             if (fnItemId != it.ItemId)
                             {
-                                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
-                                    "Braille embossing filename indicates item ID mismatch.",
-                                    $"value='{fnItemId}' expected='{it.ItemId}' Filename='{filename}'");
+                                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Braille embossing filename indicates item ID mismatch.", $"value='{fnItemId}' expected='{it.ItemId}' Filename='{filename}'");
                             }
 
                             // Form Code
                             if (fnFormCode != attachmentFormCode)
                             {
-                                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                                    "Braille embossing filename doesn't match expected braille type.",
-                                    $"value='{fnFormCode}' expected='{attachmentFormCode}' filename='{filename}'");
+                                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, "Braille embossing filename doesn't match expected braille type.", $"value='{fnFormCode}' expected='{attachmentFormCode}' filename='{filename}'");
                             }
 
                             // Check whether this is a transcript
                             if (fnIsTranscript != isTranscript)
                             {
-                                ReportingUtility.ReportError(id, ErrorCategory.Item, ErrorSeverity.Tolerable,
+                                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable,
                                     "Braille embossing filename transcript naming convention doesn't match subtype",
                                     $"value='{(fnIsTranscript ? "transcript" : string.Empty)}' expected='{(isTranscript ? "transcript" : string.Empty)}' filename='{filename}'");
                             }
@@ -1700,9 +1680,7 @@ namespace TabulateSmarterTestContentPackage
                             if (fnFileType != attachmentType)
                             // Must match the type listed
                             {
-                                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable,
-                                    "Braille embossing filename extension does not match type",
-                                    $"extension='{fnFileType}' expected='{attachmentType}' filename='{filename}'");
+                                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Tolerable, "Braille embossing filename extension does not match type", $"extension='{fnFileType}' expected='{attachmentType}' filename='{filename}'");
                             }
 
                             /* TODO: This error occurs on all pre-UEB content. May enable in a later release.
@@ -1722,17 +1700,13 @@ namespace TabulateSmarterTestContentPackage
             // Check for consistency between body forms and transcript forms
             if (allTranscriptForms != BrailleFormCode.NONE && allTranscriptForms != allForms)
             {
-                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                    "Braille transcript does not include the same forms as braille stem.",
-                    $"transcriptForms='{allTranscriptForms.ToString()}' stemForms='{allForms.ToString()}'");
+                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, "Braille transcript does not include the same forms as braille stem.", $"transcriptForms='{allTranscriptForms.ToString()}' stemForms='{allForms.ToString()}'");
             }
 
             var brailleSupport = BrailleUtility.GetSupportByCode(allForms);
             if (brailleSupport == BrailleSupport.UNEXPECTED)
             {
-                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                    "Braille embossing set of files do not match an expected pattern.",
-                    $"brailleTypes='{allForms}'");
+                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded, "Braille embossing set of files do not match an expected pattern.", $"brailleTypes='{allForms}'");
             }
 
             string result;
@@ -1742,8 +1716,7 @@ namespace TabulateSmarterTestContentPackage
             {
                 if (allForms != BrailleFormCode.NONE)
                 {
-                    ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Benign,
-                        "Metadata indicates not braillable but braille content included.", $"brailleTypes='{allForms}'");
+                    ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Benign, "Metadata indicates not braillable but braille content included.", $"brailleTypes='{allForms}'");
                 }
                 brailleSupport = BrailleSupport.NOTBRAILLABLE;
                 result = brailleSupport.ToString();
@@ -1752,16 +1725,14 @@ namespace TabulateSmarterTestContentPackage
             {
                 if (allForms != BrailleFormCode.NONE)
                 {
-                    ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Benign,
-                        "Metadata indicates no braille but braille content included.", $"brailleTypes='{allForms.ToString()}'");
+                    ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Benign, "Metadata indicates no braille but braille content included.", $"brailleTypes='{allForms.ToString()}'");
                 }
                 brailleSupport = BrailleSupport.NONE;
                 result = string.Empty;
             }
             else if (brailleFileType == BrailleFileType.NONE)
             {
-                ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Degraded,
-                    "Metadata indicates braille support but no braille content included.", $"metadata='{brailleTypeMeta}'");
+                ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Degraded, "Metadata indicates braille support but no braille content included.",$"metadata='{brailleTypeMeta}'");
                 result = string.Empty;
             }
             else
@@ -1778,8 +1749,7 @@ namespace TabulateSmarterTestContentPackage
                     }
                     else
                     {
-                        ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Benign,
-                            "Metadata indicates different braille support from available content.", $"metadata='{brailleTypeMeta}' content='{result}'");
+                        ReportingUtility.ReportError(it, ErrorCategory.Metadata, ErrorSeverity.Benign, "Metadata indicates different braille support from available content.", $"metadata='{brailleTypeMeta}' content='{result}'");
                     }
                 }
             }
@@ -2272,7 +2242,7 @@ namespace TabulateSmarterTestContentPackage
                 if (!rootFolder.FileExists(cImsManifest))
                 {
                     Console.WriteLine($"   Not a content package; '{cImsManifest}' must exist in root.");
-                    ReportingUtility.ReportError(string.Empty, ErrorCategory.Manifest, ErrorSeverity.Severe, $"Not a content package; '{cImsManifest}' must exist in root.");
+                    ReportingUtility.ReportError(cImsManifest, ErrorCategory.Manifest, ErrorSeverity.Severe, "Not a content package; 'imsmanifest.xml' must exist in root.");
                     return false;
                 }
 
@@ -2286,7 +2256,7 @@ namespace TabulateSmarterTestContentPackage
                 XmlDocument xmlManifest = new XmlDocument(sXmlNt);
                 if (!TryLoadXml(rootFolder, cImsManifest, xmlManifest))
                 {
-                    ReportingUtility.ReportError(string.Empty, ErrorCategory.Manifest, ErrorSeverity.Benign, "Invalid manifest.", LoadXmlErrorDetail);
+                    ReportingUtility.ReportError(cImsManifest, ErrorCategory.Manifest, ErrorSeverity.Benign, "Invalid manifest.", LoadXmlErrorDetail);
                     return true;
                 }
 
@@ -2374,7 +2344,7 @@ namespace TabulateSmarterTestContentPackage
             }
             catch (Exception err)
             {
-                ReportingUtility.ReportError(null, ErrorSeverity.Severe, err);
+                ReportingUtility.ReportError(ErrorConstants.ManifestItemId, err);
             }
 
             return true;

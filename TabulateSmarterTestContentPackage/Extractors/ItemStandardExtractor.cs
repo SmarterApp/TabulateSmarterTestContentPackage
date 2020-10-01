@@ -171,15 +171,15 @@ namespace TabulateSmarterTestContentPackage.Extractors
                 var csid = SmarterApp.ContentSpecId.TryParse(stdStr, grade);
                 if (csid.ParseErrorSeverity == SmarterApp.ErrorSeverity.Invalid)
                 {
-                    ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, $"{tag} failed to parse.", $"value='{stdStr}' err='{csid.ParseErrorDescription}'");
+                    ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Standard ID failed to parse.", $"tag='{tag}' value='{stdStr}' err='{csid.ParseErrorDescription}'");
                 }
                 else if (csid.ParseErrorSeverity == SmarterApp.ErrorSeverity.Corrected)
                 {
-                    ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, $"{tag} has correctable error.", $"value='{stdStr}' err='{csid.ParseErrorDescription}'");
+                    ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Standard ID has correctable error.", $"tag='{tag}' value='{stdStr}' err='{csid.ParseErrorDescription}'");
                 }
                 else if (csid.Validate() == SmarterApp.ErrorSeverity.Invalid)
                 {
-                    ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, $"{tag} validation error.", $"value='{stdStr}' err='{csid.ValidationErrorDescription}'");
+                    ReportingUtility.ReportError(ii, ErrorCategory.Metadata, ErrorSeverity.Tolerable, "Standard ID validation error.", $"tag='{tag}' value='{stdStr}' err='{csid.ValidationErrorDescription}'");
                 }
 
                 //if (csid.ParseErrorSeverity != SmarterApp.ErrorSeverity.Invalid)
