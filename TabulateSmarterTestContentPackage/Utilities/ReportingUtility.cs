@@ -22,59 +22,54 @@ namespace TabulateSmarterTestContentPackage.Utilities
         public static string ErrorReportPath { get; set; }
         public static string CurrentPackageName { get; set; }
         public static bool DeDuplicate { get; set; }
+        public static bool UseCdsFormat { get; set; }
+        public static string AdminYear { get; set; }
+        public static string Asmt { get; set; }
 
-        static TextWriter m_ErrorReport { get; set; }
+        const string c_toolId = "TAB";
+        const string c_errType = "content_pkg";
+
+        static string s_runDate;
+        static TextWriter s_ErrorReport;
         static HashSet<ShaHash> s_ErrorsReported = new HashSet<ShaHash>();
+        static string s_version;
 
         private static void InitErrorReport()
         {
-            if (m_ErrorReport != null) return;
-            m_ErrorReport = new StreamWriter(ErrorReportPath, false, Encoding.UTF8);
-            m_ErrorReport.WriteLine("Folder,BankKey,ItemId,ItemType,Category,Severity,ErrorMessage,Detail");
+            if (s_ErrorReport != null) return;
+            s_ErrorReport = new StreamWriter(ErrorReportPath, false, Encoding.UTF8);
+            s_runDate = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ssK");
 
             var application = System.Reflection.Assembly.GetExecutingAssembly();
-            string detail = $"version='{application.GetName().Version}' options='{Program.Options}'";
-            m_ErrorReport.WriteLine(string.Join(",", string.Empty,
-                string.Empty, string.Empty, string.Empty,
-                ErrorCategory.System.ToString(), ErrorSeverity.Message.ToString(),
-                "Tabulator Start", Tabulator.CsvEncode(detail)));
-        }
+            s_version = application.GetName().Version.ToString();
 
-        private static void InternalReportError(string folder, string itemType, string bankKey, string itemId, ErrorCategory category, ErrorSeverity severity, string msg, string detail)
-        {
-            // If deduplicate, find out if this error has already been reported for this particular item.
-            if (DeDuplicate)
+            if (AdminYear == null) AdminYear = string.Empty;
+            if (Asmt == null) Asmt = string.Empty;
+
+            if (!UseCdsFormat)
             {
-                // Create a hash of the itemId and message
-                var errHash = new ShaHash(string.Concat(itemType, bankKey, itemId, msg));
-
-                // If it's aready in the set then exit
-                if (!s_ErrorsReported.Add(errHash))
-                {
-                    return; // Already reported an error of this type on this item
-                }
+                s_ErrorReport.WriteLine("Folder,BankKey,ItemId,ItemType,Category,Severity,ErrorMessage,Detail");
+            }
+            else
+            {
+                s_ErrorReport.WriteLine("admin_year,asmt,severity,item_id,item_version,error_message_id,error_message,detail,notes,review_area,error_category,error_key,tool_id,tool_version,run_date,error_type,tdf_version");
             }
 
-            if (m_ErrorReport == null)
+            string detail = $"version='{s_version}' options='{Program.Options}' date='{s_runDate}'";
+
+            // This goes recursive but that's OK.
+            ReportError(null, ErrorId.TabulatorStart, detail);
+
+        }
+
+        // All other ReportError overloads concentrate down to here.
+        public static void ReportError(ItemIdentifier ii, ErrorId errorId, string detail)
+        {
+            if (s_ErrorReport == null)
             {
                 InitErrorReport();
             }
 
-            if (CurrentPackageName != null)
-            {
-                folder = string.Concat(CurrentPackageName, "/", folder);
-            }
-
-            // "Folder,ItemType,BankKey,ItemId,Category,Severity,ErrorMessage,Detail"
-            m_ErrorReport.WriteLine(string.Join(",", Tabulator.CsvEncode(folder),
-                Tabulator.CsvEncode(bankKey), Tabulator.CsvEncode(itemId), Tabulator.CsvEncode(itemType),
-                category.ToString(), severity.ToString(), Tabulator.CsvEncode(msg), Tabulator.CsvEncode(detail)));
-
-            ++ErrorCount;
-        }
-
-        public static void ReportError(ItemIdentifier ii, ErrorId errorId, string detail)
-        {
             string folderName;
             string itemType;
             string bankKey;
@@ -101,9 +96,50 @@ namespace TabulateSmarterTestContentPackage.Utilities
                 itemId = ii.ItemId.ToString();
             }
 
+            if (CurrentPackageName != null)
+            {
+                folderName = string.Concat(CurrentPackageName, "/", folderName);
+            }
+
+            // If deduplicate, find out if this error has already been reported for this particular item.
+            if (DeDuplicate)
+            {
+                // Create a hash of the itemId and message
+                var errHash = new ShaHash(string.Concat(itemType, bankKey, itemId, errorId));
+
+                // If it's aready in the set then exit
+                if (!s_ErrorsReported.Add(errHash))
+                {
+                    return; // Already reported an error of this type on this item
+                }
+            }
+
             var errorInfo = Errors.ErrorTable[(int)errorId];
 
-            InternalReportError(folderName, itemType, bankKey, itemId, errorInfo.Category, errorInfo.Severity, errorInfo.Message, detail);
+            if (errorInfo.Severity > ErrorSeverity.Message)
+            {
+                ++ErrorCount;
+            }
+
+            if (!UseCdsFormat)
+            {
+                // "Folder,ItemType,BankKey,ItemId,Category,Severity,ErrorMessage,Detail"
+                s_ErrorReport.WriteLine(string.Join(",", Tabulator.CsvEncode(folderName),
+                    Tabulator.CsvEncode(bankKey), Tabulator.CsvEncode(itemId), Tabulator.CsvEncode(itemType),
+                    errorInfo.Category, errorInfo.Severity, Tabulator.CsvEncode(errorInfo.Message), Tabulator.CsvEncode(detail)));
+            }
+            else
+            {
+                string msgId = $"CTAB-{(int)errorInfo.Id:d4}";
+                string errKey = "(errKey)";
+                // "admin_year,asmt,severity,item_id,item_version,error_message_id,error_message,
+                // detail,notes,review_area,error_category,error_key,tool_id,tool_version,run_date,
+                // error_type,tdf_version"
+                s_ErrorReport.WriteLine(string.Join(",", AdminYear, Asmt, errorInfo.Severity,
+                    itemId, "(version)", msgId, errorInfo.Message, detail, string.Empty,
+                    errorInfo.ReviewArea.ToString().ToLowerInvariant(), errorInfo.Category,
+                    errKey, c_toolId, s_version, s_runDate, c_errType, string.Empty));
+            }
         }
 
         public static void ReportError(ItemIdentifier ii, ErrorId errorId)
@@ -137,103 +173,12 @@ namespace TabulateSmarterTestContentPackage.Utilities
             ReportWitError(ii, witIt, errorId, string.Format(detail, args));
         }
 
-#pragma warning disable CS0612
-
-        [Obsolete]
-        public static void ReportError(ItemIdentifier ii, ErrorCategory category, ErrorSeverity severity, string msg, string detail = null)
-        {
-            string folderName;
-            string itemType;
-            string bankKey;
-            string itemId;
-            if (ii != null)
-            {
-                folderName = ii.FolderName;
-                itemType = ii.ItemType;
-                bankKey = ii.BankKey.ToString();
-                itemId = ii.ItemId.ToString();
-            }
-            else
-            {
-                folderName = string.Empty;
-                itemType = null;
-                bankKey = null;
-                itemId = null;
-            }
-            InternalReportError(folderName, itemType, bankKey, itemId, category, severity, msg, detail);
-        }
-
-        [Obsolete]
-        public static void ReportError(string folder, ErrorCategory category, ErrorSeverity severity, string msg, string detail = null)
-        {
-            InternalReportError(folder, null, null, null, category, severity, msg, detail);
-        }
-
-        [Obsolete]
-        public static void ReportError(FileFolder folder, ErrorCategory category, ErrorSeverity severity, string msg, string detail = null)
-        {
-            string folderName = folder.RootedName;
-            if (!string.IsNullOrEmpty(folderName) && folderName[0] == '/')
-            {
-                folderName = folderName.Substring(1);
-            }
-            InternalReportError(folderName, null, null, null, category, severity, msg, detail);
-        }
-
-        [Obsolete]
-        public static void ReportError(ItemIdentifier ii, ErrorCategory category, ErrorSeverity severity, string msg,
-            string detail, params object[] args)
-        {
-            ReportError(ii, category, severity, msg, string.Format(System.Globalization.CultureInfo.InvariantCulture, detail, args));
-        }
-
-        [Obsolete]
-        public static void ReportError(ItemIdentifier ii, ErrorSeverity severity, Exception err)
-        {
-            ReportingUtility.ReportError(ii, ErrorId.T0194, err.ToString());
-        }
-
-        [Obsolete]
-        public static void ReportError(string validationOption, ItemIdentifier ii, ErrorCategory category,
-            ErrorSeverity severity, string msg, string detail, params object[] args)
-        {
-            if (Program.gValidationOptions.IsEnabled(validationOption))
-            {
-                ReportError(ii, category, severity, msg, detail, args);
-            }
-        }
-
-        [Obsolete]
-        public static void ReportError(string validationOption, ItemIdentifier ii, ErrorCategory category,
-            ErrorSeverity severity, string msg, string detail = null)
-        {
-            if (Program.gValidationOptions.IsEnabled(validationOption))
-            {
-                ReportError(ii, category, severity, msg, detail);
-            }
-        }
-
-        [Obsolete]
-        public static void ReportWitError(ItemIdentifier ii, ItemIdentifier witIt, ErrorSeverity severity, string msg,
-            string detail = null)
-        {
-            detail = string.Concat($"wordlistId='{witIt.ItemId}' ", detail);
-            ReportError(ii, ErrorCategory.Wordlist, severity, msg, detail);
-        }
-
-        [Obsolete]
-        public static void ReportWitError(ItemIdentifier ii, ItemIdentifier witIt, ErrorSeverity severity, string msg,
-            string detail, params object[] args)
-        {
-            ReportWitError(ii, witIt, severity, msg, string.Format(System.Globalization.CultureInfo.InvariantCulture, detail, args));
-        }
-
         public static void CloseReport()
         {
-            if (m_ErrorReport != null)
+            if (s_ErrorReport != null)
             {
-                m_ErrorReport.Dispose();
-                m_ErrorReport = null;
+                s_ErrorReport.Dispose();
+                s_ErrorReport = null;
             }
             s_ErrorsReported.Clear();
         }

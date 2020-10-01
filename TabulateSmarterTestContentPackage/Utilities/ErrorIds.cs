@@ -202,7 +202,8 @@ namespace TabulateSmarterTestContentPackage.Utilities
             new ErrorInfo(ErrorId.T0191, "Standard ID has correctable error.", ErrorCategory.Metadata, ErrorSeverity.Tolerable, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0192, "Standard ID validation error.", ErrorCategory.Metadata, ErrorSeverity.Tolerable, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0193, "Math Claim 2, 3, 4 primary alignment is missing CCSS standard.", ErrorCategory.Metadata, ErrorSeverity.Tolerable, ErrorReviewArea.Content),
-            new ErrorInfo(ErrorId.T0194, "Exception Thrown", ErrorCategory.Exception, ErrorSeverity.Severe, ErrorReviewArea.Lead),
+            new ErrorInfo(ErrorId.TabulatorStart, "Tabulator Start", ErrorCategory.System, ErrorSeverity.Message, ErrorReviewArea.None),
+            new ErrorInfo(ErrorId.Exception, "Exception Thrown", ErrorCategory.Exception, ErrorSeverity.Severe, ErrorReviewArea.Lead),
         };
     }
 
@@ -391,8 +392,8 @@ namespace TabulateSmarterTestContentPackage.Utilities
         T0191 = 191,
         T0192 = 192,
         T0193 = 193,
-        T0194 = 194,
-        Exception = 194  
+        TabulatorStart = 194,
+        Exception = 195  
     }
 
     public enum ErrorReviewArea : int
