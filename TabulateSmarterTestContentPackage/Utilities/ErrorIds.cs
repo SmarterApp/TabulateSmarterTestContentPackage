@@ -1,3 +1,4 @@
+using System;
 using TabulateSmarterTestContentPackage.Models;
 
 namespace TabulateSmarterTestContentPackage.Utilities
@@ -205,6 +206,24 @@ namespace TabulateSmarterTestContentPackage.Utilities
             new ErrorInfo(ErrorId.TabulatorStart, "Tabulator Start", ErrorCategory.System, ErrorSeverity.Message, ErrorReviewArea.None),
             new ErrorInfo(ErrorId.Exception, "Exception Thrown", ErrorCategory.Exception, ErrorSeverity.Severe, ErrorReviewArea.Lead),
         };
+
+#if DEBUG
+        // Validate that the ID of each error in the table matches its position.
+        static Errors()
+        {
+            for (int i = 0; i < ErrorTable.Length; ++i)
+            {
+                if (ErrorTable[i].Id != ErrorId.None && (int)ErrorTable[i].Id != i)
+                {
+                    // Really, really notify about the problem.
+                    string message = $"Errors.ErrorTable: ID doesn't match position in table. id={ErrorTable[i].Id} position={i}";
+                    Console.WriteLine(message);
+                    System.Diagnostics.Debug.Fail(message);
+                    throw new ApplicationException(message);
+                }
+            }
+        }
+#endif
     }
 
     // The only reason for this enum is to detect at compile-time that only defined IDs are used.
