@@ -567,14 +567,32 @@ namespace TabulateSmarterTestContentPackage
             var itemVersion = xml.XpEvalE("itemrelease/item/@version");
             it.Version = itemVersion; // Make version available for error reporting.
 
-            IList<ItemScoring> scoringInformation = new List<ItemScoring>();
             // Load metadata
             var xmlMetadata = new XmlDocument(sXmlNt);
             if (!TryLoadXml(it.FfItem, "metadata.xml", xmlMetadata))
             {
                 ReportingUtility.ReportError(it, ErrorId.T0112, LoadXmlErrorDetail);
             }
+
+            // Get metadata version (which includes the minor version number)
+            var metadataVersion = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:Version", sXmlNs);
+
+            // Check for consistency between the version number in item xml and metadata xml.
+            // The metadata XML stores the version number in "major.minor" format, while 
+            // the item xml stores the version in "major" format. Only the "major" number
+            // is to be compared.
+            var metadataVersionValues = metadataVersion.Split('.');
+            if (!itemVersion.Equals(metadataVersionValues[0]))
+            {
+                ReportingUtility.ReportError(it, ErrorId.T0114, "Item version='{0}' Metadata major version='{1}'", itemVersion, metadataVersionValues[0]);
+            }
             else
+            {
+                it.Version = metadataVersion; // Update to include minor version number when present
+            }
+
+            IList< ItemScoring > scoringInformation = new List<ItemScoring>();
+            if (xmlMetadata.HasChildNodes)
             {
                 scoringInformation = IrtExtractor.RetrieveIrtInformation(xmlMetadata.MapToXDocument()).ToList();
             }
@@ -587,16 +605,6 @@ namespace TabulateSmarterTestContentPackage
             var metaItemType = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:InteractionType", sXmlNs);
             if (!string.Equals(metaItemType, it.ItemType.ToUpperInvariant(), StringComparison.Ordinal))
                 ReportingUtility.ReportError(it, ErrorId.T0113, "InteractionType='{0}' Expected='{1}'", metaItemType, it.ItemType.ToUpperInvariant());
-
-            // Check for version match
-            var metadataVersion = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:Version", sXmlNs);
-            // Check for consistence between the version number in item xml and metadata xml. The metadata XML stores the version number in "major.minor" format, while 
-            // the item xml stores the version in "major" format. Only the "major" number is to be compared.
-            var metadataVersionValues = metadataVersion.Split('.');
-            if (!itemVersion.Equals(metadataVersionValues[0]))
-            {
-                ReportingUtility.ReportError(it, ErrorId.T0114, "Item version='{0}' Metadata major version='{1}'", itemVersion, metadataVersionValues[0]);
-            }
 
             // Subject
             var subject = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='itm_item_subject']/val");
