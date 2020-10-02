@@ -140,7 +140,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
                 // "admin_year,asmt,severity,item_id,item_version,error_message_id,error_message,
                 // detail,notes,review_area,error_category,error_key,tool_id,tool_version,run_date,
                 // error_type,tdf_version"
-                s_ErrorReport.WriteLine(string.Join(",", AdminYear, Asmt, errorInfo.Severity,
+                s_ErrorReport.WriteLine(Tabulator.CsvEncode(AdminYear, Asmt, errorInfo.Severity,
                     itemId, version, msgId, errorInfo.Message, detail, string.Empty,
                     errorInfo.ReviewArea.ToString().ToLowerInvariant(), errorInfo.Category,
                     errKey, c_toolId, s_version, s_runDate, c_errType, string.Empty));

@@ -2504,6 +2504,20 @@ namespace TabulateSmarterTestContentPackage
         {
             return string.Concat("\"", text.Replace("\"", "\"\""), "\t\"");
         }
+
+        public static string CsvEncode(params object[] args)
+        {
+            var b = new StringBuilder();
+            bool first = true;
+            foreach(var arg in args)
+            {
+                if (!first) b.Append(',');
+                else first = false;
+
+                if (arg != null) b.Append(CsvEncode(arg.ToString()));
+            }
+            return b.ToString();
+        }
     }
 
     internal static class TabulatorHelp
