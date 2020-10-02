@@ -135,8 +135,8 @@ namespace TabulateSmarterTestContentPackage.Utilities
             }
             else
             {
-                string msgId = $"CTAB-{(int)errorInfo.Id:d4}";
-                 string errKey = GenerateErrorKey(itemId, msgId, detail);
+                string msgId = ErrorIdToString(errorInfo.Id);
+                string errKey = GenerateErrorKey(itemId, msgId, detail);
                 // "admin_year,asmt,severity,item_id,item_version,error_message_id,error_message,
                 // detail,notes,review_area,error_category,error_key,tool_id,tool_version,run_date,
                 // error_type,tdf_version"
@@ -145,6 +145,11 @@ namespace TabulateSmarterTestContentPackage.Utilities
                     errorInfo.ReviewArea.ToString().ToLowerInvariant(), errorInfo.Category,
                     errKey, c_toolId, s_version, s_runDate, c_errType, string.Empty));
             }
+        }
+
+        static string ErrorIdToString(ErrorId errId)
+        {
+            return $"CTAB-{(int)errId:d4}";
         }
 
         public static void ReportError(ItemIdentifier ii, ErrorId errorId)
@@ -192,6 +197,25 @@ namespace TabulateSmarterTestContentPackage.Utilities
         {
             var hash = new MD5Hash(string.Concat(itemId, errorMessageId, detail));
             return hash.ToString();
+        }
+
+        public static void ExportErrorTable(string filepath)
+        {
+            string path = Path.GetFullPath(filepath);
+            Console.WriteLine($"Exporting error table to: {path}");
+            using (var writer = new StreamWriter(path, false, Encoding.UTF8))
+            {
+                writer.WriteLine("error_message_id,error_message,error_category,severity,review_area");
+                foreach (var errInfo in Errors.ErrorTable)
+                {
+                    if (errInfo.Id != ErrorId.None)
+                    {
+                        writer.WriteLine(Tabulator.CsvEncode(ErrorIdToString(errInfo.Id), errInfo.Message,
+                            errInfo.Category, errInfo.Severity,
+                            errInfo.ReviewArea.ToString().ToLowerInvariant()));
+                    }
+                }
+            }
         }
     }
 }

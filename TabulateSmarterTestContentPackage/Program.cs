@@ -94,6 +94,9 @@ Arguments:
                      same place as the reports.
     -dedup           Only report the first instance of an error on a
                      particular item (De-duplicate).
+    -errtable <name> Writes the table of all errors reported by this version of
+                     the tabulator to the file specified by the name. The table
+                     is in .csv format.
     -w               Wait for a keypress for exiting - helpful when not
                      running from a command-line window.
     <packageMoniker> The filename of a local package or the identifier of an
@@ -274,6 +277,7 @@ Error severity definitions:
         static bool s_exportRubrics;
         static bool s_deDuplicate;
         static bool s_waitBeforeExit;
+        static string s_exportErrorTable;
 
         public static string Options
         {
@@ -307,7 +311,11 @@ Error severity definitions:
                 Models.TabulatorSettings.Load();
                 ParseCommandLine(args);
 
-                if (s_showHelp || s_operations.Count == 0)
+                if (s_exportErrorTable != null)
+                {
+                    ReportingUtility.ExportErrorTable(s_exportErrorTable);
+                }
+                else if (s_showHelp || s_operations.Count == 0)
                 {
                     Console.WriteLine(cSyntax);
                 }
@@ -453,6 +461,10 @@ Error severity definitions:
 
                     case "-dedup":
                         s_deDuplicate = true;
+                        break;
+
+                    case "-errtable":
+                        s_exportErrorTable = GetNextArgument(args, ref i, "-errtable");
                         break;
 
                     case "-w":
