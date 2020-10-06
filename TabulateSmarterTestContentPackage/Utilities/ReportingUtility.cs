@@ -53,7 +53,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
             }
             else
             {
-                s_ErrorReport.WriteLine("admin_year,asmt,severity,item_id,item_version,error_message_id,error_message,detail,notes,review_area,error_category,error_key,tool_id,tool_version,run_date,error_type,tdf_version");
+                s_ErrorReport.WriteLine("admin_year,asmt,severity,item_id,item_version,error_message_id,error_message,detail,notes,review_area,error_category,error_key,tool_id,tool_version,run_date,error_type,tdf_key");
             }
 
             string detail = $"version='{s_version}' options='{Program.Options}' date='{s_runDate}'";
@@ -139,7 +139,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
                 string errKey = GenerateErrorKey(itemId, msgId, detail);
                 // "admin_year,asmt,severity,item_id,item_version,error_message_id,error_message,
                 // detail,notes,review_area,error_category,error_key,tool_id,tool_version,run_date,
-                // error_type,tdf_version"
+                // error_type,tdf_key"
                 s_ErrorReport.WriteLine(Tabulator.CsvEncode(AdminYear, Asmt, errorInfo.Severity,
                     itemId, version, msgId, errorInfo.Message, detail, string.Empty,
                     errorInfo.ReviewArea.ToString().ToLowerInvariant(), errorInfo.Category,
