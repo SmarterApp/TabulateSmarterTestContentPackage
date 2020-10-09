@@ -205,6 +205,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
             new ErrorInfo(ErrorId.T0193, "Math Claim 2, 3, 4 primary alignment is missing CCSS standard.", ErrorCategory.Metadata, ErrorSeverity.Tolerable, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.TabulatorStart, "Tabulator Start", ErrorCategory.System, ErrorSeverity.Message, ErrorReviewArea.None),
             new ErrorInfo(ErrorId.Exception, "Exception Thrown", ErrorCategory.Exception, ErrorSeverity.Severe, ErrorReviewArea.Lead),
+            new ErrorInfo(ErrorId.T0196, "TutorialId is not expected value for item type.", ErrorCategory.Exception, ErrorSeverity.Degraded, ErrorReviewArea.Content),
         };
 
 #if DEBUG
@@ -412,7 +413,8 @@ namespace TabulateSmarterTestContentPackage.Utilities
         T0192 = 192,
         T0193 = 193,
         TabulatorStart = 194,
-        Exception = 195  
+        Exception = 195,
+        T0196 = 196
     }
 
     public enum ErrorReviewArea : int

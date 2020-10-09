@@ -962,6 +962,10 @@ namespace TabulateSmarterTestContentPackage
             {
                 ReportingUtility.ReportError(it, ErrorId.T0076);
             }
+            else
+            {
+                TutorialIds.ValidateTutorialId(it, subject, tutorialId);
+            }
 
             // ASL
             // When checking for ASL, the 'file' attribute value in the <attachment> element of the <attachmentlist> in the item xml is evaluated. This is only 1/2 the story.
