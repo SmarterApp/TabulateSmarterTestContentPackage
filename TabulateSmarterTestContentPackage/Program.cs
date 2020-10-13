@@ -284,10 +284,20 @@ Error severity definitions:
             get
             {
                 string value = gValidationOptions.ReportOptions();
+                string eValue = Errors.ReportOptions();
+                if (!string.IsNullOrEmpty(eValue))
+                {
+                    if (value.Length > 0)
+                        value = string.Concat(value, " ", eValue);
+                    else
+                        value = eValue;
+                }
                 if (s_deDuplicate)
                 {
-                    if (value.Length > 0) value = value + " ";
-                    value = value + " dedup(On)";
+                    if (value.Length > 0)
+                        value = string.Concat(value, " ", "dedup(On)");
+                    else
+                        value = "dedup(On)";
                 }
                 return value;
             }
@@ -305,6 +315,7 @@ Error severity definitions:
             gValidationOptions.DisableByDefault("css"); // Disable reporting css color-contrast interference (temporary fix)
             gValidationOptions.DisableByDefault("ats"); // Disable checking for image alt text in Spanish content.
             gValidationOptions.DisableByDefault("akv"); // Disable reporting answer key values.
+            Errors.DisableByDefault(ErrorId.T0084); // Wordlist attachment filename indicates wordlist ID mismatch
 
             try
             {
@@ -476,13 +487,18 @@ Error severity definitions:
                         {
                             var key = arg.Substring(3).ToLowerInvariant();
                             var value = arg[2] == '+';
-                            if (key.Equals("all", StringComparison.Ordinal))
+                            if (Errors.TryParseErrorId(key, out ErrorId errorId))
+                            {
+                                Errors.SetEnabled(errorId, value);
+                            }
+                            else if (key.Equals("all", StringComparison.Ordinal))
                             {
                                 if (!value)
                                 {
                                     throw new ArgumentException(
                                         "Invalid command-line option '-v-all'. Options must be disabled one at a time.");
                                 }
+                                Errors.EnableAll();
                                 gValidationOptions.EnableAll();
                             }
                             else
