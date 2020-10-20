@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Xml;
@@ -105,7 +105,7 @@ namespace TabulateSmarterTestContentPackage
             ItemContext it;
             if (!ItemContext.TryCreate(mPackage, ii, out it))
             {
-                ReportingUtility.ReportError(ii, ErrorCategory.Item, ErrorSeverity.Severe, "WordList not found in package.");
+                ReportingUtility.ReportError(ii, ErrorId.T0164);
                 return;
             }
 
@@ -113,7 +113,7 @@ namespace TabulateSmarterTestContentPackage
             XmlDocument xml = new XmlDocument(sXmlNt);
             if (!TryLoadXml(it.FfItem, it.FfItem.Name + ".xml", xml))
             {
-                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe, "Invalid wordlist file.", LoadXmlErrorDetail);
+                ReportingUtility.ReportError(it, ErrorId.T0107, LoadXmlErrorDetail);
                 return;
             }
 
@@ -124,7 +124,7 @@ namespace TabulateSmarterTestContentPackage
             int refCount = mWordlistRefCounts.Count(it.ToString());
             if (refCount == 0 && !(mPackage is SingleItemPackage))
             {
-                ReportingUtility.ReportError(it, ErrorCategory.Wordlist, ErrorSeverity.Benign, "Wordlist is not referenced by any item.");
+                ReportingUtility.ReportError(it, ErrorId.T0089);
             }
 
             // Zero the counts
@@ -178,7 +178,7 @@ namespace TabulateSmarterTestContentPackage
             {
                 if (!(mPackage is SingleItemPackage))
                 {
-                    ReportingUtility.ReportError(itemIt, ErrorCategory.Item, ErrorSeverity.Degraded, "Item references non-existent wordlist (WIT)", "wordlistId='{0}'", wordlistId);
+                    ReportingUtility.ReportError(itemIt, ErrorId.T0040, "wordlistId='{0}'", wordlistId);
                 }
                 return 0;
             }
@@ -187,21 +187,21 @@ namespace TabulateSmarterTestContentPackage
             var xml = new XmlDocument(sXmlNt);
             if (!TryLoadXml(ff, ii.FullId + ".xml", xml))
             {
-                ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Severe, "Invalid wordlist file.", LoadXmlErrorDetail);
+                ReportingUtility.ReportWitError(itemIt, ii, ErrorId.T0107, LoadXmlErrorDetail);
                 return 0;
             }
 
             // Make sure this is a wordlist
             if (!string.Equals(xml.XpEvalE("itemrelease/item/@type"), cItemTypeWordlist))
             {
-                ReportingUtility.ReportError(itemIt, ErrorCategory.Item, ErrorSeverity.Severe, "WordList reference is to a non-wordList item.", $"referencedId='{ii.ItemId}'");
+                ReportingUtility.ReportError(itemIt, ErrorId.T0165, $"referencedId='{ii.ItemId}'");
                 return 0;
             }
 
             // Sanity check
             if (!string.Equals(xml.XpEvalE("itemrelease/item/@id"), ii.ItemId.ToString()))
             {
-                ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Severe, "Wordlist file id mismatch.", $"wordListId='{xml.XpEval("itemrelease/item/@id")}' expected='{ii.ItemId}'");
+                ReportingUtility.ReportWitError(itemIt, ii, ErrorId.T0166, $"wordListId='{xml.XpEval("itemrelease/item/@id")}' expected='{ii.ItemId}'");
                 return 0;
             }
 
@@ -238,7 +238,7 @@ namespace TabulateSmarterTestContentPackage
                 while (wordlistTerms.Count < index + 1) wordlistTerms.Add(string.Empty);
                 if (!string.IsNullOrEmpty(wordlistTerms[index]))
                 {
-                    ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Severe, "Wordlist has multiple terms with the same index.", "index='{0}'", index);
+                    ReportingUtility.ReportWitError(itemIt, ii, ErrorId.T0088, "index='{0}'", index);
                 }
                 else
                 {
@@ -264,7 +264,7 @@ namespace TabulateSmarterTestContentPackage
                 bool termReferenced = referencedIndices.Contains(index);
                 if (!termReferenced && Program.gValidationOptions.IsEnabled("uwt"))
                 {
-                    ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Benign, "Wordlist term is not referenced by item.", "term='{0}' termIndex='{1}'", term, index);
+                    ReportingUtility.ReportWitError(itemIt, ii, ErrorId.T0167, "term='{0}' termIndex='{1}'", term, index);
                 }
 
                 // Find the attachment references and enumberate the translations
@@ -318,7 +318,7 @@ namespace TabulateSmarterTestContentPackage
                             if (!wordlistId.Equals(match2.Groups[1].Value, StringComparison.Ordinal)
                                 && !wordlistId.Equals(match2.Groups[2].Value, StringComparison.Ordinal))
                             {
-                                ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Degraded, "Wordlist attachment filename indicates wordlist ID mismatch.", "filename='{0}' filenameItemId='{1}' expectedItemId='{2}'", filename, match2.Groups[1].Value, wordlistId);
+                                ReportingUtility.ReportWitError(itemIt, ii, ErrorId.T0084, "filename='{0}' filenameItemId='{1}' expectedItemId='{2}'", filename, match2.Groups[1].Value, wordlistId);
                             }
 
                             // Check that the wordlist term index matches
@@ -330,7 +330,7 @@ namespace TabulateSmarterTestContentPackage
                             if (filenameIndex != index && filenameIndex != ordinal
                                 && (filenameIndex >= wordlistTerms.Count || !string.Equals(wordlistTerms[filenameIndex], term, StringComparison.OrdinalIgnoreCase)))
                             {
-                                ReportingUtility.ReportWitError(ItemIt, it, ErrorSeverity.Degraded, "Wordlist attachment filename indicates term index mismatch.", "filename='{0}' filenameIndex='{1}' expectedIndex='{2}'", filename, filenameIndex, index);
+                                ReportingUtility.ReportWitError(ItemIt, it, ErrorId.T0168, "filename='{0}' filenameIndex='{1}' expectedIndex='{2}'", filename, filenameIndex, index);
                             }
                             */
 
@@ -365,7 +365,7 @@ namespace TabulateSmarterTestContentPackage
                             }
                             if (!filenameListType.Equals(listType))
                             {
-                                ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Degraded, "Wordlist audio filename indicates attachment language mismatch.", "filename='{0}' filenameListType='{1}' expectedListType='{2}'", filename, filenameListType, listType);
+                                ReportingUtility.ReportWitError(itemIt, ii, ErrorId.T0087, "filename='{0}' filenameListType='{1}' expectedListType='{2}'", filename, filenameListType, listType);
                             }
                         }
 
@@ -383,27 +383,26 @@ namespace TabulateSmarterTestContentPackage
                         if (!wordlistId.Equals(match.Groups[1].Value, StringComparison.Ordinal)
                          && !wordlistId.Equals(match.Groups[2].Value, StringComparison.Ordinal))
                         {
-                            ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Degraded, "Wordlist attachment filename indicates wordlist ID mismatch.", "filename='{0}' filenameItemId='{1}' expectedItemId='{2}'", filename, match.Groups[1].Value, wordlistId);
+                            ReportingUtility.ReportWitError(itemIt, ii, ErrorId.T0084, "filename='{0}' filenameItemId='{1}' expectedItemId='{2}'", filename, match.Groups[1].Value, wordlistId);
                         }
                     }
                     else if (listType.Equals("illustration", StringComparison.Ordinal))
                     {
-                        ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Degraded, "Illustration glossary entry does not include image.", "term='{0}' index='{1}'", term, index);
+                        ReportingUtility.ReportWitError(itemIt, ii, ErrorId.T0169, "term='{0}' index='{1}'", term, index);
                     }
 
                     // Report error if translated glossary lacks audio. This check should be for all glossary types, except Illustrations
                     if (gt != GlossaryTypes.Illustration) { 
                         if ((gt & sAllTranslatedGlossaries) != 0 && string.IsNullOrEmpty(audioType))
                         {
-                            ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Degraded, "Translated glossary entry lacks audio.", "term='{0}' index='{1}'", term, index);
+                            ReportingUtility.ReportWitError(itemIt, ii, ErrorId.T0075, "term='{0}' index='{1}'", term, index);
                         }
                     }
 
                     // Report error if Burmese translation includes Zawgyi characters
                     if (gt == GlossaryTypes.Burmese && HasZawgyiCharacters(html))
                     {
-                        ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Degraded, "Burmese translated glossary uses Zawgyi characters, should be Unicode.",
-                            $"term='{term}' index='{index}' translation='{html}'");
+                        ReportingUtility.ReportWitError(itemIt, ii, ErrorId.T0012, $"term='{term}' index='{index}' translation='{html}'");
                     }
 
                     string folderDescription = string.Concat(mPackage.Name, "/", ii.FolderName);
@@ -422,7 +421,7 @@ namespace TabulateSmarterTestContentPackage
                 {
                     // Make a list of translations that weren't found
                     string missedTranslations = (sExpectedTranslatedGlossaries & ~glossariesFound).ToString();
-                    ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Tolerable, "Wordlist term does not include all expected translations.", "term='{0}' missing='{1}'", term, missedTranslations);
+                    ReportingUtility.ReportWitError(itemIt, ii, ErrorId.T0092, "term='{0}' missing='{1}'", term, missedTranslations);
                 }
 
                 aggregateGlossariesFound |= glossariesFound;
@@ -436,13 +435,13 @@ namespace TabulateSmarterTestContentPackage
                 int index = termIndices[i];
                 if (index >= wordlistTerms.Count || string.IsNullOrEmpty(wordlistTerms[index]))
                 {
-                    ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Benign, "Item references non-existent wordlist term.", "text='{0}' termIndex='{1}'", terms[i], index);
+                    ReportingUtility.ReportWitError(itemIt, ii, ErrorId.T0041, "text='{0}' termIndex='{1}'", terms[i], index);
                 }
                 else
                 {
                     if (!stemmer.TermsMatch(terms[i], wordlistTerms[index]))
                     {
-                        ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Degraded, "Item text does not match wordlist term.", "text='{0}' term='{1}' termIndex='{2}'", terms[i], wordlistTerms[index], index);
+                        ReportingUtility.ReportWitError(itemIt, ii, ErrorId.T0043, "text='{0}' term='{1}' termIndex='{2}'", terms[i], wordlistTerms[index], index);
                     }
                 }
             }
@@ -454,7 +453,7 @@ namespace TabulateSmarterTestContentPackage
                 {
                     if (!attachmentToReference.ContainsKey(pair.Key))
                     {
-                        ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Benign, "Unreferenced wordlist attachment file.", "filename='{0}'", pair.Key);
+                        ReportingUtility.ReportWitError(itemIt, ii, ErrorId.T0170, "filename='{0}'", pair.Key);
                     }
                 }
             }
@@ -493,13 +492,11 @@ namespace TabulateSmarterTestContentPackage
                 {
                     if (caseMismatchFilename == null)
                     {
-                        ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Severe, "Wordlist attachment not found.",
-                            "filename='{0}' term='{1}' termIndex='{2}'", filename, wordlistTerms[termIndex], termIndex);
+                        ReportingUtility.ReportWitError(itemIt, ii, ErrorId.T0085, "filename='{0}' term='{1}' termIndex='{2}'", filename, wordlistTerms[termIndex], termIndex);
                     }
                     else
                     {
-                        ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Degraded, "Wordlist audio filename differs in capitalization (will fail on certain platforms).",
-                            "referenceFilename='{0}' actualFilename='{1}' termIndex='{2}'", filename, caseMismatchFilename, termIndex);
+                        ReportingUtility.ReportWitError(itemIt, ii, ErrorId.T0086, "referenceFilename='{0}' actualFilename='{1}' termIndex='{2}'", filename, caseMismatchFilename, termIndex);
                     }
                 }
 
@@ -507,13 +504,11 @@ namespace TabulateSmarterTestContentPackage
                 {
                     if (caseMismatchFilename == null)
                     {
-                        ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Benign, "Wordlist attachment not found. Benign because corresponding term is not referenced.",
-                            "filename='{0}' term='{1}' termIndex='{2}'", filename, wordlistTerms[termIndex], termIndex);
+                        ReportingUtility.ReportWitError(itemIt, ii, ErrorId.T0171, "filename='{0}' term='{1}' termIndex='{2}'", filename, wordlistTerms[termIndex], termIndex);
                     }
                     else
                     {
-                        ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Benign, "Wordlist attachment filename differs in capitalization. Benign because corresponding term is not referenced.",
-                            "referenceFilename='{0}' actualFilename='{1}' termIndex='{2}'", filename, caseMismatchFilename, termIndex);
+                        ReportingUtility.ReportWitError(itemIt, ii, ErrorId.T0172, "referenceFilename='{0}' actualFilename='{1}' termIndex='{2}'", filename, caseMismatchFilename, termIndex);
                     }
                 }
             }
@@ -525,16 +520,14 @@ namespace TabulateSmarterTestContentPackage
                 // Error if different terms (case insensitive)
                 if (!string.Equals(wordlistTerms[termIndex], wordlistTerms[previousTerm.TermIndex], StringComparison.InvariantCultureIgnoreCase))
                 {
-                    ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Severe, "Two different wordlist terms reference the same attachment.",
-                        "filename='{0}' termA='{1}' termB='{2}' termIndexA='{3}' termIndexB='{4}",
+                    ReportingUtility.ReportWitError(itemIt, ii, ErrorId.T0077, "filename='{0}' termA='{1}' termB='{2}' termIndexA='{3}' termIndexB='{4}",
                         filename, wordlistTerms[previousTerm.TermIndex], wordlistTerms[termIndex], previousTerm.TermIndex, termIndex);
                 }
 
                 // Error if different listTypes (language or image)
                 if (!string.Equals(listType, previousTerm.ListType, StringComparison.Ordinal))
                 {
-                    ReportingUtility.ReportWitError(itemIt, ii, ErrorSeverity.Severe, "Same wordlist attachment used for different languages or types.",
-                        "filename='{0}' term='{1}' typeA='{2}' typeB='{3}' termIndexA='{4}' termIndexB='{5}",
+                    ReportingUtility.ReportWitError(itemIt, ii, ErrorId.T0068, "filename='{0}' term='{1}' typeA='{2}' typeB='{3}' termIndexA='{4}' termIndexB='{5}",
                         filename, wordlistTerms[termIndex], previousTerm.ListType, listType, previousTerm.TermIndex, termIndex);
                 }
             }
@@ -604,8 +597,7 @@ namespace TabulateSmarterTestContentPackage
 
                     if (!string.Equals(extension, foundFormat, StringComparison.Ordinal))
                     {
-                        ReportingUtility.ReportWitError(it, ii, ErrorSeverity.Degraded, "Audio Glossary file is not in expected format.",
-                            $"term = '{term}' filename='{filename}' expectedFormat='{extension}' actualFormat='{foundFormat}'");
+                        ReportingUtility.ReportWitError(it, ii, ErrorId.T0005, $"term = '{term}' filename='{filename}' expectedFormat='{extension}' actualFormat='{foundFormat}'");
                     }
                 }
             }

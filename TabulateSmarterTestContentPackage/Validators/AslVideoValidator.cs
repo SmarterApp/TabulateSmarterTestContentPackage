@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Text.RegularExpressions;
 using System.Xml.XPath;
 using TabulateSmarterTestContentPackage.Models;
@@ -20,8 +20,7 @@ namespace TabulateSmarterTestContentPackage.Validators
             // 3. do the files in the <source> elements exist?
 
             if (string.IsNullOrEmpty(attachmentFilename)) {
-                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
-                    "ASL video file name missing from the item attachment 'file' attribute.");            
+                ReportingUtility.ReportError(it, ErrorId.T0173);            
                 return;
             }
 
@@ -41,24 +40,21 @@ namespace TabulateSmarterTestContentPackage.Validators
             }
             else
             {
-                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
-                    "ASL video files are missing from the attachment source list.", $"Filename: {attachmentFilename}");
+                ReportingUtility.ReportError(it, ErrorId.T0174, $"Filename: {attachmentFilename}");
                 return;
             }
             
             // check if there are two source elements
             if (aslFileNames.Count != 2)
             {
-                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
-                    "ASL video files must have 2 file references.", $"expected: 2 found: {aslFileNames.Count}");
+                ReportingUtility.ReportError(it, ErrorId.T0106, $"expected: 2 found: {aslFileNames.Count}");
                 return;
             }
 
             // check if the MP4 file name in the <attachment> element matches at least one of the <source> elements
             if (!aslFileNames.Contains(attachmentFilename))
             {            
-                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
-                    "ASL video file name attribute value not found in source element.", $"Expected file name: {attachmentFilename}");                                               
+                ReportingUtility.ReportError(it, ErrorId.T0175, $"Expected file name: {attachmentFilename}");                                               
             }
 
             // check if the file exists
@@ -66,8 +62,7 @@ namespace TabulateSmarterTestContentPackage.Validators
             {
                 if (!it.FfItem.FileExists(currentSource))
                 {
-                    ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Severe,
-                        "ASL video file is missing.", $"Filename: {currentSource}");
+                    ReportingUtility.ReportError(it, ErrorId.T0176, $"Filename: {currentSource}");
                 }
             }
             
@@ -93,9 +88,7 @@ namespace TabulateSmarterTestContentPackage.Validators
             if (secondToCountRatio > highStandard
                 || secondToCountRatio < lowStandard)
             {
-                ReportingUtility.ReportError(it, ErrorCategory.Item, ErrorSeverity.Degraded,
-                    "ASL video length doesn't correlate with text length; possible mismatch.",
-                    $"videoSeconds={videoSeconds:F3} characterCount={englishCharacterCount} ratio={secondToCountRatio:F3} meanRatio={TabulatorSettings.AslMean} tolerance={TabulatorSettings.AslToleranceInStdev*TabulatorSettings.AslStandardDeviation:F3}");
+                ReportingUtility.ReportError(it, ErrorId.T0002, $"videoSeconds={videoSeconds:F3} characterCount={englishCharacterCount} ratio={secondToCountRatio:F3} meanRatio={TabulatorSettings.AslMean} tolerance={TabulatorSettings.AslToleranceInStdev*TabulatorSettings.AslStandardDeviation:F3}");
             }
 
             accumulator.AddDatum(secondToCountRatio);
@@ -111,36 +104,30 @@ namespace TabulateSmarterTestContentPackage.Validators
                     match.Groups[1].Value.Equals("passage", StringComparison.OrdinalIgnoreCase))
                 {
                     // Should be stim, but is passage
-                    ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Benign,
-                        "ASL video filename for stim is titled as 'passsage' instead of 'stim'", $"Filename: {fileName}");
+                    ReportingUtility.ReportError(itemContext, ErrorId.T0003, $"Filename: {fileName}");
                 }
                 if (!match.Groups[5].Value.Equals(itemContext.ItemId.ToString(), StringComparison.OrdinalIgnoreCase))
                 {
                     // Incorrect ItemId
-                    ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe,
-                        "ASL video filename contains an incorrect ID",
-                        $"Filename: {fileName} Expected ID: {itemContext.ItemId}");
+                    ReportingUtility.ReportError(itemContext, ErrorId.T0177, $"Filename: {fileName} Expected ID: {itemContext.ItemId}");
                 }
                 if (itemContext.IsStimulus &&
                     match.Groups[1].Value.Equals("item", StringComparison.OrdinalIgnoreCase))
                 {
                     // Item video in stim
-                    ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe,
-                        "ASL video filename indicates item, but base folder is a stim", $"Filename: {fileName}");
+                    ReportingUtility.ReportError(itemContext, ErrorId.T0178, $"Filename: {fileName}");
                 }
                 else if (!itemContext.IsStimulus &&
                          (match.Groups[1].Value.Equals("stim", StringComparison.OrdinalIgnoreCase)
                           || match.Groups[1].Value.Equals("passage", StringComparison.OrdinalIgnoreCase)))
                 {
                     // Stim video in an item
-                    ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Severe,
-                        "ASL video filename indicates stim, but base folder is a item", $"Filename: {fileName}");
+                    ReportingUtility.ReportError(itemContext, ErrorId.T0179, $"Filename: {fileName}");
                 }
             }
             else
             {
-                ReportingUtility.ReportError(itemContext, ErrorCategory.Item, ErrorSeverity.Degraded,
-                    "ASL video filename does not match expected pattern", $"Filename: {fileName} Pattern: {pattern}");
+                ReportingUtility.ReportError(itemContext, ErrorId.T0180, $"Filename: {fileName} Pattern: {pattern}");
             }
         }
     }
