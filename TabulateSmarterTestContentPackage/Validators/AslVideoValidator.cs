@@ -9,6 +9,8 @@ namespace TabulateSmarterTestContentPackage.Validators
 {
     public static class AslVideoValidator
     {
+        const int c_minVideoFileSize = 128;
+
         public static void Validate(ItemContext it, IXPathNavigable xml, int englishCharacterCount, StatAccumulator accumulator)
         {
             
@@ -60,16 +62,23 @@ namespace TabulateSmarterTestContentPackage.Validators
             // check if the file exists
             foreach(string currentSource in aslFileNames)
             {
-                if (!it.FfItem.FileExists(currentSource))
+                FileFile ft;
+                if (!it.FfItem.TryGetFile(currentSource, out ft))
                 {
                     ReportingUtility.ReportError(it, ErrorId.T0176, $"Filename: {currentSource}");
+                }
+                else if (ft.Length < c_minVideoFileSize)
+                {
+                     ReportingUtility.ReportError(it, ErrorId.T0197, $"Filename: {currentSource}");
                 }
             }
             
             ValidateFilename(attachmentFilename, it);
 
+            // Check video duration to text length ratio.
             FileFile file;
             if (!it.FfItem.TryGetFile(attachmentFilename, out file)) return;
+            if (file.Length < c_minVideoFileSize) return;
 
             double videoSeconds;
             using (var stream = file.Open())
