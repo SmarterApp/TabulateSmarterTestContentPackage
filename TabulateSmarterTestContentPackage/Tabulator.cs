@@ -76,7 +76,6 @@ namespace TabulateSmarterTestContentPackage
         Dictionary<string, int> mTermCounts = new Dictionary<string, int>();
         Dictionary<string, int> mTranslationCounts = new Dictionary<string, int>();
         Dictionary<string, int> mAnswerKeyCounts = new Dictionary<string, int>();
-        Dictionary<ShaHash, ItemIdentifier> mRubrics = new Dictionary<ShaHash, ItemIdentifier>();
         StatAccumulator mAslStat = new StatAccumulator();
         string mReportPathPrefix;
         TextWriter mItemReport;
@@ -84,6 +83,7 @@ namespace TabulateSmarterTestContentPackage
         TextWriter mWordlistReport;
         TextWriter mGlossaryReport;
         TextWriter mSummaryReport;
+        string mRubricPathPrefix;
 
         static Tabulator()
         {
@@ -209,7 +209,8 @@ namespace TabulateSmarterTestContentPackage
                 // If rubrics being exported, ensure the directory exists
                 if (ExportRubrics)
                 {
-                    Directory.CreateDirectory(string.Concat(mReportPathPrefix, cRubricExportFn));
+                    mRubricPathPrefix = string.Concat(mReportPathPrefix, cRubricExportFn);
+                    Directory.CreateDirectory(mRubricPathPrefix);
                 }
             }
 
@@ -285,7 +286,6 @@ namespace TabulateSmarterTestContentPackage
             {
                 var startTicks = Environment.TickCount;
                 ReportingUtility.CurrentPackageName = package.Name;
-                mRubrics.Clear();
 
                 // Initialize package-specific collections
                 mPackage = package;
@@ -859,58 +859,7 @@ namespace TabulateSmarterTestContentPackage
             // We only care about english rubrics (at least for the present)
             if (scoringType != ScoringType.Basic && !it.ItemType.Equals("EBSR", StringComparison.OrdinalIgnoreCase))
             {
-                using (var rubricStream = new MemoryStream())
-                {
-                    if (!RubricExtractor.ExtractRubric(xml, rubricStream))
-                    {
-                        ReportingUtility.ReportError(it, ErrorId.T0067, $"AnswerKey: '{answerKey}'");
-                    }
-                    else
-                    {
-                        rubricStream.Position = 0;
-                        var hash = new ShaHash(rubricStream);
-
-                        // See if we've aready encountered an identical rubric
-                        ItemIdentifier otherId;
-                        if (mRubrics.TryGetValue(hash, out otherId))
-                        {
-                            // If the dictionary shows a non-blank itemId, report the error on the other item with a matching hash.
-                            if (!otherId.Equals(cBlankItemId))
-                            {
-                                ReportingUtility.ReportError(otherId, ErrorId.T0096, $"rubricHash={hash}");
-
-                                // Set the id to blanks so that we don't report repeated errors on the prior item
-                                mRubrics[hash] = cBlankItemId;
-                            }
-
-                            // Report the error on the current item.
-                            ReportingUtility.ReportError(it, ErrorId.T0096, $"rubricHash={hash}");
-                        }
-                        else
-                        {
-                            mRubrics.Add(hash, new ItemIdentifier(it));
-                        }
-
-                        // Export the rubric if specified
-                        if (ExportRubrics)
-                        {
-                            try
-                            {
-                                string rubricFn = Path.Combine(string.Concat(mReportPathPrefix, cRubricExportFn), $"rubric-{it.BankKey}-{it.ItemId}.html");
-                                using (var outStream = new FileStream(rubricFn, FileMode.Create, FileAccess.Write, FileShare.Read))
-                                {
-                                    rubricStream.Position = 0;
-                                    rubricStream.CopyTo(outStream);
-                                }
-                            }
-                            catch(Exception err)
-                            {
-                                ReportingUtility.ReportError(it, err);
-                            }
-                        }
-
-                    }
-                }
+                RubricValidator.Validate(it, xml, ExportRubrics, mRubricPathPrefix);
             }
 
             // AssessmentType (PT or CAT)

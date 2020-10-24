@@ -106,7 +106,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
             new ErrorInfo(/* 0093 */ ErrorId.None, string.Empty, ErrorCategory.System, ErrorSeverity.Message, ErrorReviewArea.None),
             new ErrorInfo(ErrorId.T0094, "Metadata <PtSequence> is not an integer.", ErrorCategory.Metadata, ErrorSeverity.Degraded, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0095, "Resource listed multiple times in manifest.", ErrorCategory.Manifest, ErrorSeverity.Benign, ErrorReviewArea.Lead),
-            new ErrorInfo(ErrorId.T0096, "Rubric is likely to be a blank template. Identical to the rubric of at least one other item.", ErrorCategory.Item, ErrorSeverity.Tolerable, ErrorReviewArea.Content),
+            new ErrorInfo(/* 0096 */ ErrorId.None, string.Empty, ErrorCategory.System, ErrorSeverity.Message, ErrorReviewArea.None),
             new ErrorInfo(ErrorId.T0097, "Img element for a graphic has an empty brailleTextString element.", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Tts),
             new ErrorInfo(ErrorId.T0098, "Resource specified in manifest does not exist.", ErrorCategory.Manifest, ErrorSeverity.Benign, ErrorReviewArea.Lead),
             new ErrorInfo(ErrorId.T0099, "Tutorial not found.", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Lead),
@@ -208,6 +208,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
             new ErrorInfo(ErrorId.Exception, "Exception Thrown", ErrorCategory.Exception, ErrorSeverity.Severe, ErrorReviewArea.Lead),
             new ErrorInfo(ErrorId.T0196, "TutorialId is not expected value for item type.", ErrorCategory.Exception, ErrorSeverity.Degraded, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0197, "ASL video file is empty.", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Asl),
+            new ErrorInfo(ErrorId.T0198, "Rubric is blank or is an empty template.", ErrorCategory.AnswerKey, ErrorSeverity.Tolerable, ErrorReviewArea.Content),
         };
 
         const string c_errIdPrefix = "CTAB-";
@@ -407,7 +408,6 @@ namespace TabulateSmarterTestContentPackage.Utilities
         T0092 = 92,
         T0094 = 94,
         T0095 = 95,
-        T0096 = 96,
         T0097 = 97,
         T0098 = 98,
         T0099 = 99,
@@ -506,7 +506,8 @@ namespace TabulateSmarterTestContentPackage.Utilities
         TabulatorStart = 194,
         Exception = 195,
         T0196 = 196,
-        T0197 = 197
+        T0197 = 197,
+        T0198 = 198
     }
 
     public enum ErrorReviewArea : int
