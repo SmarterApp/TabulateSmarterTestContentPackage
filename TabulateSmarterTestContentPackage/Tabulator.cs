@@ -972,6 +972,8 @@ namespace TabulateSmarterTestContentPackage
 
             // === Tabulation is complete, check for other errors
 
+            FileValidator.Validate(it);
+
             // Points
             {
                 var itemPoint = xml.XpEval("itemrelease/item/attriblist/attrib[@attid='itm_att_Item Point']/val");
@@ -1286,6 +1288,10 @@ namespace TabulateSmarterTestContentPackage
                 CsvEncode(translation), GlossStringFlags(aggregateGlossaryTypes), CsvEncode(media), size.ToString(), wordCount.ToString(), CsvEncode(literaryKnowledgeDemands), 
                 CsvEncode(literaryNonFiction), CsvEncode(readabilityFk), CsvEncode(readabilityLexile)));
 
+            // Tabulation is complete, check for other errors.
+
+            FileValidator.Validate(it);
+
         } // TabulateStimulus
 
         
@@ -1378,7 +1384,11 @@ namespace TabulateSmarterTestContentPackage
                 string.Empty, string.Empty, CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), GlossStringFlags(aggregateGlossaryTypes),
                 string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty,
                 string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty));
-  
+
+            // Tabulation is complete, check for other errors.
+
+            FileValidator.Validate(it);
+
         } // TabulateTutorial
 
         string LoadXmlErrorDetail { get; set; }

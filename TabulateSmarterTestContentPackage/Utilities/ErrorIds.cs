@@ -209,6 +209,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
             new ErrorInfo(ErrorId.T0196, "TutorialId is not expected value for item type.", ErrorCategory.Exception, ErrorSeverity.Degraded, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0197, "ASL video file is empty.", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Asl),
             new ErrorInfo(ErrorId.T0198, "Rubric is blank or is an empty template.", ErrorCategory.AnswerKey, ErrorSeverity.Tolerable, ErrorReviewArea.Content),
+            new ErrorInfo(ErrorId.T0199, "Attached file is empty (size=0).", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Content),
         };
 
         const string c_errIdPrefix = "CTAB-";
@@ -507,7 +508,8 @@ namespace TabulateSmarterTestContentPackage.Utilities
         Exception = 195,
         T0196 = 196,
         T0197 = 197,
-        T0198 = 198
+        T0198 = 198,
+        T0199 = 199
     }
 
     public enum ErrorReviewArea : int
