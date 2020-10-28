@@ -65,6 +65,12 @@ namespace TabulateSmarterTestContentPackage
         int mProgressCount = 0;
         int mTransferCount = 0;
 
+        class RubricInfo
+        {
+            public ItemIdentifier FirstItemId;
+            public int Count;
+        }
+
         // Per report variables
         bool mInitialized;
         int mStartTicks;
@@ -76,7 +82,7 @@ namespace TabulateSmarterTestContentPackage
         Dictionary<string, int> mTermCounts = new Dictionary<string, int>();
         Dictionary<string, int> mTranslationCounts = new Dictionary<string, int>();
         Dictionary<string, int> mAnswerKeyCounts = new Dictionary<string, int>();
-        Dictionary<ShaHash, ItemIdentifier> mRubrics = new Dictionary<ShaHash, ItemIdentifier>();
+        Dictionary<ShaHash, RubricInfo> mRubrics = new Dictionary<ShaHash, RubricInfo>();
         StatAccumulator mAslStat = new StatAccumulator();
         string mReportPathPrefix;
         TextWriter mItemReport;
@@ -84,6 +90,8 @@ namespace TabulateSmarterTestContentPackage
         TextWriter mWordlistReport;
         TextWriter mGlossaryReport;
         TextWriter mSummaryReport;
+
+
 
         static Tabulator()
         {
@@ -871,24 +879,24 @@ namespace TabulateSmarterTestContentPackage
                         var hash = new ShaHash(rubricStream);
 
                         // See if we've aready encountered an identical rubric
-                        ItemIdentifier otherId;
-                        if (mRubrics.TryGetValue(hash, out otherId))
+                        RubricInfo rubricInfo;
+                        if (mRubrics.TryGetValue(hash, out rubricInfo))
                         {
                             // If the dictionary shows a non-blank itemId, report the error on the other item with a matching hash.
-                            if (!otherId.Equals(cBlankItemId))
+                            if (rubricInfo.Count == 1)
                             {
-                                ReportingUtility.ReportError(otherId, ErrorId.T0096, $"rubricHash={hash}");
-
-                                // Set the id to blanks so that we don't report repeated errors on the prior item
-                                mRubrics[hash] = cBlankItemId;
+                                ReportingUtility.ReportError(rubricInfo.FirstItemId, ErrorId.T0096, $"rubricHash={hash}");
                             }
+
+                            ++rubricInfo.Count;
 
                             // Report the error on the current item.
                             ReportingUtility.ReportError(it, ErrorId.T0096, $"rubricHash={hash}");
                         }
                         else
                         {
-                            mRubrics.Add(hash, new ItemIdentifier(it));
+                            rubricInfo = new RubricInfo() { FirstItemId = new ItemIdentifier(it), Count = 1 };
+                            mRubrics.Add(hash, rubricInfo);
                         }
 
                         // Export the rubric if specified
@@ -962,6 +970,10 @@ namespace TabulateSmarterTestContentPackage
             {
                 ReportingUtility.ReportError(it, ErrorId.T0076);
             }
+            else
+            {
+                TutorialIds.ValidateTutorialId(it, subject, tutorialId);
+            }
 
             // ASL
             // When checking for ASL, the 'file' attribute value in the <attachment> element of the <attachmentlist> in the item xml is evaluated. This is only 1/2 the story.
@@ -995,7 +1007,7 @@ namespace TabulateSmarterTestContentPackage
             //"Claim,Target,PrimaryCommonCore,PrimaryClaimContentTarget,SecondaryCommonCore,SecondaryClaimContentTarget,PtWritingType," +
             //"CAT_MeasurementModel,CAT_ScorePoints,CAT_Dimension,CAT_Weight,CAT_Parameters,PP_MeasurementModel," +
             //"PP_ScorePoints,PP_Dimension,PP_Weight,PP_Parameters"
-            mItemReport.WriteLine(string.Join(",", CsvEncode(it.FolderDescription), it.BankKey.ToString(), it.ItemId.ToString(), CsvEncode(it.ItemType), CsvEncode(metadataVersionValues[0]), CsvEncode(subject), 
+            mItemReport.WriteLine(string.Join(",", CsvEncode(it.FolderDescription), it.BankKey.ToString(), it.ItemId.ToString(), CsvEncode(it.ItemType), CsvEncode(it.Version), CsvEncode(subject), 
                 CsvEncode(grade), CsvEncode(GetStatus(it, xmlMetadata)), CsvEncode(answerKey), CsvEncode(answerOptions), CsvEncode(assessmentType), CsvEncode(wordlistId), CsvEncode(stimId), CsvEncode(tutorialId),
                 CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), GlossStringFlags(aggregateGlossaryTypes), CsvEncode(media), size.ToString(), CsvEncode(depthOfKnowledge), CsvEncode(allowCalculator), 
                 CsvEncode(mathematicalPractice), CsvEncode(maximumNumberOfPoints),
@@ -2442,6 +2454,20 @@ namespace TabulateSmarterTestContentPackage
                 writer.WriteLine("Configured Values: mean={0:F6} stdev={1:F6} tolerance={2:F6} tol/stdev={3:F1}",
                     TabulatorSettings.AslMean, TabulatorSettings.AslStandardDeviation, TabulatorSettings.AslToleranceInStdev*TabulatorSettings.AslStandardDeviation, TabulatorSettings.AslToleranceInStdev);
                 writer.WriteLine();
+
+                writer.WriteLine("Rubrics");
+                {
+                    List<KeyValuePair<ShaHash, RubricInfo>> rubrics =
+                        new List<KeyValuePair<ShaHash, RubricInfo>>(mRubrics);
+                    rubrics.Sort((a, b) => b.Value.Count - a.Value.Count);
+                    foreach(var pair in rubrics)
+                    {
+                        //if (pair.Value.Count <= 1) break;
+                        writer.WriteLine($"  {pair.Value.Count,4}: {pair.Key}");
+                    }
+                }
+                writer.WriteLine();
+
                 writer.WriteLine("Item Type Counts:");
                 mTypeCounts.Dump(writer);
                 writer.WriteLine();

@@ -7,16 +7,6 @@ using System.Security.Cryptography;
 
 namespace TabulateSmarterTestContentPackage.Utilities
 {
-    /*
-    public enum ErrorId : int
-    {
-        None = 0000,
-        n0001_Calc = 0001,
-        n0002_AslVidLen = 0002,
-        n0003_AttachAttr = 0003
-    }
-    */
-
     public static class ReportingUtility
     {
         public static int ErrorCount { get; set; }
@@ -60,12 +50,16 @@ namespace TabulateSmarterTestContentPackage.Utilities
 
             // This goes recursive but that's OK.
             ReportError(null, ErrorId.TabulatorStart, detail);
-
         }
 
         // All other ReportError overloads concentrate down to here.
         public static void ReportError(ItemIdentifier ii, ErrorId errorId, string detail)
         {
+            if (!Errors.IsEnabled(errorId))
+            {
+                return; // Suppress reporting this error.
+            }
+
             if (s_ErrorReport == null)
             {
                 InitErrorReport();
@@ -135,7 +129,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
             }
             else
             {
-                string msgId = ErrorIdToString(errorInfo.Id);
+                string msgId = Errors.ErrorIdToString(errorInfo.Id);
                 string errKey = GenerateErrorKey(itemId, msgId, detail);
                 // "admin_year,asmt,severity,item_id,item_version,error_message_id,error_message,
                 // detail,notes,review_area,error_category,error_key,tool_id,tool_version,run_date,
@@ -145,11 +139,6 @@ namespace TabulateSmarterTestContentPackage.Utilities
                     errorInfo.ReviewArea.ToString().ToLowerInvariant(), errorInfo.Category,
                     errKey, c_toolId, s_version, s_runDate, c_errType, string.Empty));
             }
-        }
-
-        static string ErrorIdToString(ErrorId errId)
-        {
-            return $"CTAB-{(int)errId:d4}";
         }
 
         public static void ReportError(ItemIdentifier ii, ErrorId errorId)
@@ -210,7 +199,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
                 {
                     if (errInfo.Id != ErrorId.None)
                     {
-                        writer.WriteLine(Tabulator.CsvEncode(ErrorIdToString(errInfo.Id), errInfo.Message,
+                        writer.WriteLine(Tabulator.CsvEncode(Errors.ErrorIdToString(errInfo.Id), errInfo.Message,
                             errInfo.Category, errInfo.Severity,
                             errInfo.ReviewArea.ToString().ToLowerInvariant()));
                     }

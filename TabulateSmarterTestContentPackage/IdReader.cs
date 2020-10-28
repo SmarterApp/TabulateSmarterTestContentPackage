@@ -106,7 +106,7 @@ namespace TabulateSmarterTestContentPackage
             // First line is either column headings or an item ID. Determine by looking for expected headings.
             for (int i=0; i<row.Length; ++i)
             {
-                if (row[i].Equals("ItemId", StringComparison.OrdinalIgnoreCase))
+                if (row[i].Equals("ItemId", StringComparison.OrdinalIgnoreCase) || row[i].Equals("id", StringComparison.OrdinalIgnoreCase))
                 {
                     m_idColumn = i;
                 }

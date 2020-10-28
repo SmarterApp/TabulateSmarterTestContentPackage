@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using TabulateSmarterTestContentPackage.Models;
 
 namespace TabulateSmarterTestContentPackage.Utilities
@@ -205,7 +206,97 @@ namespace TabulateSmarterTestContentPackage.Utilities
             new ErrorInfo(ErrorId.T0193, "Math Claim 2, 3, 4 primary alignment is missing CCSS standard.", ErrorCategory.Metadata, ErrorSeverity.Tolerable, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.TabulatorStart, "Tabulator Start", ErrorCategory.System, ErrorSeverity.Message, ErrorReviewArea.None),
             new ErrorInfo(ErrorId.Exception, "Exception Thrown", ErrorCategory.Exception, ErrorSeverity.Severe, ErrorReviewArea.Lead),
+            new ErrorInfo(ErrorId.T0196, "TutorialId is not expected value for item type.", ErrorCategory.Exception, ErrorSeverity.Degraded, ErrorReviewArea.Content),
         };
+
+        const string c_errIdPrefix = "CTAB-";
+
+        public static bool TryParseErrorId(string value, out ErrorId id)
+        {
+            if (value.StartsWith(c_errIdPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                value = value.Substring(c_errIdPrefix.Length);
+            }
+            int intVal;
+            if (!int.TryParse(value, out intVal))
+            {
+                id = ErrorId.None;
+                return false;
+            }
+            id = (ErrorId)intVal;
+            return Enum.IsDefined(typeof(ErrorId), id);
+        }
+
+        public static string ErrorIdToString(ErrorId errId)
+        {
+            return $"{c_errIdPrefix}{(int)errId:d4}";
+        }
+
+        // Values: 1=enabled, 0=disabled, -1=disabledByDefault
+        // If not present defaults to enabled.
+        private static Dictionary<ErrorId, int> s_errorOptions = new Dictionary<ErrorId, int>();
+
+        public static void Enable(ErrorId id)
+        {
+            s_errorOptions[id] = 1;
+        }
+
+        public static void Enable(string errorId)
+        {
+            if (TryParseErrorId(errorId, out ErrorId id))
+            {
+                Enable(id);
+            }
+        }
+
+        public static void Disable(ErrorId id)
+        {
+            s_errorOptions[id] = 0;
+        }
+
+        public static void Disable(string errorId)
+        {
+            if (TryParseErrorId(errorId, out ErrorId id))
+            {
+                Disable(id);
+            }
+        }
+
+        public static void SetEnabled(ErrorId id, bool enabled)
+        {
+            s_errorOptions[id] = enabled ? 1 : 0;
+        }
+
+        public static void DisableByDefault(ErrorId id)
+        {
+            s_errorOptions[id] = -1;
+        }
+
+        public static void EnableAll()
+        {
+            s_errorOptions.Clear();
+        }
+
+        public static bool IsEnabled(ErrorId id)
+        {
+            int value;
+            if (!s_errorOptions.TryGetValue(id, out value)) return true;
+            return value > 0;
+        }
+
+        public static string ReportOptions()
+        {
+            var sb = new System.Text.StringBuilder();
+            foreach (var option in s_errorOptions)
+            {
+                if (sb.Length != 0) sb.Append(' ');
+                if (option.Value >= 0) // Don't report defaulted values
+                {
+                    sb.Append($"{ErrorIdToString(option.Key)}({((option.Value > 0) ? "On" : "Off")})");
+                }
+            }
+            return sb.ToString();
+        }
 
 #if DEBUG
         // Validate that the ID of each error in the table matches its position.
@@ -412,7 +503,8 @@ namespace TabulateSmarterTestContentPackage.Utilities
         T0192 = 192,
         T0193 = 193,
         TabulatorStart = 194,
-        Exception = 195  
+        Exception = 195,
+        T0196 = 196
     }
 
     public enum ErrorReviewArea : int
