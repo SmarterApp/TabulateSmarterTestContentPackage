@@ -22,7 +22,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
 
         static string s_runDate;
         static TextWriter s_ErrorReport;
-        static HashSet<ShaHash> s_ErrorsReported = new HashSet<ShaHash>();
+        static HashSet<HashValue> s_ErrorsReported = new HashSet<HashValue>();
         static string s_version;
 
         private static void InitErrorReport()
@@ -104,7 +104,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
             if (DeDuplicate)
             {
                 // Create a hash of the itemId and message
-                var errHash = new ShaHash(string.Concat(itemType, bankKey, itemId, errorId));
+                var errHash = HashValue.ComputeHash<SHA1CryptoServiceProvider>(string.Concat(itemType, bankKey, itemId, errorId));
 
                 // If it's aready in the set then exit
                 if (!s_ErrorsReported.Add(errHash))
@@ -184,7 +184,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
 
         private static string GenerateErrorKey(string itemId, string errorMessageId, string detail)
         {
-            var hash = new MD5Hash(string.Concat(itemId, errorMessageId, detail));
+            var hash = HashValue.ComputeHash<MD5CryptoServiceProvider>(string.Concat(itemId, errorMessageId, detail));
             return hash.ToString();
         }
 

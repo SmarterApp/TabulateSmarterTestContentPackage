@@ -5,6 +5,7 @@ using System.Xml;
 using System.Text.RegularExpressions;
 using TabulateSmarterTestContentPackage.Models;
 using TabulateSmarterTestContentPackage.Utilities;
+using TabulateSmarterTestContentPackage.Validators;
 
 namespace TabulateSmarterTestContentPackage
 {
@@ -117,6 +118,35 @@ namespace TabulateSmarterTestContentPackage
                 return;
             }
 
+            // Get the version number
+            string itemVersion = xml.XpEvalE("itemrelease/item/@version");
+            ii.Version = itemVersion; // Make version available to error reporting
+            it.Version = itemVersion;
+
+            // Load metadata
+            var xmlMetadata = new XmlDocument(sXmlNt);
+            if (!TryLoadXml(it.FfItem, "metadata.xml", xmlMetadata))
+            {
+                ReportingUtility.ReportError(it, ErrorId.T0112, LoadXmlErrorDetail);
+            }
+
+            // Get metadata version (which includes the minor version number)
+            var metadataVersion = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:Version", sXmlNs);
+
+            // Check for consistency between the version number in item xml and metadata xml.
+            // The metadata XML stores the version number in "major.minor" format, while 
+            // the item xml stores the version in "major" format. Only the "major" number
+            // is to be compared.
+            var metadataVersionValues = metadataVersion.Split('.');
+            if (!itemVersion.Equals(metadataVersionValues[0]))
+            {
+                ReportingUtility.ReportError(it, ErrorId.T0114, "Item version='{0}' Metadata major version='{1}'", itemVersion, metadataVersionValues[0]);
+            }
+            else
+            {
+                it.Version = metadataVersion; // Update to include minor version number when present
+            }
+
             // Count this wordlist
             ++mWordlistCount;
 
@@ -158,6 +188,11 @@ namespace TabulateSmarterTestContentPackage
 
             //Folder,WIT_ID,RefCount,TermCount,MaxGloss,MinGloss,AvgGloss
             mWordlistReport.WriteLine(string.Join(",", CsvEncode(it.FolderDescription), it.BankKey.ToString(), it.ItemId.ToString(), refCount.ToString(), termcount.ToString(), maxgloss.ToString(), mingloss.ToString(), (termcount > 0) ? (((double)totalgloss) / ((double)termcount)).ToString("f2") : "0"));
+
+            // Tabulation is complete, check for other errors.
+
+            FileValidator.Validate(it);
+
         }
 
         static readonly Regex sRxAudioAttachment = new Regex(@"<a[^>]*href=""([^""]*)""[^>]*>", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
