@@ -65,6 +65,12 @@ namespace TabulateSmarterTestContentPackage
         int mProgressCount = 0;
         int mTransferCount = 0;
 
+        class RubricInfo
+        {
+            public ItemIdentifier FirstItemId;
+            public int Count;
+        }
+
         // Per report variables
         bool mInitialized;
         int mStartTicks;
@@ -76,6 +82,7 @@ namespace TabulateSmarterTestContentPackage
         Dictionary<string, int> mTermCounts = new Dictionary<string, int>();
         Dictionary<string, int> mTranslationCounts = new Dictionary<string, int>();
         Dictionary<string, int> mAnswerKeyCounts = new Dictionary<string, int>();
+
         StatAccumulator mAslStat = new StatAccumulator();
         string mReportPathPrefix;
         TextWriter mItemReport;
@@ -84,6 +91,8 @@ namespace TabulateSmarterTestContentPackage
         TextWriter mGlossaryReport;
         TextWriter mSummaryReport;
         string mRubricPathPrefix;
+
+
 
         static Tabulator()
         {
@@ -2405,6 +2414,20 @@ namespace TabulateSmarterTestContentPackage
                 writer.WriteLine("Configured Values: mean={0:F6} stdev={1:F6} tolerance={2:F6} tol/stdev={3:F1}",
                     TabulatorSettings.AslMean, TabulatorSettings.AslStandardDeviation, TabulatorSettings.AslToleranceInStdev*TabulatorSettings.AslStandardDeviation, TabulatorSettings.AslToleranceInStdev);
                 writer.WriteLine();
+
+                writer.WriteLine("Rubrics");
+                {
+                    List<KeyValuePair<ShaHash, RubricInfo>> rubrics =
+                        new List<KeyValuePair<ShaHash, RubricInfo>>(mRubrics);
+                    rubrics.Sort((a, b) => b.Value.Count - a.Value.Count);
+                    foreach(var pair in rubrics)
+                    {
+                        //if (pair.Value.Count <= 1) break;
+                        writer.WriteLine($"  {pair.Value.Count,4}: {pair.Key}");
+                    }
+                }
+                writer.WriteLine();
+
                 writer.WriteLine("Item Type Counts:");
                 mTypeCounts.Dump(writer);
                 writer.WriteLine();
