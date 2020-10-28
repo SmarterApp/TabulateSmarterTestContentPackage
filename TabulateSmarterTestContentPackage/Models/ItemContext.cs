@@ -12,22 +12,24 @@ namespace TabulateSmarterTestContentPackage.Models
         int m_bankKey;
         int m_itemId;
 
-        public ItemIdentifier(string itemType, int bankKey, int itemId)
+        public ItemIdentifier(string itemType, int bankKey, int itemId, string version = null)
         {
             if (itemType == null) throw new ArgumentException("itemType may not be null");
             m_itemType = itemType;
             m_isStimulus = itemType.Equals(c_stimPrefix, StringComparison.OrdinalIgnoreCase);
             m_bankKey = bankKey;
             m_itemId = itemId;
+            Version = version;
         }
 
-        public ItemIdentifier(string itemType, string bankKey, string itemId)
+        public ItemIdentifier(string itemType, string bankKey, string itemId, string version = null)
         {
             if (itemType == null) throw new ArgumentException("itemType may not be null");
             m_itemType = itemType;
             m_isStimulus = itemType.Equals(c_stimPrefix, StringComparison.OrdinalIgnoreCase);
             if (!int.TryParse(bankKey, out m_bankKey)) throw new ArgumentException("bankKey must be integer");
             if (!int.TryParse(itemId, out m_itemId)) throw new ArgumentException("itemId must be integer");
+            Version = version;
         }
 
         public ItemIdentifier(ItemIdentifier toClone)
@@ -36,6 +38,7 @@ namespace TabulateSmarterTestContentPackage.Models
             m_isStimulus = toClone.m_isStimulus;
             m_bankKey = toClone.m_bankKey;
             m_itemId = toClone.m_itemId;
+            Version = toClone.Version;
         }
 
         public string ItemType
@@ -61,6 +64,7 @@ namespace TabulateSmarterTestContentPackage.Models
         {
             get { return m_itemId; }
         }
+        public string Version { get; set; }
         public bool IsStimulus
         {
             get { return m_isStimulus; }
@@ -160,7 +164,7 @@ namespace TabulateSmarterTestContentPackage.Models
         string m_folderDescription;
 
         public ItemContext(TestPackage package, ItemIdentifier ii)
-            : base(ii.ItemType, ii.BankKey, ii.ItemId)
+            : base(ii.ItemType, ii.BankKey, ii.ItemId, ii.Version)
         {
             m_ff = package.GetItem(ii);
             m_folderDescription = string.Concat(package.Name, "/", FolderName);
@@ -168,7 +172,7 @@ namespace TabulateSmarterTestContentPackage.Models
 
         // This is more efficient when the folder has already been retrieved
         public ItemContext(TestPackage package, FileFolder folder, ItemIdentifier ii)
-            : base(ii.ItemType, ii.BankKey, ii.ItemId)
+            : base(ii.ItemType, ii.BankKey, ii.ItemId, ii.Version)
         {
             System.Diagnostics.Debug.Assert(folder.Name.Equals(ii.FullId, StringComparison.OrdinalIgnoreCase));
             m_ff = folder;

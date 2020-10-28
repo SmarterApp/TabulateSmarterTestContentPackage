@@ -4,6 +4,7 @@ using System.Linq;
 using System.IO;
 using System.Collections;
 using System.Text;
+using TabulateSmarterTestContentPackage.Utilities;
 
 namespace TabulateSmarterTestContentPackage
 {
@@ -74,6 +75,15 @@ Arguments:
                      preceding package. If not specified, defaults to the
                      package file or directory name. Required when tabulating
                      an item bank.
+    -cds             Produce the error report in the Consolidated Defect Stream
+                     (CDS) format. If not present, the error report is in the
+                     legacy format.
+    -ay <string>     Supplies the value for the 'admin_year' column in the CDS
+                     error report. Implies -cds. If not present, the value will
+                     be empty.
+    -asmt <string>   Supplies the value for the 'asmt' column in the CDS error
+                     report. Implies -cds. If not present, the value will be
+                     empty.
     -lid             Indicates that a list of IDs should be reported during
                      the item selection pass.
     -lidx            Indicates that a list of IDs should be reported and that
@@ -84,6 +94,9 @@ Arguments:
                      same place as the reports.
     -dedup           Only report the first instance of an error on a
                      particular item (De-duplicate).
+    -errtable <name> Writes the table of all errors reported by this version of
+                     the tabulator to the file specified by the name. The table
+                     is in .csv format.
     -w               Wait for a keypress for exiting - helpful when not
                      running from a command-line window.
     <packageMoniker> The filename of a local package or the identifier of an
@@ -264,16 +277,27 @@ Error severity definitions:
         static bool s_exportRubrics;
         static bool s_deDuplicate;
         static bool s_waitBeforeExit;
+        static string s_exportErrorTable;
 
         public static string Options
         {
             get
             {
                 string value = gValidationOptions.ReportOptions();
+                string eValue = Errors.ReportOptions();
+                if (!string.IsNullOrEmpty(eValue))
+                {
+                    if (value.Length > 0)
+                        value = string.Concat(value, " ", eValue);
+                    else
+                        value = eValue;
+                }
                 if (s_deDuplicate)
                 {
-                    if (value.Length > 0) value = value + " ";
-                    value = value + " dedup(On)";
+                    if (value.Length > 0)
+                        value = string.Concat(value, " ", "dedup(On)");
+                    else
+                        value = "dedup(On)";
                 }
                 return value;
             }
@@ -291,13 +315,18 @@ Error severity definitions:
             gValidationOptions.DisableByDefault("css"); // Disable reporting css color-contrast interference (temporary fix)
             gValidationOptions.DisableByDefault("ats"); // Disable checking for image alt text in Spanish content.
             gValidationOptions.DisableByDefault("akv"); // Disable reporting answer key values.
+            Errors.DisableByDefault(ErrorId.T0084); // Wordlist attachment filename indicates wordlist ID mismatch
 
             try
             {
                 Models.TabulatorSettings.Load();
                 ParseCommandLine(args);
 
-                if (s_showHelp || s_operations.Count == 0)
+                if (s_exportErrorTable != null)
+                {
+                    ReportingUtility.ExportErrorTable(s_exportErrorTable);
+                }
+                else if (s_showHelp || s_operations.Count == 0)
                 {
                     Console.WriteLine(cSyntax);
                 }
@@ -317,13 +346,6 @@ Error severity definitions:
 
             var elapsedTicks = unchecked((uint)Environment.TickCount - (uint)startTicks);
             Console.WriteLine("Elapsed time: {0}.{1:d3} seconds", elapsedTicks / 1000, elapsedTicks % 1000);
-
-#if DEBUG
-            if (System.Diagnostics.Debugger.IsAttached)
-            {
-                s_waitBeforeExit = true;
-            }
-#endif
 
             if (s_waitBeforeExit)
             {
@@ -357,19 +379,18 @@ Error severity definitions:
                         break;
 
                     case "-bk":
-                        ++i;
-                        if (i > args.Length) throw new ArgumentException("No value specified for '-bk' command-line argument.");
-                        if (!int.TryParse(args[i], out s_bankKey)) throw new ArgumentException($"Value specified for '-bk' argument is not integer. ({args[i]})");
+                        if (!int.TryParse(GetNextArgument(args, ref i, "-bk"), out s_bankKey)) throw new ArgumentException($"Value specified for '-bk' argument is not integer. ({args[i]})");
                         break;
 
                     case "-ids":
-                        ++i;
-                        if (i > args.Length) throw new ArgumentException("No value specified for '-ids' command-line argument.");
-                        if (!File.Exists(args[i])) throw new ArgumentException($"'-ids' file not found. ({args[i]})");
-                        EnqueueOperation(ref bankOperation); // Does nothing if there is no bank operation;
-                        if (s_operations.Count == 0) throw new ArgumentException("'-ids' argument must follow a package or bank identification.");
-                        if (s_operations.Last().IdFilename != null) throw new ArgumentException("Only one '-ids' argument may be specified per package.");
-                        s_operations.Last().IdFilename = args[i];
+                        {
+                            var value = GetNextArgument(args, ref i, "-ids");
+                            if (!File.Exists(value)) throw new ArgumentException($"'-ids' file not found. ({value})");
+                            EnqueueOperation(ref bankOperation); // Does nothing if there is no bank operation;
+                            if (s_operations.Count == 0) throw new ArgumentException("'-ids' argument must follow a package or bank identification.");
+                            if (s_operations.Last().IdFilename != null) throw new ArgumentException("Only one '-ids' argument may be specified per package.");
+                            s_operations.Last().IdFilename = value;
+                        }
                         break;
 
                     case "-lid":
@@ -386,10 +407,8 @@ Error severity definitions:
                         break;
 
                     case "-o":
-                        ++i;
-                        if (i > args.Length) throw new ArgumentException("No value specified for '-o' command-line argument.");
                         {
-                            string path = args[i];
+                            string path = GetNextArgument(args, ref i, "-o");
                             if (!ValidateOutputPrefix(ref path)) throw new ArgumentException($"'-o' invalid filename or path not found. ({args[i]})");
                             EnqueueOperation(ref bankOperation); // Does nothing if there is no bank operation;
                             if (s_operations.Count == 0) throw new ArgumentException("'-o' argument must follow a package or bank identification.");
@@ -400,11 +419,10 @@ Error severity definitions:
                         break;
 
                     case "-bank":
-                        ++i;
-                        if (i > args.Length) throw new ArgumentException("No value specified for '-bank' command-line argument.");
                         {
+                            string bank = GetNextArgument(args, ref i, "-bank");
                             Uri uri;
-                            if (!Uri.TryCreate(args[i], UriKind.Absolute, out uri)) throw new ArgumentException($"Invalid bank URL '{args[i]}");
+                            if (!Uri.TryCreate(bank, UriKind.Absolute, out uri)) throw new ArgumentException($"Invalid bank URL '{bank}");
                             if (bankOperation != null && bankOperation.BankUrl != null)
                             {
                                 EnqueueOperation(ref bankOperation);
@@ -415,29 +433,49 @@ Error severity definitions:
                         break;
 
                     case "-ns":
-                        ++i;
-                        if (i > args.Length) throw new ArgumentException("No value specified for '-ns' command-line argument.");
-                        if (bankOperation != null && bankOperation.BankNamespace != null)
                         {
-                            EnqueueOperation(ref bankOperation);
+                            string val = GetNextArgument(args, ref i, "-ns");
+                            if (bankOperation != null && bankOperation.BankNamespace != null)
+                            {
+                                EnqueueOperation(ref bankOperation);
+                            }
+                            if (bankOperation == null) bankOperation = new TabulateOperation();
+                            bankOperation.BankNamespace = val;
                         }
-                        if (bankOperation == null) bankOperation = new TabulateOperation();
-                        bankOperation.BankNamespace = args[i];
                         break;
 
                     case "-at":
-                        ++i;
-                        if (i > args.Length) throw new ArgumentException("No value specified for '-ns' command-line argument.");
-                        if (bankOperation != null && bankOperation.BankAccessToken != null)
                         {
-                            EnqueueOperation(ref bankOperation);
+                            string val = GetNextArgument(args, ref i, "-ns");
+                            if (bankOperation != null && bankOperation.BankAccessToken != null)
+                            {
+                                EnqueueOperation(ref bankOperation);
+                            }
+                            if (bankOperation == null) bankOperation = new TabulateOperation();
+                            bankOperation.BankAccessToken = val;
                         }
-                        if (bankOperation == null) bankOperation = new TabulateOperation();
-                        bankOperation.BankAccessToken = args[i];
+                        break;
+
+                    case "-cds":
+                        ReportingUtility.UseCdsFormat = true;
+                        break;
+
+                    case "-ay":
+                        ReportingUtility.AdminYear = GetNextArgument(args, ref i, "-ay");
+                        ReportingUtility.UseCdsFormat = true;
+                        break;
+
+                    case "-asmt":
+                        ReportingUtility.Asmt = GetNextArgument(args, ref i, "-asmt");
+                        ReportingUtility.UseCdsFormat = true;
                         break;
 
                     case "-dedup":
                         s_deDuplicate = true;
+                        break;
+
+                    case "-errtable":
+                        s_exportErrorTable = GetNextArgument(args, ref i, "-errtable");
                         break;
 
                     case "-w":
@@ -449,13 +487,18 @@ Error severity definitions:
                         {
                             var key = arg.Substring(3).ToLowerInvariant();
                             var value = arg[2] == '+';
-                            if (key.Equals("all", StringComparison.Ordinal))
+                            if (Errors.TryParseErrorId(key, out ErrorId errorId))
+                            {
+                                Errors.SetEnabled(errorId, value);
+                            }
+                            else if (key.Equals("all", StringComparison.Ordinal))
                             {
                                 if (!value)
                                 {
                                     throw new ArgumentException(
                                         "Invalid command-line option '-v-all'. Options must be disabled one at a time.");
                                 }
+                                Errors.EnableAll();
                                 gValidationOptions.EnableAll();
                             }
                             else
@@ -481,6 +524,13 @@ Error severity definitions:
 
             // If there's a pending bank operation enqueue it.
             EnqueueOperation(ref bankOperation);
+        }
+
+        static string GetNextArgument(string[] args, ref int index, string argName)
+        {
+            ++index;
+            if (index >= args.Length) throw new ArgumentException($"No value specified for '{argName}' command-line argument.");
+            return args[index];
         }
 
         static void EnqueueOperation(ref TabulateOperation operation)
