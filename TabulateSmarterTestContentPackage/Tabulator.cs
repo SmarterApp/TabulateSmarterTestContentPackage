@@ -2413,19 +2413,19 @@ namespace TabulateSmarterTestContentPackage
                 writer.WriteLine("ASL Video Length to Text Length: mean={0:F6} stdev={1:F6}", mAslStat.Mean, mAslStat.StandardDeviation);
                 writer.WriteLine("Configured Values: mean={0:F6} stdev={1:F6} tolerance={2:F6} tol/stdev={3:F1}",
                     TabulatorSettings.AslMean, TabulatorSettings.AslStandardDeviation, TabulatorSettings.AslToleranceInStdev*TabulatorSettings.AslStandardDeviation, TabulatorSettings.AslToleranceInStdev);
-                writer.WriteLine();
+                //writer.WriteLine();
 
-                writer.WriteLine("Rubrics");
-                {
-                    List<KeyValuePair<ShaHash, RubricInfo>> rubrics =
-                        new List<KeyValuePair<ShaHash, RubricInfo>>(mRubrics);
-                    rubrics.Sort((a, b) => b.Value.Count - a.Value.Count);
-                    foreach(var pair in rubrics)
-                    {
-                        //if (pair.Value.Count <= 1) break;
-                        writer.WriteLine($"  {pair.Value.Count,4}: {pair.Key}");
-                    }
-                }
+                //writer.WriteLine("Rubrics");
+                //{
+                //    List<KeyValuePair<ShaHash, RubricInfo>> rubrics =
+                //        new List<KeyValuePair<ShaHash, RubricInfo>>(mRubrics);
+                //    rubrics.Sort((a, b) => b.Value.Count - a.Value.Count);
+                //    foreach(var pair in rubrics)
+                //    {
+                //        //if (pair.Value.Count <= 1) break;
+                //        writer.WriteLine($"  {pair.Value.Count,4}: {pair.Key}");
+                //    }
+                //}
                 writer.WriteLine();
 
                 writer.WriteLine("Item Type Counts:");
