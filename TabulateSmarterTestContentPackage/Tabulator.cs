@@ -105,6 +105,8 @@ namespace TabulateSmarterTestContentPackage
             StaticInitWordlist();
         }
 
+        public static XmlNamespaceManager XmlNsMgr => sXmlNs;
+
         public Tabulator(string reportPathPrefix)
         {
             mReportPathPrefix = string.Concat(reportPathPrefix, "_");
@@ -572,10 +574,6 @@ namespace TabulateSmarterTestContentPackage
                 return;
             }
 
-            // Get the version
-            var itemVersion = xml.XpEvalE("itemrelease/item/@version");
-            it.Version = itemVersion; // Make version available for error reporting.
-
             // Load metadata
             var xmlMetadata = new XmlDocument(sXmlNt);
             if (!TryLoadXml(it.FfItem, "metadata.xml", xmlMetadata))
@@ -583,22 +581,7 @@ namespace TabulateSmarterTestContentPackage
                 ReportingUtility.ReportError(it, ErrorId.T0112, LoadXmlErrorDetail);
             }
 
-            // Get metadata version (which includes the minor version number)
-            var metadataVersion = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:Version", sXmlNs);
-
-            // Check for consistency between the version number in item xml and metadata xml.
-            // The metadata XML stores the version number in "major.minor" format, while 
-            // the item xml stores the version in "major" format. Only the "major" number
-            // is to be compared.
-            var metadataVersionValues = metadataVersion.Split('.');
-            if (!itemVersion.Equals(metadataVersionValues[0]))
-            {
-                ReportingUtility.ReportError(it, ErrorId.T0114, "Item version='{0}' Metadata major version='{1}'", itemVersion, metadataVersionValues[0]);
-            }
-            else
-            {
-                it.Version = metadataVersion; // Update to include minor version number when present
-            }
+            VersionValidator.Validate(it, xml, xmlMetadata); 
 
             IList< ItemScoring > scoringInformation = new List<ItemScoring>();
             if (xmlMetadata.HasChildNodes)
@@ -1199,17 +1182,15 @@ namespace TabulateSmarterTestContentPackage
                 return;
             }
 
-            // Get the version
-            string version = xml.XpEvalE("itemrelease/passage/@version");
-            ii.Version = version;   // Make version available to error reporting
-            it.Version = version;
-
             // Load the metadata
             XmlDocument xmlMetadata = new XmlDocument(sXmlNt);
             if (!TryLoadXml(it.FfItem, "metadata.xml", xmlMetadata))
             {
                 ReportingUtility.ReportError(it, ErrorId.T0112, LoadXmlErrorDetail);
             }
+
+            VersionValidator.Validate(it, xml, xmlMetadata);
+            ii.Version = it.Version; // Make available to error reporting
 
             // Check interaction type
             string metaItemType = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:InteractionType", sXmlNs);
@@ -1293,7 +1274,7 @@ namespace TabulateSmarterTestContentPackage
 
             // Folder,BankKey,StimulusId,Version,Subject,Status,WordlistId,ASL,BrailleType,Translation,Media,Size,WordCount
             mStimulusReport.WriteLine(string.Join(",", CsvEncode(it.FolderDescription), it.BankKey.ToString(), it.ItemId.ToString(),
-                CsvEncode(version), CsvEncode(subject), CsvEncode(GetStatus(it, xmlMetadata)), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType),
+                CsvEncode(it.Version ), CsvEncode(subject), CsvEncode(GetStatus(it, xmlMetadata)), CsvEncode(wordlistId), CsvEncode(asl), CsvEncode(brailleType),
                 CsvEncode(translation), GlossStringFlags(aggregateGlossaryTypes), CsvEncode(media), size.ToString(), wordCount.ToString(), CsvEncode(literaryKnowledgeDemands), 
                 CsvEncode(literaryNonFiction), CsvEncode(readabilityFk), CsvEncode(readabilityLexile)));
 
@@ -1326,17 +1307,16 @@ namespace TabulateSmarterTestContentPackage
                 return;
             }
 
-            // Get the version
-            string version = xml.XpEvalE("itemrelease/item/@version");
-            ii.Version = version; // Make version available to error reporting
-            it.Version = version;
-
             // Read the metadata
             XmlDocument xmlMetadata = new XmlDocument(sXmlNt);
             if (!TryLoadXml(it.FfItem, "metadata.xml", xmlMetadata))
             {
                 ReportingUtility.ReportError(it, ErrorId.T0112, LoadXmlErrorDetail);
             }
+
+            // Validate the version
+            VersionValidator.Validate(it, xml, xmlMetadata);
+            ii.Version = it.Version; // Make available to error reporting
 
             // Subject
             string subject = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='itm_item_subject']/val");
@@ -1388,7 +1368,7 @@ namespace TabulateSmarterTestContentPackage
             //"Claim,Target,PrimaryCommonCore,PrimaryClaimContentTarget,SecondaryCommonCore,SecondaryClaimContentTarget,PtWritingType," +
             //"CAT_MeasurementModel,CAT_ScorePoints,CAT_Dimension,CAT_Weight,CAT_Parameters,PP_MeasurementModel," +
             //"PP_ScorePoints,PP_Dimension,PP_Weight,PP_Parameters"
-            mItemReport.WriteLine(string.Join(",", CsvEncode(it.FolderDescription), it.BankKey.ToString(), it.ItemId.ToString(), CsvEncode(it.ItemType), CsvEncode(version),
+            mItemReport.WriteLine(string.Join(",", CsvEncode(it.FolderDescription), it.BankKey.ToString(), it.ItemId.ToString(), CsvEncode(it.ItemType), CsvEncode(it.Version),
                 CsvEncode(subject), CsvEncode(grade), CsvEncode(GetStatus(it, xmlMetadata)), CsvEncode(answerKey), string.Empty, CsvEncode(assessmentType), CsvEncode(wordlistId),
                 string.Empty, string.Empty, CsvEncode(asl), CsvEncode(brailleType), CsvEncode(translation), GlossStringFlags(aggregateGlossaryTypes),
                 string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty,
