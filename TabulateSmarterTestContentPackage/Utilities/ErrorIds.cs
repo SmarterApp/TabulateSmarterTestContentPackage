@@ -210,6 +210,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
             new ErrorInfo(ErrorId.T0197, "ASL video file is empty.", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Asl),
             new ErrorInfo(ErrorId.T0198, "Rubric is blank or is an empty template.", ErrorCategory.AnswerKey, ErrorSeverity.Tolerable, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0199, "Attached file is empty (size=0).", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Content),
+            new ErrorInfo(ErrorId.T0200, "Multiple sets of TTS information for a single its-tag", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Tts),
         };
 
         const string c_errIdPrefix = "CTAB-";
@@ -509,7 +510,8 @@ namespace TabulateSmarterTestContentPackage.Utilities
         T0196 = 196,
         T0197 = 197,
         T0198 = 198,
-        T0199 = 199
+        T0199 = 199,
+        T0200 = 200,
     }
 
     public enum ErrorReviewArea : int

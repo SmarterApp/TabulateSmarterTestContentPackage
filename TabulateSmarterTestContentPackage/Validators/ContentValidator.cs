@@ -6,6 +6,7 @@ using System.IO;
 using TabulateSmarterTestContentPackage.Models;
 using TabulateSmarterTestContentPackage.Utilities;
 using TabulateSmarterTestContentPackage.Validators;
+using System.Diagnostics;
 
 namespace TabulateSmarterTestContentPackage
 {
@@ -46,6 +47,8 @@ namespace TabulateSmarterTestContentPackage
                     foreach (XmlNode contentElement in contentElements)
                     {
                         string language = contentElement.XpEvalE("@language");
+
+                        ContentValidator.ValidateApipAccessibility(it, contentElement, language);
 
                         // For each element in the content section
                         foreach (XmlNode content in contentElement.ChildNodes)
@@ -220,6 +223,20 @@ namespace TabulateSmarterTestContentPackage
                 terms.Add(term);
             }
         } // ValidateGlossaryTags
+
+        public static void ValidateApipAccessibility(ItemContext it, XmlNode contentElement, string language)
+        {
+            var linkIdentifiers = new HashSet<string>();
+
+            foreach(XmlNode cli in contentElement.SelectNodes("apipAccessibility/accessibilityInfo/accessElement/contentLinkInfo/@itsLinkIdentifierRef"))
+            {
+                var idRef = cli.Value;
+                if (!linkIdentifiers.Add(idRef))
+                {
+                    ReportingUtility.ReportError(it, ErrorId.T0200, $"language='{language}' id='{idRef}'");
+                }
+            }
+        }
 
         public static XmlDocument LoadHtml(ItemContext it, XmlNode content)
         {
