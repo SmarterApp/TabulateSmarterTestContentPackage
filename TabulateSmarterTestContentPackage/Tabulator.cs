@@ -964,7 +964,7 @@ namespace TabulateSmarterTestContentPackage
 
             // === Tabulation is complete, check for other errors
 
-            FileValidator.Validate(it);
+            FileValidator.Validate(it, xml);
 
             // Points
             {
@@ -1280,7 +1280,7 @@ namespace TabulateSmarterTestContentPackage
 
             // Tabulation is complete, check for other errors.
 
-            FileValidator.Validate(it);
+            FileValidator.Validate(it, xml);
 
         } // TabulateStimulus
 
@@ -1376,7 +1376,7 @@ namespace TabulateSmarterTestContentPackage
 
             // Tabulation is complete, check for other errors.
 
-            FileValidator.Validate(it);
+            FileValidator.Validate(it, xml);
 
         } // TabulateTutorial
 

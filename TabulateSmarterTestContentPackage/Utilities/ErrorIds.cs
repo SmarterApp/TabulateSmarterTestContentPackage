@@ -211,6 +211,8 @@ namespace TabulateSmarterTestContentPackage.Utilities
             new ErrorInfo(ErrorId.T0198, "Rubric is blank or is an empty template.", ErrorCategory.AnswerKey, ErrorSeverity.Tolerable, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0199, "Attached file is empty (size=0).", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0200, "Multiple sets of TTS information for a single its-tag", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Tts),
+            new ErrorInfo(ErrorId.T0201, "Attached file not found.", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Content),
+            new ErrorInfo(ErrorId.T0202, "Braille PRN file is not compatable with Tiger embossers.", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Braille),
         };
 
         const string c_errIdPrefix = "CTAB-";
@@ -512,6 +514,8 @@ namespace TabulateSmarterTestContentPackage.Utilities
         T0198 = 198,
         T0199 = 199,
         T0200 = 200,
+        T0201 = 201,
+        T0202 = 202,
     }
 
     public enum ErrorReviewArea : int
