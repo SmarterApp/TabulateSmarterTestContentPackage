@@ -65,12 +65,6 @@ namespace TabulateSmarterTestContentPackage
         int mProgressCount = 0;
         int mTransferCount = 0;
 
-        class RubricInfo
-        {
-            public ItemIdentifier FirstItemId;
-            public int Count;
-        }
-
         // Per report variables
         bool mInitialized;
         int mStartTicks;
