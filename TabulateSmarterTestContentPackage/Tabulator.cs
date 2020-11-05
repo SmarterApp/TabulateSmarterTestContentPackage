@@ -879,7 +879,7 @@ namespace TabulateSmarterTestContentPackage
             var ptWritingType = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:PtWritingType", sXmlNs).Trim();
 
             // BrailleType (need this before validating content)
-            string brailleType = GetBrailleType(it, xml, xmlMetadata);
+            string brailleType = BrailleValidator.Validate(it, xml, xmlMetadata);
 
             // Validate content segments
             string wordlistId;
@@ -1227,7 +1227,7 @@ namespace TabulateSmarterTestContentPackage
             */
 
             // BrailleType
-            string brailleType = GetBrailleType(it, xml, xmlMetadata);
+            string brailleType = BrailleValidator.Validate(it, xml, xmlMetadata);
 
             // Validate content segments
             string wordlistId;
@@ -1343,7 +1343,7 @@ namespace TabulateSmarterTestContentPackage
             var target = string.Empty;
 
             // BrailleType
-            string brailleType = GetBrailleType(it, xml, xmlMetadata);
+            string brailleType = BrailleValidator.Validate(it, xml, xmlMetadata);
 
             // Validate content segments
             string wordlistId;
@@ -1489,240 +1489,6 @@ namespace TabulateSmarterTestContentPackage
         private string GetStatus(ItemContext it, XmlDocument xmlMetadata)
         {
             return xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:Status", sXmlNs);
-        }
-
-        public static string GetBrailleType(ItemContext it, XmlDocument xml, XmlDocument xmlMetadata)
-        {
-            // Retrieve and parse braille type metadata
-            var brailleTypeMeta = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:BrailleType", sXmlNs);
-
-            BrailleFileType brailleFileType = BrailleFileType.NONE;
-            BrailleFormCode allForms = BrailleFormCode.NONE;
-            BrailleFormCode allTranscriptForms = BrailleFormCode.NONE;
-
-            // Enumerate all of the braille attachments
-            {
-                var type = it.IsStimulus ? "passage" : "item";
-                var attachmentXPath = $"itemrelease/{type}/content[@language='ENU']/attachmentlist/attachment";
-                var processedIds = new List<string>();
-
-                foreach (XmlElement xmlEle in xml.SelectNodes(attachmentXPath))
-                {
-                    // All attachments must have an ID and those IDs must be unique within their item
-                    var id = xmlEle.GetAttribute("id");
-                    if (string.IsNullOrEmpty(id))
-                    {
-                        ReportingUtility.ReportError(it, ErrorId.T0138);
-                    }
-                    else if (processedIds.Contains(id))
-                    {
-                        ReportingUtility.ReportError(it, ErrorId.T0015, $"ID: {id}");
-                    }
-                    else
-                    {
-                        processedIds.Add(id);
-                    }
-
-                    // Get attachment type and check if braille
-                    var attachType = xmlEle.GetAttribute("type");
-                    if (string.IsNullOrEmpty(attachType))
-                    {
-                        ReportingUtility.ReportError(it, ErrorId.T0004);
-                        continue;
-                    }
-                    BrailleFileType attachmentType;
-                    if (!Enum.TryParse(attachType, out attachmentType))
-                    {
-                        continue; // Not braille attachment
-                    }
-
-                    // === From here forward we are only dealing with Braille attachments and the error messages reflect that ===
-
-                    // Ensure that we are using consistent types
-                    if (brailleFileType != BrailleFileType.NONE && brailleFileType != attachmentType)
-                    {
-                        ReportingUtility.ReportError(it, ErrorId.T0139, $"previousType='{brailleFileType}' foundType='{attachmentType}'");
-                    }
-                    brailleFileType = attachmentType;
-
-                    // Check that the file exists
-                    var filename = xmlEle.GetAttribute("file");
-                    if (string.IsNullOrEmpty(filename))
-                    {
-                        ReportingUtility.ReportError(it, ErrorId.T0140, "attachType='{0}'", attachType);
-                        continue;
-                    }
-                    if (!it.FfItem.FileExists(filename))
-                    {
-                        ReportingUtility.ReportError(it, ErrorId.T0008, "attachType='{0}' Filename='{1}'", attachType, filename);
-                    }
-
-                    // Check the extension
-                    var extension = Path.GetExtension(filename);
-                    if (extension.Length > 0) extension = extension.Substring(1); // Strip leading "."
-                    if (!string.Equals(extension, attachType, StringComparison.OrdinalIgnoreCase))
-                    {
-                        ReportingUtility.ReportError(it, ErrorId.T0141, "extension='{0}' expected='{1}' filename='{2}'", extension, attachType, filename);
-                    }
-
-                    // Get and parse the subtype (if any) - This is the Braille Form Code (e.g. EXN, UXT)
-                    var wholeSubtype = xmlEle.GetAttribute("subtype") ?? string.Empty;
-                    bool isTranscript = wholeSubtype.EndsWith("_transcript", StringComparison.OrdinalIgnoreCase);
-                    var subtype = isTranscript ? wholeSubtype.Substring(0, wholeSubtype.Length - 11) : wholeSubtype;
-                    if (Program.gValidationOptions.IsEnabled("dbc") && subtype.StartsWith("TDS_BT_"))
-                    {
-                        subtype = subtype.Substring(7);
-                        ReportingUtility.ReportError(it, ErrorId.T0142, $"prefix='TDS_BT_' subtype='{wholeSubtype}'");
-                    }
-                    BrailleFormCode attachmentFormCode;
-                    if (!BrailleUtility.TryParseBrailleFormCode(subtype, out attachmentFormCode))
-                    {
-                        ReportingUtility.ReportError(it, ErrorId.T0007, $"subtype='{wholeSubtype}'");
-                    }
-
-                    // Accumulate the type
-                    if (!isTranscript)
-                    {
-                        if ((allForms & attachmentFormCode) != 0)
-                        {
-                            ReportingUtility.ReportError(it, ErrorId.T0143, $"brailleForm='{attachmentFormCode}'");
-                        }
-                        allForms |= attachmentFormCode;
-                    }
-                    else
-                    {
-                        if ((allTranscriptForms & attachmentFormCode) != 0)
-                        {
-                            ReportingUtility.ReportError(it, ErrorId.T0143, $"brailleForm='{attachmentFormCode}_transcript'");
-                        }
-                        allTranscriptForms |= attachmentFormCode;
-                    }
-
-                    {
-                        bool fnIsStim;
-                        int fnItemId;
-                        BrailleFormCode fnFormCode;
-                        bool fnIsTranscript;
-                        BrailleFileType fnFileType;
-                        bool fnUsesAirConvention;
-                        if (!BrailleUtility.TryParseBrailleFileNamingConvention(filename, out fnIsStim, out fnItemId, out fnFormCode, out fnIsTranscript, out fnFileType, out fnUsesAirConvention))
-                        {
-                            ReportingUtility.ReportError(it, ErrorId.T0144, $"filename='{filename}'");
-                        }
-                        else
-                        {
-                            if (fnIsStim != it.IsStimulus)
-                            {
-                                ReportingUtility.ReportError(it, ErrorId.T0145, $"value='{(fnIsStim ? "stim" : "item")}' expected='{(it.IsStimulus ? "stim" : "item")}' filename='{filename}'");
-                            }
-
-                            // ItemId
-                            if (fnItemId != it.ItemId)
-                            {
-                                ReportingUtility.ReportError(it, ErrorId.T0010, $"value='{fnItemId}' expected='{it.ItemId}' Filename='{filename}'");
-                            }
-
-                            // Form Code
-                            if (fnFormCode != attachmentFormCode)
-                            {
-                                ReportingUtility.ReportError(it, ErrorId.T0009, $"value='{fnFormCode}' expected='{attachmentFormCode}' filename='{filename}'");
-                            }
-
-                            // Check whether this is a transcript
-                            if (fnIsTranscript != isTranscript)
-                            {
-                                ReportingUtility.ReportError(it, ErrorId.T0146, $"value='{(fnIsTranscript ? "transcript" : string.Empty)}' expected='{(isTranscript ? "transcript" : string.Empty)}' filename='{filename}'");
-                            }
-
-                            if (fnFileType != attachmentType)
-                            // Must match the type listed
-                            {
-                                ReportingUtility.ReportError(it, ErrorId.T0147, $"extension='{fnFileType}' expected='{attachmentType}' filename='{filename}'");
-                            }
-
-                            /* TODO: This error occurs on all pre-UEB content. May enable in a later release.
-                            if (fnUsesAirConvention)
-                            {
-                                ReportingUtility.ReportError("dbc", it, ErrorCategory.Item, ErrorSeverity.Benign,
-                                    "Braille embossing filename uses deprecated naming convention",
-                                    $"filename='{filename}'");
-                            }
-                            */
-                        } // If naming convention parse success
-                    } // Scope of naming convention validation
-
-                } // foreach braille attachment
-            } // scope for braille attachment enumeration
-
-            // Check for consistency between body forms and transcript forms
-            if (allTranscriptForms != BrailleFormCode.NONE && allTranscriptForms != allForms)
-            {
-                ReportingUtility.ReportError(it, ErrorId.T0148, $"transcriptForms='{allTranscriptForms.ToString()}' stemForms='{allForms.ToString()}'");
-            }
-
-            var brailleSupport = BrailleUtility.GetSupportByCode(allForms);
-            if (brailleSupport == BrailleSupport.UNEXPECTED)
-            {
-                ReportingUtility.ReportError(it, ErrorId.T0011, $"brailleTypes='{allForms}'");
-            }
-
-            string result;
-            // Check for match with metadata
-            // Metadata SHOULD take precedence over contents in the report. However, content may extend detail.
-            if (string.Equals(brailleTypeMeta, "Not Braillable", StringComparison.OrdinalIgnoreCase))
-            {
-                if (allForms != BrailleFormCode.NONE)
-                {
-                    ReportingUtility.ReportError(it, ErrorId.T0149, $"brailleTypes='{allForms}'");
-                }
-                brailleSupport = BrailleSupport.NOTBRAILLABLE;
-                result = brailleSupport.ToString();
-            }
-            else if (string.IsNullOrEmpty(brailleTypeMeta))
-            {
-                if (allForms != BrailleFormCode.NONE)
-                {
-                    ReportingUtility.ReportError(it, ErrorId.T0053, $"brailleTypes='{allForms.ToString()}'");
-                }
-                brailleSupport = BrailleSupport.NONE;
-                result = string.Empty;
-            }
-            else if (brailleFileType == BrailleFileType.NONE)
-            {
-                ReportingUtility.ReportError(it, ErrorId.T0150, $"metadata='{brailleTypeMeta}'");
-                result = string.Empty;
-            }
-            else
-            {
-                result = $"{brailleFileType.ToString()}_{brailleSupport.ToString()}";
-                if (!brailleTypeMeta.Equals(result, StringComparison.OrdinalIgnoreCase))
-                {
-                    if (brailleTypeMeta.Equals(BrailleUtility.GetAirFormatMetadataByCode(brailleFileType, brailleSupport), StringComparison.OrdinalIgnoreCase))
-                    {
-                        /* TODO: This error occurs on every item in older content packages.
-                        ReportingUtility.ReportError("dbc", it, ErrorCategory.Metadata, ErrorSeverity.Benign,
-                            "Braille metadata uses deprecated format without numbers.", $"metadata='{brailleTypeMeta}' expected='{result}'");
-                        */
-                    }
-                    else
-                    {
-                        ReportingUtility.ReportError(it, ErrorId.T0052, $"metadata='{brailleTypeMeta}' content='{result}'");
-                    }
-                }
-            }
-
-            return result;
-        }
-
-        private class BrailleTypeComparer : IComparer<string>
-        {
-            public int Compare(string x, string y)
-            {
-                // Make "PRN" sort between "BRF" and "Embed"
-                if (x.StartsWith("PRN", StringComparison.Ordinal)) x = "C" + x.Substring(3);
-                if (y.StartsWith("PRN", StringComparison.Ordinal)) y = "C" + y.Substring(3);
-                return string.CompareOrdinal(x, y);
-            }
         }
 
         string GetTranslation(ItemContext it, XmlDocument xml, XmlDocument xmlMetadata)
@@ -2339,51 +2105,4 @@ namespace TabulateSmarterTestContentPackage
         }
 
     }
-
-    /*
-    class Timer
-    {
-        static TextWriter s_writer;
-
-        public static void Init(string prefix)
-        {
-            s_writer = new StreamWriter(prefix + "Timings.csv");
-        }
-
-        public static void Conclude()
-        {
-            if (s_writer != null)
-            {
-                s_writer.Dispose();
-                s_writer = null;
-            }
-        }
-
-        List<int> m_ticks = new List<int>();
-        string m_type;
-
-        public Timer(string type)
-        {
-            m_type = type;
-            Lap();
-        }
-
-        public void Lap()
-        {
-            m_ticks.Add(Environment.TickCount);
-        }
-
-        public void Report()
-        {
-            s_writer.Write(m_type);
-            for (int i = 0; i < m_ticks.Count - 1; ++i)
-            {
-                uint elapsed = unchecked((uint)m_ticks[i + 1] - (uint)m_ticks[i]);
-                s_writer.Write(",{0}.{1:d3}", elapsed / 1000, elapsed % 1000);
-            }
-            s_writer.WriteLine();
-        }
-    }
-    */
-
 }
