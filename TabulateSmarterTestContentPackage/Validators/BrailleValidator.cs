@@ -9,8 +9,25 @@ using TabulateSmarterTestContentPackage.Utilities;
 
 namespace TabulateSmarterTestContentPackage.Validators
 {
+
     static class BrailleValidator
     {
+        // Expected Braille form patterns
+        const BrailleFormCode cBoth6 = BrailleFormCode.EXN | BrailleFormCode.ECN | BrailleFormCode.UXN | BrailleFormCode.UXT | BrailleFormCode.UCN | BrailleFormCode.UCT;
+        const BrailleFormCode cBoth4 = BrailleFormCode.EXL | BrailleFormCode.ECL | BrailleFormCode.UXL | BrailleFormCode.UCL;
+        const BrailleFormCode cUEB4 = BrailleFormCode.UXN | BrailleFormCode.UXT | BrailleFormCode.UCN | BrailleFormCode.UCT;
+        const BrailleFormCode cUEB2 = BrailleFormCode.UXL | BrailleFormCode.UCL;
+        const BrailleFormCode cEBAE2 = BrailleFormCode.EXL | BrailleFormCode.ECL;
+        const BrailleFormCode cEBAE1 = BrailleFormCode.ECN;
+
+        // Permitted Braille forms by subject
+        const BrailleFormCode cPermittedMath = BrailleFormCode.ECN | BrailleFormCode.EXN | BrailleFormCode.UCN | BrailleFormCode.UXN | BrailleFormCode.UCT | BrailleFormCode.UXT;
+        const BrailleFormCode cPermittedEla = BrailleFormCode.ECL | BrailleFormCode.EXL | BrailleFormCode.UCL | BrailleFormCode.UXL;
+
+        // Required Braille forms by subject
+        const BrailleFormCode cRequredMath = BrailleFormCode.UCN | BrailleFormCode.UXN | BrailleFormCode.UCT | BrailleFormCode.UXT;
+        const BrailleFormCode cRequiredEla = BrailleFormCode.UCL | BrailleFormCode.UCL;
+
         /// <summary>
         /// Validate braille content.
         /// </summary>
@@ -122,6 +139,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                         allTranscriptForms |= attachmentFormCode;
                     }
 
+                    // Check for naming convention match
                     {
                         bool fnIsStim;
                         int fnItemId;
@@ -181,14 +199,11 @@ namespace TabulateSmarterTestContentPackage.Validators
             // Check for consistency between body forms and transcript forms
             if (allTranscriptForms != BrailleFormCode.NONE && allTranscriptForms != allForms)
             {
-                ReportingUtility.ReportError(it, ErrorId.T0148, $"transcriptForms='{allTranscriptForms.ToString()}' stemForms='{allForms.ToString()}'");
+                ReportingUtility.ReportError(it, ErrorId.T0148, $"transcriptForms='{allTranscriptForms}' stemForms='{allForms}'");
             }
 
+            // Get the braille support code from what was found
             var brailleSupport = GetBrailleSupportByCode(allForms);
-            if (brailleSupport == BrailleSupport.UNEXPECTED)
-            {
-                ReportingUtility.ReportError(it, ErrorId.T0011, $"brailleTypes='{allForms}'");
-            }
 
             string result;
             // Check for match with metadata
@@ -218,54 +233,78 @@ namespace TabulateSmarterTestContentPackage.Validators
             }
             else
             {
-                result = $"{brailleFileType.ToString()}_{brailleSupport.ToString()}";
-                if (!brailleTypeMeta.Equals(result, StringComparison.OrdinalIgnoreCase))
+                result = $"{brailleFileType}_{brailleSupport}";
+                if (!brailleTypeMeta.StartsWith($"{brailleFileType}_", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (brailleTypeMeta.Equals(GetAirFormatMetadataByCode(brailleFileType, brailleSupport), StringComparison.OrdinalIgnoreCase))
-                    {
-                        /* TODO: This error occurs on every item in older content packages.
-                        ReportingUtility.ReportError("dbc", it, ErrorCategory.Metadata, ErrorSeverity.Benign,
-                            "Braille metadata uses deprecated format without numbers.", $"metadata='{brailleTypeMeta}' expected='{result}'");
-                        */
-                    }
-                    else
-                    {
-                        ReportingUtility.ReportError(it, ErrorId.T0052, $"metadata='{brailleTypeMeta}' content='{result}'");
-                    }
+                    ReportingUtility.ReportError(it, ErrorId.T0203, $"metadata='{brailleTypeMeta}' content='{result}'");
+                }
+            }
+
+
+            // Retrieve the subject
+            var subject = xml.XpEvalE($"itemrelease/{(it.IsStimulus ? "passage" : "item")}/attriblist/attrib[@attid='itm_item_subject']/val");
+
+            // Verify the requred and acceptable braille file patterns
+            if (allForms != BrailleFormCode.NONE)
+            {
+                BrailleFormCode permittedForms;
+                BrailleFormCode requiredForms;
+                switch (subject.ToLowerInvariant())
+                {
+                    case "math":
+                        permittedForms = cPermittedMath;
+                        requiredForms = cRequredMath;
+                        break;
+                    case "ela":
+                        permittedForms = cPermittedEla;
+                        requiredForms = cRequiredEla;
+                        break;
+                    default:
+                        permittedForms = BrailleFormCode.AllEBAE | BrailleFormCode.AllUEB;
+                        requiredForms = BrailleFormCode.NONE;
+                        break;
+                }
+
+                var notPermitted = allForms & ~permittedForms;
+                if (notPermitted != BrailleFormCode.NONE)
+                {
+                    ReportingUtility.ReportError(it, ErrorId.T0204, $"formCode='{notPermitted}' subject='{subject}'");
+                }
+
+                var requriedNotPresent = requiredForms & ~allForms;
+                if (requriedNotPresent != BrailleFormCode.NONE)
+                {
+                    ReportingUtility.ReportError(it, ErrorId.T0205, $"formCode='{requriedNotPresent}' subject='{subject}'");
                 }
             }
 
             return result;
         }
 
-        const BrailleFormCode cBoth6 = BrailleFormCode.EXN | BrailleFormCode.ECN | BrailleFormCode.UXN | BrailleFormCode.UXT | BrailleFormCode.UCN | BrailleFormCode.UCT;
-        const BrailleFormCode cBoth4 = BrailleFormCode.EXL | BrailleFormCode.ECL | BrailleFormCode.UXL | BrailleFormCode.UCL;
-        const BrailleFormCode cUEB4 = BrailleFormCode.UXN | BrailleFormCode.UXT | BrailleFormCode.UCN | BrailleFormCode.UCT;
-        const BrailleFormCode cUEB2 = BrailleFormCode.UXL | BrailleFormCode.UCL;
-        const BrailleFormCode cEBAE2 = BrailleFormCode.EXL | BrailleFormCode.ECL;
-        const BrailleFormCode cEBAE1 = BrailleFormCode.ECN;
-
         public static BrailleSupport GetBrailleSupportByCode(BrailleFormCode code)
         {
-            switch (code)
+            // Codes are for the expected patterns. If there's a mismatch, report the next best match.
+            // Listed in priority order.
+            if (code == BrailleFormCode.NONE) return BrailleSupport.NONE;
+            if ((code & cBoth6) == cBoth6) return BrailleSupport.EBAE2_UEB4;
+            if ((code & cBoth4) == cBoth4) return BrailleSupport.EBAE2_UEB2;
+            if ((code & cUEB4) == cUEB4) return BrailleSupport.UEB4;
+            if ((code & cUEB2) == cUEB2) return BrailleSupport.UEB2;
+            if ((code & cEBAE2) == cEBAE2) return BrailleSupport.EBAE2;
+            if ((code & cEBAE1) == cEBAE1) return BrailleSupport.EBAE1;
+            return BrailleSupport.UNEXPECTED;
+        }
+
+        public static int BitCount(BrailleFormCode code)
+        {
+            uint n = (uint)code;
+            int count = 0;
+            while (n != 0)
             {
-                case cBoth6:
-                    return BrailleSupport.EBAE2_UEB4;
-                case cBoth4:
-                    return BrailleSupport.EBAE2_UEB2;
-                case cUEB4:
-                    return BrailleSupport.UEB4;
-                case cUEB2:
-                    return BrailleSupport.UEB2;
-                case cEBAE2:
-                    return BrailleSupport.EBAE2;
-                case cEBAE1:
-                    return BrailleSupport.EBAE1;
-                case BrailleFormCode.NONE:
-                    return BrailleSupport.NONE;
-                default:
-                    return BrailleSupport.UNEXPECTED;
+                if ((n & 0x0001) != 0) ++count;
+                n = n >> 1;
             }
+            return count;
         }
 
         public static string GetAirFormatMetadataByCode(BrailleFileType fileType, BrailleSupport code)

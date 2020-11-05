@@ -21,7 +21,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
             new ErrorInfo(ErrorId.T0008, "Braille embossing file is missing.", ErrorCategory.Item, ErrorSeverity.Tolerable, ErrorReviewArea.Braille),
             new ErrorInfo(ErrorId.T0009, "Braille embossing filename doesn't match expected braille type.", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Braille),
             new ErrorInfo(ErrorId.T0010, "Braille embossing filename indicates item ID mismatch.", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Braille),
-            new ErrorInfo(ErrorId.T0011, "Braille embossing set of files do not match an expected pattern.", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Braille),
+            new ErrorInfo(/* 0011 */ ErrorId.None, string.Empty, ErrorCategory.System, ErrorSeverity.Message, ErrorReviewArea.None),
             new ErrorInfo(ErrorId.T0012, "Burmese translated glossary uses Zawgyi characters, should be Unicode.", ErrorCategory.Wordlist, ErrorSeverity.Degraded, ErrorReviewArea.Language),
             new ErrorInfo(ErrorId.T0013, "CCSS standard is missing from item.", ErrorCategory.Metadata, ErrorSeverity.Tolerable, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0014, "Dangling reference to attached file that does not exist.", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Content),
@@ -62,7 +62,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
             new ErrorInfo(ErrorId.T0049, "MaximumNumberOfPoints field not present in metadata", ErrorCategory.Metadata, ErrorSeverity.Degraded, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0050, "MaximumNumberOfPoints for WER item exceeds 6.", ErrorCategory.Metadata, ErrorSeverity.Tolerable, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0051, "Metadata for PT item is missing <PtWritingType> element.", ErrorCategory.Metadata, ErrorSeverity.Benign, ErrorReviewArea.Content),
-            new ErrorInfo(ErrorId.T0052, "Metadata indicates different braille support from available content.", ErrorCategory.Metadata, ErrorSeverity.Benign, ErrorReviewArea.Braille),
+            new ErrorInfo(/* 0052 */ ErrorId.None, string.Empty, ErrorCategory.System, ErrorSeverity.Message, ErrorReviewArea.None),
             new ErrorInfo(ErrorId.T0053, "Metadata indicates no braille but braille content included.", ErrorCategory.Metadata, ErrorSeverity.Benign, ErrorReviewArea.Braille),
             new ErrorInfo(ErrorId.T0054, "Metadata ScorePoints doesn't include a maximum score.", ErrorCategory.Metadata, ErrorSeverity.Tolerable, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0055, "Metadata ScorePoints doesn't include a zero score.", ErrorCategory.Metadata, ErrorSeverity.Benign, ErrorReviewArea.Content),
@@ -213,6 +213,9 @@ namespace TabulateSmarterTestContentPackage.Utilities
             new ErrorInfo(ErrorId.T0200, "Multiple sets of TTS information for a single its-tag", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Tts),
             new ErrorInfo(ErrorId.T0201, "Attached file not found.", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0202, "Braille PRN file is not compatable with Tiger embossers.", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Braille),
+            new ErrorInfo(ErrorId.T0203, "Format of braille files does not match Metadata.", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Braille),
+            new ErrorInfo(ErrorId.T0204, "Braille embossing file has a Braille Form Code that is not permitted for this subject.", ErrorCategory.Item, ErrorSeverity.Benign, ErrorReviewArea.Braille),
+            new ErrorInfo(ErrorId.T0205, "Missing braille embossing file for a required Braille Form Code for this subject.", ErrorCategory.Item, ErrorSeverity.Benign, ErrorReviewArea.Braille),
         };
 
         const string c_errIdPrefix = "CTAB-";
@@ -337,7 +340,6 @@ namespace TabulateSmarterTestContentPackage.Utilities
         T0008 = 8,
         T0009 = 9,
         T0010 = 10,
-        T0011 = 11,
         T0012 = 12,
         T0013 = 13,
         T0014 = 14,
@@ -374,7 +376,6 @@ namespace TabulateSmarterTestContentPackage.Utilities
         T0049 = 49,
         T0050 = 50,
         T0051 = 51,
-        T0052 = 52,
         T0053 = 53,
         T0054 = 54,
         T0055 = 55,
@@ -516,6 +517,9 @@ namespace TabulateSmarterTestContentPackage.Utilities
         T0200 = 200,
         T0201 = 201,
         T0202 = 202,
+        T0203 = 203,
+        T0204 = 204,
+        T0205 = 205,
     }
 
     public enum ErrorReviewArea : int

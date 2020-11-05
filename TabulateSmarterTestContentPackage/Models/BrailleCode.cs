@@ -12,12 +12,18 @@ namespace TabulateSmarterTestContentPackage.Models
         ECN = 0x0008, // EBAE, Contracted, Nemeth
         // ECT = 0x0010, // EBAE, Contracted, UEB (not a valid combination)
         ECL = 0x0020, // EBAE, Contracted, None
+      
+        AllEBAE = 0x002D, // All EBAE codes
+
         UXN = 0x0040, // UEB, Uncontracted, Nemeth
         UXT = 0x0080, // UEB, Uncontracted, UEB
         UXL = 0x0100, // UEB, Uncontracted, None
         UCN = 0x0200, // UEB, Contracted, Nemeth
         UCT = 0x0400, // UEB, Contracted, UEB
-        UCL = 0x0800 // UEB, Contracted, None
+        UCL = 0x0800, // UEB, Contracted, None
+
+        AllUEB = 0x0FC0 // All UEB codes
+
 
         // Legacy types are normalized using BrailleUtility.NormalizeBrailleFileType;
         // UNCONTRACTED, // Legacy equivalent to EXL
