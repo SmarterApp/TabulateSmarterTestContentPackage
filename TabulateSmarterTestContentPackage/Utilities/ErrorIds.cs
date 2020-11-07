@@ -216,6 +216,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
             new ErrorInfo(ErrorId.T0203, "Format of braille files does not match Metadata.", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Braille),
             new ErrorInfo(ErrorId.T0204, "Braille embossing file has a Braille Form Code that is not permitted for this subject.", ErrorCategory.Item, ErrorSeverity.Benign, ErrorReviewArea.Braille),
             new ErrorInfo(ErrorId.T0205, "Missing braille embossing file for a required Braille Form Code for this subject.", ErrorCategory.Item, ErrorSeverity.Benign, ErrorReviewArea.Braille),
+            new ErrorInfo(ErrorId.T0206, "Filenames differ only by case.", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
         };
 
         const string c_errIdPrefix = "CTAB-";
@@ -520,6 +521,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
         T0203 = 203,
         T0204 = 204,
         T0205 = 205,
+        T0206 = 206,
     }
 
     public enum ErrorReviewArea : int

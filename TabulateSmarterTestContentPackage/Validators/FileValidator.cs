@@ -17,10 +17,10 @@ namespace TabulateSmarterTestContentPackage.Validators
     {
         // TODO: Potential enhancement would be to make sure every file is referenced in the item.
         // TODO: Consolidate attachment checks from braille and video tests
-        // Presently only checks for empty files.
+        // Checks for empty files, missing files, and for files that differ only in case.
         public static void Validate(ItemContext it, XmlDocument xml)
         {
-            var checkedFiles = new HashSet<string>();
+            var checkedFiles = new Dictionary<string, string>();
 
             // Enumerate all attachments and do type-specific validation
             var attachmentSourcePath = !it.IsStimulus
@@ -32,9 +32,22 @@ namespace TabulateSmarterTestContentPackage.Validators
                 string filename = ele.GetAttribute("file");
 
                 // Attachments may be repeated across languages (ENU and ESN)
-                if (!checkedFiles.Add(filename))
+                // Check whether attachments differ in case
                 {
-                    continue;   // File already checked
+                    string prevName;
+                    if (checkedFiles.TryGetValue(filename.ToLowerInvariant(), out prevName))
+                    {
+                        if (!string.Equals(filename, prevName, StringComparison.Ordinal))
+                        {
+                            ReportingUtility.ReportError(it, ErrorId.T0206, $"location='item.xml attachmentlist' filename='{filename}' prevFilename='{prevName}'");
+                        }
+
+                        continue; // Don't do the other tests. They've already been performed on this file
+                    }
+                    else
+                    {
+                        checkedFiles.Add(filename.ToLowerInvariant(), filename);
+                    }
                 }
 
                 FileFile ff;
@@ -52,12 +65,28 @@ namespace TabulateSmarterTestContentPackage.Validators
                 }
             }
 
-            // Enumerate all files and ensure they are empty
+            // Enumerate all files
             foreach (FileFile file in it.FfItem.Files)
             {
+                // Ensure file is not empty
                 if (file.Length == 0)
                 {
                     ReportingUtility.ReportError(it, ErrorId.T0199, $"filename='{file.Name}'");
+                }
+
+                // Ensure filename matches attachment name (when present) in case and that
+                // there aren't multiple filenames that differe only in case.
+                string prevName;
+                if (checkedFiles.TryGetValue(file.Name.ToLowerInvariant(), out prevName))
+                {
+                    if (!string.Equals(file.Name, prevName, StringComparison.Ordinal))
+                    {
+                        ReportingUtility.ReportError(it, ErrorId.T0206, $"filename='{file.Name}' prevFilename='{prevName}'");
+                    }
+                }
+                else
+                {
+                    checkedFiles.Add(file.Name.ToLowerInvariant(), file.Name);
                 }
             }
         }
