@@ -134,9 +134,11 @@ namespace TabulateSmarterTestContentPackage.Utilities
                 // "admin_year,asmt,severity,item_id,item_version,error_message_id,error_message,
                 // detail,notes,review_area,error_category,error_key,tool_id,tool_version,run_date,
                 // error_type,tdf_key"
-                s_ErrorReport.WriteLine(Tabulator.CsvEncode(AdminYear, Asmt, errorInfo.Severity,
+                s_ErrorReport.WriteLine(Tabulator.CsvEncode(AdminYear, Asmt,
+                    errorInfo.Severity.ToString().ToLowerInvariant(),
                     itemId, version, msgId, errorInfo.Message, detail, string.Empty,
-                    errorInfo.ReviewArea.ToString().ToLowerInvariant(), errorInfo.Category,
+                    errorInfo.ReviewArea.ToString().ToLowerInvariant(),
+                    errorInfo.Category.ToString().ToLowerInvariant(),
                     errKey, c_toolId, s_version, s_runDate, c_errType, string.Empty));
             }
         }
@@ -200,7 +202,8 @@ namespace TabulateSmarterTestContentPackage.Utilities
                     if (errInfo.Id != ErrorId.None)
                     {
                         writer.WriteLine(Tabulator.CsvEncode(Errors.ErrorIdToString(errInfo.Id), errInfo.Message,
-                            errInfo.Category, errInfo.Severity,
+                            errInfo.Category.ToString().ToLowerInvariant(),
+                            errInfo.Severity.ToString().ToLowerInvariant(),
                             errInfo.ReviewArea.ToString().ToLowerInvariant()));
                     }
                 }
