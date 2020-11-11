@@ -1324,8 +1324,6 @@ namespace TabulateSmarterTestContentPackage
             {
                 metaSubject = cSubjectTutorial;
             }
-            if (!string.Equals(subject, metaSubject, StringComparison.Ordinal))
-                ReportingUtility.ReportError(it, ErrorId.T0115, "ItemSubject='{0}' MetadataSubject='{1}'", subject, metaSubject);
 
             // Grade
             var grade = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='itm_att_Grade']/val"); // will return "NA" or empty
