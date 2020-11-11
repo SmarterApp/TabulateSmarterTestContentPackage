@@ -26,6 +26,7 @@ namespace TabulateSmarterTestContentPackage
         const string cScoreMetaHand = "HandScored";
         const string cScoreMetaMachine = "Automatic with Machine Rubric";
         const string cSelectedResponseAnswerKey = "SR";
+        const string cSubjectTutorial = "Student Help";
 
         static NameTable sXmlNt;
         static XmlNamespaceManager sXmlNs;
@@ -1317,16 +1318,14 @@ namespace TabulateSmarterTestContentPackage
             string metaSubject = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:Subject", sXmlNs);
             if (string.IsNullOrEmpty(subject))
             {
-                ReportingUtility.ReportError(it, ErrorId.T0060);
-                subject = metaSubject;
-                if (string.IsNullOrEmpty(subject))
-                    ReportingUtility.ReportError(it, ErrorId.T0061);
+                subject = cSubjectTutorial;
             }
-            else
+            if (string.IsNullOrEmpty(metaSubject))
             {
-                if (!string.Equals(subject, metaSubject, StringComparison.Ordinal))
-                    ReportingUtility.ReportError(it, ErrorId.T0115, "ItemSubject='{0}' MetadataSubject='{1}'", subject, metaSubject);
+                metaSubject = cSubjectTutorial;
             }
+            if (!string.Equals(subject, metaSubject, StringComparison.Ordinal))
+                ReportingUtility.ReportError(it, ErrorId.T0115, "ItemSubject='{0}' MetadataSubject='{1}'", subject, metaSubject);
 
             // Grade
             var grade = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='itm_att_Grade']/val"); // will return "NA" or empty
