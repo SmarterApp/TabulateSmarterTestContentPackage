@@ -14,13 +14,14 @@ namespace TabulateSmarterTestContentPackage
     // Someday we may figure out how to separate this from the giant Tabulator class but not today.
     partial class Tabulator
     {
-        static HashSet<string> cRubricElements = new HashSet<string>(new string[]
+        static HashSet<string> cSkipHtmlValidationElements = new HashSet<string>(new string[]
         {
             "rubriclist",
             "rationaleoptlist",
             "concept",
             "es",
-            "himi"
+            "himi",
+            "qti"
         });
 
         void ValidateContentAndWordlist(ItemContext it, XmlDocument xml, bool brailleSupported, SmarterApp.ContentSpecId primaryStandard,
@@ -53,9 +54,9 @@ namespace TabulateSmarterTestContentPackage
                         // For each element in the content section
                         foreach (XmlNode content in contentElement.ChildNodes)
                         {
-                            // Only process elements that are not rubrics
+                            // Only process elements that are not rubrics or embedded qti
                             if (content.NodeType != XmlNodeType.Element) continue;
-                            if (cRubricElements.Contains(content.Name)) continue;
+                            if (cSkipHtmlValidationElements.Contains(content.Name)) continue;
 
                             // Validate all CDATA elements (that are not in rubrics)
                             foreach (var node in new XmlSubtreeEnumerable(content))
