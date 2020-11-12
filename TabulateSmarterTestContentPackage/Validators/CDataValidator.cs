@@ -77,16 +77,16 @@ namespace TabulateSmarterTestContentPackage.Validators
                 }
             }
 
-            ElementsFreeOfProhibitedAttributes(it, htmlNav, language);
+            ValidateHtmlElements(it, htmlNav, language);
         }
 
-        static bool ElementsFreeOfProhibitedAttributes(ItemContext it, XPathNavigator root, string language)
+        static bool ValidateHtmlElements(ItemContext it, XPathNavigator root, string language)
         {
             bool valid = true;
             XPathNavigator ele = root.Clone();
             while (ele.MoveToFollowing(XPathNodeType.Element))
             {
-                if (s_prohibitedElements.TryGetValue(ele.Name, out string issueDescription))
+                if (s_prohibitedElements.TryGetValue(ele.Name.ToLowerInvariant(), out string issueDescription))
                 {
                     ReportingUtility.ReportError(it, ErrorId.T0181, $"language='{language}' issue='{issueDescription}' element='{StartTagXml(ele)}'");
                     valid = false;
@@ -98,14 +98,14 @@ namespace TabulateSmarterTestContentPackage.Validators
                     do
                     {
                         // Check for prohibited attribute
-                        if (s_prohibitedAttributes.TryGetValue(attribute.Name, out issueDescription))
+                        if (s_prohibitedAttributes.TryGetValue(attribute.Name.ToLowerInvariant(), out issueDescription))
                         {
                             ReportingUtility.ReportError(it, ErrorId.T0182, $"language='{language}' element='{StartTagXml(ele)}' attribute='{attribute.Name}' issue='{issueDescription}'");
                             valid = false;
                         }
 
                         // Check for prohibited style properties
-                        else if (attribute.Name.Equals("style"))
+                        else if (attribute.Name.Equals("style", StringComparison.OrdinalIgnoreCase))
                         {
                             string[] styleProps = attribute.Value.Split(';', StringSplitOptions.RemoveEmptyEntries);
                             foreach(string prop in styleProps)
@@ -164,7 +164,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                         }
 
                         // Check for prohibited class values
-                        else if (attribute.Name.Equals("class"))
+                        else if (attribute.Name.Equals("class", StringComparison.OrdinalIgnoreCase))
                         {
                             string[] classes = attribute.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
                             foreach(var c in classes)
@@ -176,6 +176,16 @@ namespace TabulateSmarterTestContentPackage.Validators
                                 }
                             }
 
+                        }
+
+                        // If href or src attribute see if the referenced attachment is present
+                        if (attribute.Name.Equals("src", StringComparison.OrdinalIgnoreCase)
+                            || attribute.Name.Equals("href", StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (!it.FfItem.FileExists(attribute.Value))
+                            {
+                                ReportingUtility.ReportError(it, ErrorId.T0208, $"language='{language}' element='{StartTagXml(ele)}'");
+                            }
                         }
                     }
                     while (attribute.MoveToNextAttribute());

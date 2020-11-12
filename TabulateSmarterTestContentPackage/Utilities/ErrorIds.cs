@@ -218,6 +218,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
             new ErrorInfo(ErrorId.T0205, "Missing braille embossing file for a required Braille Form Code for this subject.", ErrorCategory.Item, ErrorSeverity.Benign, ErrorReviewArea.Braille),
             new ErrorInfo(ErrorId.T0206, "Filenames differ only by case.", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0207, "Item content has CSS class that should not be present.", ErrorCategory.Item, ErrorSeverity.Benign, ErrorReviewArea.Content),
+            new ErrorInfo(ErrorId.T0208, "Resource referenced in html content not found in package.", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Content),
         };
 
         const string c_errIdPrefix = "CTAB-";
@@ -523,7 +524,8 @@ namespace TabulateSmarterTestContentPackage.Utilities
         T0204 = 204,
         T0205 = 205,
         T0206 = 206,
-        T0207 = 207,  
+        T0207 = 207,
+        T0208 = 208,
     }
 
     public enum ErrorReviewArea : int
