@@ -1049,6 +1049,31 @@ namespace TabulateSmarterTestContentPackage
                         }
                     }
                 }
+
+                // Check editor type for Short Answer (SA) item format.
+                // (Note: Item format and item type are usually the same but not always!)
+                var itemFormat = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='itm_att_Item Format']/val");
+                if (string.Equals(itemFormat, "SA", StringComparison.OrdinalIgnoreCase))
+                {
+                    var responseType = xml.XpEvalE("itemrelease/item/attriblist/attrib[@attid='itm_att_Response Type']/val");
+                    string expectedResponseType;
+                    switch (subject)
+                    {
+                        case "MATH":
+                            expectedResponseType = "HTMLEditor";
+                            break;
+                        case "ELA":
+                            expectedResponseType = "PlainText";
+                            break;
+                        default:
+                            expectedResponseType = string.Empty;
+                            break;
+                    }
+                    if (!string.Equals(responseType, expectedResponseType, StringComparison.OrdinalIgnoreCase))
+                    {
+                        ReportingUtility.ReportError(it, ErrorId.T0209, $"subject='{subject}' responseType='{responseType}' expected='{expectedResponseType}'");
+                    }
+                }
             }
 
             if (!string.IsNullOrEmpty(stimId))
