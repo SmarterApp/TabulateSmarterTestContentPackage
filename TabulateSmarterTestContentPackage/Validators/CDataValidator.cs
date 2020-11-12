@@ -5,14 +5,17 @@ using System.Xml;
 using TabulateSmarterTestContentPackage.Models;
 using TabulateSmarterTestContentPackage.Utilities;
 using System.IO;
+using System.Diagnostics;
 
 namespace TabulateSmarterTestContentPackage.Validators
 {
     public static class CDataValidator
     {
-        const string cColorContrast = "color contrast";
-        const string cZoom = "zoom";
-        const string cColorOrZoom = "color contrast or zoom";
+        const string cColorContrast = "interferes with color contrast";
+        const string cZoom = "interferes with zoom";
+        const string cColorOrZoom = "interferes with color contrast or zoom";
+        const string cTimsTts = "internal TIMS TTS attribute should not be exported";
+        const string cAltText = "alt text for images belongs in the accessibility section";
 
         // Dictionaries map from attributes or styles to a description of what they interfere with.
         static Dictionary<string, string> s_prohibitedElements = new Dictionary<string, string>
@@ -23,7 +26,15 @@ namespace TabulateSmarterTestContentPackage.Validators
         static Dictionary<string, string> s_prohibitedAttributes = new Dictionary<string, string>
         {
             { "color", cColorContrast },
-            { "bgcolor", cColorContrast }
+            { "bgcolor", cColorContrast },
+            { "data-iat-tts-vi", cTimsTts },
+            { "data-iat-tts", cTimsTts },
+            { "alt", cAltText }
+        };
+
+        static Dictionary<string, string> s_prohibitedClasses = new Dictionary<string, string>
+        {
+            { "iat-text2speech", cTimsTts },
         };
 
         static Dictionary<string, string> s_prohibitedStyleProperties = new Dictionary<string, string>
@@ -66,18 +77,18 @@ namespace TabulateSmarterTestContentPackage.Validators
                 }
             }
 
-            ElementsFreeOfProhibitedAttributes(it, htmlNav);
+            ElementsFreeOfProhibitedAttributes(it, htmlNav, language);
         }
 
-        static bool ElementsFreeOfProhibitedAttributes(ItemContext it, XPathNavigator root)
+        static bool ElementsFreeOfProhibitedAttributes(ItemContext it, XPathNavigator root, string language)
         {
             bool valid = true;
             XPathNavigator ele = root.Clone();
             while (ele.MoveToFollowing(XPathNodeType.Element))
             {
-                if (s_prohibitedElements.TryGetValue(ele.Name, out string interferesWith))
+                if (s_prohibitedElements.TryGetValue(ele.Name, out string issueDescription))
                 {
-                    ReportingUtility.ReportError(it, ErrorId.T0181, $"element='{StartTagXml(ele)}' feature='{interferesWith}'");
+                    ReportingUtility.ReportError(it, ErrorId.T0181, $"language='{language}' issue='{issueDescription}' element='{StartTagXml(ele)}'");
                     valid = false;
                 }
 
@@ -87,16 +98,16 @@ namespace TabulateSmarterTestContentPackage.Validators
                     do
                     {
                         // Check for prohibited attribute
-                        if (s_prohibitedAttributes.TryGetValue(attribute.Name, out interferesWith))
+                        if (s_prohibitedAttributes.TryGetValue(attribute.Name, out issueDescription))
                         {
-                            ReportingUtility.ReportError(it, ErrorId.T0182, $"attribute='{attribute.Name}' element='{StartTagXml(ele)}' feature='{interferesWith}'");
+                            ReportingUtility.ReportError(it, ErrorId.T0182, $"language='{language}' element='{StartTagXml(ele)}' attribute='{attribute.Name}' issue='{issueDescription}'");
                             valid = false;
                         }
 
                         // Check for prohibited style properties
                         else if (attribute.Name.Equals("style"))
                         {
-                            string[] styleProps = attribute.Value.Split(new char[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+                            string[] styleProps = attribute.Value.Split(';', StringSplitOptions.RemoveEmptyEntries);
                             foreach(string prop in styleProps)
                             {
                                 int ieq = prop.IndexOf(':');
@@ -118,26 +129,26 @@ namespace TabulateSmarterTestContentPackage.Validators
                                 {
                                     if (!value.Equals("transparent", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(value))
                                     {
-                                        ReportingUtility.ReportError(it, ErrorId.T0183, $"style='{name}' element='{StartTagXml(ele)}'  feature='color contrast'");
+                                        ReportingUtility.ReportError(it, ErrorId.T0183, $"language='{language}' style='{name}' issue='{cColorContrast}' element='{StartTagXml(ele)}'");
                                     }
                                 }
 
                                 // Special handling for "font". Look for any component with a prohibited suffix
                                 else if (name.Equals("font", StringComparison.Ordinal))
                                 {
-                                    foreach (string part in value.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries))
+                                    foreach (string part in value.Split(' ', StringSplitOptions.RemoveEmptyEntries))
                                     {
                                         if (HasProhibitedUnitSuffix(part))
                                         {
-                                            ReportingUtility.ReportError(it, ErrorId.T0183, $"style='{name}' element='{StartTagXml(ele)}' feature='zoom'");
+                                            ReportingUtility.ReportError(it, ErrorId.T0183, $"language='{language}' style='{name}' issue='{cZoom}' element='{StartTagXml(ele)}'");
                                         }
                                     }
                                 }
 
                                 // Check for prohibited style properties
-                                else if (s_prohibitedStyleProperties.TryGetValue(name, out interferesWith) && !string.IsNullOrEmpty(value))
+                                else if (s_prohibitedStyleProperties.TryGetValue(name, out issueDescription) && !string.IsNullOrEmpty(value))
                                 {
-                                    ReportingUtility.ReportError(it, ErrorId.T0183, $"style='{name}' element='{StartTagXml(ele)}' feature='{interferesWith}'");
+                                    ReportingUtility.ReportError(it, ErrorId.T0183, $"language='{language}' style='{name}' issue='{issueDescription}' element='{StartTagXml(ele)}'");
                                     valid = false;
                                 }
 
@@ -146,10 +157,25 @@ namespace TabulateSmarterTestContentPackage.Validators
                                 {
                                     if (HasProhibitedUnitSuffix(value))
                                     {
-                                        ReportingUtility.ReportError(it, ErrorId.T0183, $"style='{name}' element='{StartTagXml(ele)}' feature='zoom'");
+                                        ReportingUtility.ReportError(it, ErrorId.T0183, $"language='{language}' style='{name}' issue='{cZoom}' element='{StartTagXml(ele)}'");
                                     }
                                 }
                             }
+                        }
+
+                        // Check for prohibited class values
+                        else if (attribute.Name.Equals("class"))
+                        {
+                            string[] classes = attribute.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                            foreach(var c in classes)
+                            {
+                                if (s_prohibitedClasses.TryGetValue(c, out issueDescription))
+                                {
+                                    ReportingUtility.ReportError(it, ErrorId.T0207, $"language='{language}' class='{c}' issue='{issueDescription}' element='{StartTagXml(ele)}'");
+                                    valid = false;
+                                }
+                            }
+
                         }
                     }
                     while (attribute.MoveToNextAttribute());
@@ -173,6 +199,9 @@ namespace TabulateSmarterTestContentPackage.Validators
         //<summary>This method takes a <img> element tag and determines whether
         //the provided <img> element contains a valid "alt" attribute </summary>
         //<param name="image"> The <img> tag to be validated </param>
+        //IMPORTANT: The ALT attribute SHOULD NOT be directly in the HTML. Rather, it should have a reference
+        //to the corresponding ApipAccessibility element that contains the alt text.
+        //In fact, another test checks for direct alt references and makes sure they are NOT present.
         private static bool ImgElementHasValidAltReference(ItemContext it, XPathNavigator contentElement, XPathNavigator imgEle, bool brailleSupported)
         {
             bool foundId = false;

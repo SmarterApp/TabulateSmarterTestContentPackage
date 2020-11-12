@@ -191,9 +191,9 @@ namespace TabulateSmarterTestContentPackage.Utilities
             new ErrorInfo(ErrorId.T0178, "ASL video filename indicates item, but base folder is a stim", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Asl),
             new ErrorInfo(ErrorId.T0179, "ASL video filename indicates stim, but base folder is a item", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Asl),
             new ErrorInfo(ErrorId.T0180, "ASL video filename does not match expected pattern", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Asl),
-            new ErrorInfo(ErrorId.T0181, "Item content has element that may interfere with accessibility feature.", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
-            new ErrorInfo(ErrorId.T0182, "Item content has attribute that may interfere with accessibility feature.", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
-            new ErrorInfo(ErrorId.T0183, "Item content has style property that may interfere with accessibility feature.", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
+            new ErrorInfo(ErrorId.T0181, "Item content has element that should not be present.", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
+            new ErrorInfo(ErrorId.T0182, "Item content has attribute that should not be present.", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
+            new ErrorInfo(ErrorId.T0183, "Item content has style property that should not be present.", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0184, "Img element for an equation resource has an empty audioShortDesc element.", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0185, "Img element for an equation resource does not have an audioShortDesc child element within the readAloud element.", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0186, "Img element for a graphic resource does not have a textToSpeechPronunciation child element within the readAloud element.", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
@@ -217,6 +217,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
             new ErrorInfo(ErrorId.T0204, "Braille embossing file has a Braille Form Code that is not permitted for this subject.", ErrorCategory.Item, ErrorSeverity.Benign, ErrorReviewArea.Braille),
             new ErrorInfo(ErrorId.T0205, "Missing braille embossing file for a required Braille Form Code for this subject.", ErrorCategory.Item, ErrorSeverity.Benign, ErrorReviewArea.Braille),
             new ErrorInfo(ErrorId.T0206, "Filenames differ only by case.", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
+            new ErrorInfo(ErrorId.T0207, "Item content has CSS class that should not be present.", ErrorCategory.Item, ErrorSeverity.Benign, ErrorReviewArea.Content),
         };
 
         const string c_errIdPrefix = "CTAB-";
@@ -522,6 +523,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
         T0204 = 204,
         T0205 = 205,
         T0206 = 206,
+        T0207 = 207,  
     }
 
     public enum ErrorReviewArea : int
