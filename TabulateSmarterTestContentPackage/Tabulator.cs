@@ -1076,6 +1076,7 @@ namespace TabulateSmarterTestContentPackage
                 }
             }
 
+            // Valdate stimulus reference
             if (!string.IsNullOrEmpty(stimId))
             {
                 var metaStimId = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:AssociatedStimulus", sXmlNs);
@@ -1178,6 +1179,25 @@ namespace TabulateSmarterTestContentPackage
                 // Make sure dependency is recorded in manifest
                 var tutorialFilename = string.Format(@"Items\item-{1}-{0}\item-{1}-{0}.xml", tutorialId, bankKey);
                 CheckDependencyInManifest(it, tutorialFilename, "Tutorial");
+            }
+
+            // If GI (Grid Item) Check for RendererSpec - GAX
+            if (string.Equals(it.ItemType, "GI", StringComparison.OrdinalIgnoreCase))
+            {
+                // Attempt to retrieve the RendererSpec
+                var rendererSpec = xml.XpEval("itemrelease/item/RendererSpec/@filename");
+                if (string.IsNullOrEmpty(rendererSpec))
+                {
+                    ReportingUtility.ReportError(it, ErrorId.T0211, "RendererSpec = ''");
+                }
+                else if (!it.FfItem.FileExists(rendererSpec))
+                {
+                    ReportingUtility.ReportError(it, ErrorId.T0211, $"RendererSpec='{rendererSpec}' file not found.");
+                }
+                else if (!string.Equals(Path.GetExtension(rendererSpec), ".gax", StringComparison.OrdinalIgnoreCase))
+                {
+                    ReportingUtility.ReportError(it, ErrorId.T0211, $"RendererSpec='{rendererSpec}' expected 'gax' extension.");
+                }
             }
         } // TabulateInteraction
 
