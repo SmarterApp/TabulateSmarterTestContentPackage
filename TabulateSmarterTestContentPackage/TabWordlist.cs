@@ -125,8 +125,11 @@ namespace TabulateSmarterTestContentPackage
                 ReportingUtility.ReportError(it, ErrorId.T0112, LoadXmlErrorDetail);
             }
 
-            // Validate Version
-            VersionValidator.Validate(it, xml, xmlMetadata);
+            // Validate Version (Suppress if metadata does not include version)
+            if (null != xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:Version", Tabulator.XmlNsMgr))
+            {
+                VersionValidator.Validate(it, xml, xmlMetadata);
+            }
             ii.Version = it.Version;
 
             // Count this wordlist
