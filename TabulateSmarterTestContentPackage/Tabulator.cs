@@ -1199,6 +1199,12 @@ namespace TabulateSmarterTestContentPackage
                     ReportingUtility.ReportError(it, ErrorId.T0211, $"RendererSpec='{rendererSpec}' expected 'gax' extension.");
                 }
             }
+
+            // Check case of the folder name
+            if (!it.FfItem.Name.StartsWith("Item-", StringComparison.Ordinal))
+            {
+                ReportingUtility.ReportError(it, ErrorId.T0212, $"folderName='{it.FfItem.Name}' expected='Item-###-####'");
+            }
         } // TabulateInteraction
 
         void TabulateStimulus(ItemIdentifier ii)
@@ -1322,9 +1328,15 @@ namespace TabulateSmarterTestContentPackage
 
             FileValidator.Validate(it, xml);
 
+            // Check case of the folder name
+            if (!it.FfItem.Name.StartsWith("stim-", StringComparison.Ordinal))
+            {
+                ReportingUtility.ReportError(it, ErrorId.T0212, $"folderName='{it.FfItem.Name}' expected='stim-###-####'");
+            }
+
         } // TabulateStimulus
 
-        
+
         void TabulateTutorial(ItemIdentifier ii)
         {
             // Get the item context
@@ -1413,6 +1425,12 @@ namespace TabulateSmarterTestContentPackage
             // Tabulation is complete, check for other errors.
 
             FileValidator.Validate(it, xml);
+
+            // Check case of the folder name
+            if (!it.FfItem.Name.StartsWith("Item-", StringComparison.Ordinal))
+            {
+                ReportingUtility.ReportError(it, ErrorId.T0212, $"folderName='{it.FfItem.Name}' expected='Item-###-####'");
+            }
 
         } // TabulateTutorial
 

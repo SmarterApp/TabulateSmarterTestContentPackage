@@ -178,6 +178,12 @@ namespace TabulateSmarterTestContentPackage
 
             FileValidator.Validate(it, xml);
 
+            // Check case of the folder name
+            if (!it.FfItem.Name.StartsWith("Item-", StringComparison.Ordinal))
+            {
+                ReportingUtility.ReportError(it, ErrorId.T0212, $"folderName='{it.FfItem.Name}' expected='Item-###-####'");
+            }
+
         }
 
         static readonly Regex sRxAudioAttachment = new Regex(@"<a[^>]*href=""([^""]*)""[^>]*>", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
