@@ -12,7 +12,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
         {
             new ErrorInfo(/* 0000 */ ErrorId.None, string.Empty, ErrorCategory.System, ErrorSeverity.Message, ErrorReviewArea.None),
             new ErrorInfo(ErrorId.T0001, "Allow Calculator field not present for MATH subject item", ErrorCategory.Metadata, ErrorSeverity.Degraded, ErrorReviewArea.Content),
-            new ErrorInfo(ErrorId.T0002, "ASL video length doesn't correlate with text length; possible mismatch.", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Asl),
+            new ErrorInfo(/* 0002 */ ErrorId.None, string.Empty, ErrorCategory.System, ErrorSeverity.Message, ErrorReviewArea.None),
             new ErrorInfo(ErrorId.T0003, "ASL video filename for stim is titled as 'passsage' instead of 'stim'", ErrorCategory.Item, ErrorSeverity.Benign, ErrorReviewArea.Asl),
             new ErrorInfo(ErrorId.T0004, "Attachment missing type attribute.", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0005, "Audio Glossary file is not in expected format.", ErrorCategory.Wordlist, ErrorSeverity.Degraded, ErrorReviewArea.Language),
@@ -338,7 +338,6 @@ namespace TabulateSmarterTestContentPackage.Utilities
     {
         None = 0,
         T0001 = 1,
-        T0002 = 2,
         T0003 = 3,
         T0004 = 4,
         T0005 = 5,

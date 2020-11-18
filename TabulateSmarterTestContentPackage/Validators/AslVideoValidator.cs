@@ -11,9 +11,9 @@ namespace TabulateSmarterTestContentPackage.Validators
     {
         const int c_minVideoFileSize = 128;
 
-        public static void Validate(ItemContext it, IXPathNavigable xml, int englishCharacterCount, StatAccumulator accumulator)
+        public static void Validate(ItemContext it, IXPathNavigable xml)
         {
-            
+
             var attachmentFilename = FileUtility.GetAttachmentFilename(it, xml, "ASL");
 
             // so far, the attachmentFilename is the value from the <attachment> element. What needs to be checked is the following:
@@ -72,35 +72,8 @@ namespace TabulateSmarterTestContentPackage.Validators
                      ReportingUtility.ReportError(it, ErrorId.T0197, $"Filename: {currentSource}");
                 }
             }
-            
+
             ValidateFilename(attachmentFilename, it);
-
-            // Check video duration to text length ratio.
-            FileFile file;
-            if (!it.FfItem.TryGetFile(attachmentFilename, out file)) return;
-            if (file.Length < c_minVideoFileSize) return;
-
-            double videoSeconds;
-            using (var stream = file.Open())
-            {
-                videoSeconds = Mp4VideoUtility.GetDuration(stream) / 1000.0;
-            }
-            if (videoSeconds <= 0.0) return;
-
-            double secondToCountRatio = videoSeconds / englishCharacterCount;
-
-            var highStandard = TabulatorSettings.AslMean +
-                                TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslToleranceInStdev;
-            var lowStandard = TabulatorSettings.AslMean -
-                                TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslToleranceInStdev;
-
-            if (secondToCountRatio > highStandard
-                || secondToCountRatio < lowStandard)
-            {
-                ReportingUtility.ReportError(it, ErrorId.T0002, $"videoSeconds={videoSeconds:F3} characterCount={englishCharacterCount} ratio={secondToCountRatio:F3} meanRatio={TabulatorSettings.AslMean} tolerance={TabulatorSettings.AslToleranceInStdev*TabulatorSettings.AslStandardDeviation:F3}");
-            }
-
-            accumulator.AddDatum(secondToCountRatio);
         }
 
         private static void ValidateFilename(string fileName, ItemContext itemContext)
