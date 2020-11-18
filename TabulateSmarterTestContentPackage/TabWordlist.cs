@@ -72,8 +72,7 @@ namespace TabulateSmarterTestContentPackage
             | GlossaryTypes.Somali
             | GlossaryTypes.Spanish
             | GlossaryTypes.Ukranian
-            | GlossaryTypes.Vietnamese
-            | GlossaryTypes.Illustration;
+            | GlossaryTypes.Vietnamese;
 
         static GlossaryTypes sAllTranslatedGlossaries =
             GlossaryTypes.Arabic
@@ -446,7 +445,7 @@ namespace TabulateSmarterTestContentPackage
                     && (glossariesFound & sExpectedTranslatedGlossaries) != sExpectedTranslatedGlossaries) // not all translated glossaries
                 {
                     // Make a list of translations that weren't found
-                    string missedTranslations = (sExpectedTranslatedGlossaries & ~glossariesFound).ToString();
+                    string missedTranslations = (sAllTranslatedGlossaries & ~glossariesFound).ToString();
                     ReportingUtility.ReportWitError(itemIt, ii, ErrorId.T0092, "term='{0}' missing='{1}'", term, missedTranslations);
                 }
 
