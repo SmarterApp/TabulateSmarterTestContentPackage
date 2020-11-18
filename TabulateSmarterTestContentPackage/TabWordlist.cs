@@ -559,7 +559,13 @@ namespace TabulateSmarterTestContentPackage
             }
             else
             {
-                attachmentToTerm.Add(filename, new TermAttachmentReference(termIndex, listType, filename));
+                var reference = new TermAttachmentReference(termIndex, listType, filename);
+                attachmentToTerm[filename] = reference;
+                string alternateDialect;
+                if (GetAlternateDialect(filename, out alternateDialect))
+                {
+                    attachmentToTerm[alternateDialect] = reference;
+                }
             }
 
             size += fileSize;
@@ -573,6 +579,29 @@ namespace TabulateSmarterTestContentPackage
             {
                 type = string.Concat(type, ";", extension.ToLower());
             }
+        }
+
+        static bool GetAlternateDialect(string filename, out string alternateDialect)
+        {
+            if (TryReplace(filename, "atagalog", "btagalog", out alternateDialect)) return true;
+            if (TryReplace(filename, "btagalog", "atagalog", out alternateDialect)) return true;
+            if (TryReplace(filename, "apunjabi", "bpunjabi", out alternateDialect)) return true;
+            if (TryReplace(filename, "bpunjabi", "apunjabi", out alternateDialect)) return true;
+            if (TryReplace(filename, "punjabieast", "punjabiwest", out alternateDialect)) return true;
+            if (TryReplace(filename, "punjabiwest", "punjabieast", out alternateDialect)) return true;
+            return false;
+        }
+
+        static bool TryReplace(string str, string match, string replace, out string result)
+        {
+            int i = str.IndexOf(match);
+            if (i >= 0)
+            {
+                result = string.Concat(str.Substring(0, i), replace, str.Substring(i + match.Length));
+                return true;
+            }
+            result = null;
+            return false;
         }
 
         static string GlossStringFlags(GlossaryTypes glossaryTypes)
