@@ -420,7 +420,7 @@ namespace TabulateSmarterTestContentPackage
                     if (gt != GlossaryTypes.Illustration) { 
                         if ((gt & sAllTranslatedGlossaries) != 0 && string.IsNullOrEmpty(audioType))
                         {
-                            ReportingUtility.ReportWitError(itemIt, ii, ErrorId.T0075, "term='{0}' index='{1}'", term, index);
+                            ReportingUtility.ReportWitError(itemIt, ii, ErrorId.T0075, $"term='{term}' index='{index}' language='{gt}'");
                         }
                     }
 
