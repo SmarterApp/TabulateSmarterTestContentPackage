@@ -13,7 +13,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
             new ErrorInfo(/* 0000 */ ErrorId.None, string.Empty, ErrorCategory.System, ErrorSeverity.Message, ErrorReviewArea.None),
             new ErrorInfo(ErrorId.T0001, "Allow Calculator field not present for MATH subject item", ErrorCategory.Metadata, ErrorSeverity.Degraded, ErrorReviewArea.Content),
             new ErrorInfo(/* 0002 */ ErrorId.None, string.Empty, ErrorCategory.System, ErrorSeverity.Message, ErrorReviewArea.None),
-            new ErrorInfo(ErrorId.T0003, "ASL video filename for stim is titled as 'passsage' instead of 'stim'", ErrorCategory.Item, ErrorSeverity.Benign, ErrorReviewArea.Asl),
+            new ErrorInfo(/* 0003 */ ErrorId.None, string.Empty, ErrorCategory.System, ErrorSeverity.Message, ErrorReviewArea.None),
             new ErrorInfo(ErrorId.T0004, "Attachment missing type attribute.", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0005, "Audio Glossary file is not in expected format.", ErrorCategory.Wordlist, ErrorSeverity.Degraded, ErrorReviewArea.Language),
             new ErrorInfo(ErrorId.T0006, "Automatic/HandScored scoring metadata error.", ErrorCategory.Metadata, ErrorSeverity.Tolerable, ErrorReviewArea.Content),
@@ -189,7 +189,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
             new ErrorInfo(ErrorId.T0176, "ASL video file is missing.", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Asl),
             new ErrorInfo(ErrorId.T0177, "ASL video filename contains an incorrect ID", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Asl),
             new ErrorInfo(ErrorId.T0178, "ASL video filename indicates item, but base folder is a stim", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Asl),
-            new ErrorInfo(ErrorId.T0179, "ASL video filename indicates stim, but base folder is a item", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Asl),
+            new ErrorInfo(ErrorId.T0179, "ASL video filename indicates stim, but base folder is an item", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Asl),
             new ErrorInfo(ErrorId.T0180, "ASL video filename does not match expected pattern", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Asl),
             new ErrorInfo(ErrorId.T0181, "Item content has element that should not be present.", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0182, "Item content has attribute that should not be present.", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
@@ -223,6 +223,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
             new ErrorInfo(ErrorId.T0210, "Unknown or prohibited HTML tag in content", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0211, "SA item lacks a valid RendererSpec (GAX)", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0212, "Folder name contains incorrect letter case", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Lead),
+            new ErrorInfo(ErrorId.T0213, "ASL video file type mismatch", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Asl),
         };
 
         const string c_errIdPrefix = "CTAB-";
@@ -338,7 +339,6 @@ namespace TabulateSmarterTestContentPackage.Utilities
     {
         None = 0,
         T0001 = 1,
-        T0003 = 3,
         T0004 = 4,
         T0005 = 5,
         T0006 = 6,
@@ -533,6 +533,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
         T0210 = 210,
         T0211 = 211,
         T0212 = 212,
+        T0213 = 213,
     }
 
     public enum ErrorReviewArea : int
