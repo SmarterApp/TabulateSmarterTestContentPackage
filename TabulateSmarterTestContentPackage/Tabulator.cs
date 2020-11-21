@@ -99,6 +99,7 @@ namespace TabulateSmarterTestContentPackage
             StaticInitWordlist();
         }
 
+        public static XmlNameTable XmlNt => sXmlNt;
         public static XmlNamespaceManager XmlNsMgr => sXmlNs;
 
         public Tabulator(string reportPathPrefix)

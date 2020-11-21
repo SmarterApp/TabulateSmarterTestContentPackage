@@ -224,6 +224,10 @@ namespace TabulateSmarterTestContentPackage.Utilities
             new ErrorInfo(ErrorId.T0211, "SA item lacks a valid RendererSpec (GAX)", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0212, "Folder name contains incorrect letter case", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Lead),
             new ErrorInfo(ErrorId.T0213, "ASL video file type mismatch", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Asl),
+            new ErrorInfo(ErrorId.T0214, "Failed to parse XML file", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
+            new ErrorInfo(ErrorId.T0215, "Unreferenced MathML error", ErrorCategory.Item, ErrorSeverity.Tolerable, ErrorReviewArea.Lead),
+            new ErrorInfo(ErrorId.T0216, "Student-facing MathML error", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Lead),
+            new ErrorInfo(ErrorId.T0217, "Educator-facing MathML error", ErrorCategory.Item, ErrorSeverity.Tolerable, ErrorReviewArea.Lead),
         };
 
         const string c_errIdPrefix = "CTAB-";
@@ -534,6 +538,10 @@ namespace TabulateSmarterTestContentPackage.Utilities
         T0211 = 211,
         T0212 = 212,
         T0213 = 213,
+        T0214 = 214,
+        T0215 = 215,
+        T0216 = 216,
+        T0217 = 217,
     }
 
     public enum ErrorReviewArea : int
