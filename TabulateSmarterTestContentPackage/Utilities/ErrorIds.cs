@@ -60,7 +60,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
             new ErrorInfo(ErrorId.T0047, "Math Claim 2, 3, 4 primary alignment should be paired with a claim 1 secondary alignment.", ErrorCategory.Metadata, ErrorSeverity.Tolerable, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0048, "Mathematical Practice field not present for MATH claim 2, 3, or 4 item", ErrorCategory.Metadata, ErrorSeverity.Degraded, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0049, "MaximumNumberOfPoints field not present in metadata", ErrorCategory.Metadata, ErrorSeverity.Degraded, ErrorReviewArea.Content),
-            new ErrorInfo(ErrorId.T0050, "MaximumNumberOfPoints for WER item exceeds 6.", ErrorCategory.Metadata, ErrorSeverity.Tolerable, ErrorReviewArea.Content),
+            new ErrorInfo(ErrorId.T0050, "MaximumNumberOfPoints for WER item exceeds 10.", ErrorCategory.Metadata, ErrorSeverity.Tolerable, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0051, "Metadata for PT item is missing <PtWritingType> element.", ErrorCategory.Metadata, ErrorSeverity.Benign, ErrorReviewArea.Content),
             new ErrorInfo(/* 0052 */ ErrorId.None, string.Empty, ErrorCategory.System, ErrorSeverity.Message, ErrorReviewArea.None),
             new ErrorInfo(ErrorId.T0053, "Metadata indicates no braille but braille content included.", ErrorCategory.Metadata, ErrorSeverity.Benign, ErrorReviewArea.Braille),

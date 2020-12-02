@@ -52,6 +52,8 @@ namespace TabulateSmarterTestContentPackage
         const string cIdReportFn = "IdReport.csv";
         const string cRubricExportFn = "Rubrics";
 
+        const int c_maxWerPoints = 10;
+
         static ItemIdentifier cBlankItemId = new ItemIdentifier(string.Empty, 0, 0);
 
         // Per Package variables
@@ -625,7 +627,7 @@ namespace TabulateSmarterTestContentPackage
                     ReportingUtility.ReportError(it, ErrorId.T0049);
                 }
 
-                else if (it.ItemType.Equals("wer", StringComparison.OrdinalIgnoreCase) && maxPts > 6)
+                else if (it.ItemType.Equals("wer", StringComparison.OrdinalIgnoreCase) && maxPts > c_maxWerPoints)
                 {
                     ReportingUtility.ReportError(it, ErrorId.T0050, $"maxPoints='{maxPts}' subject='{subject}'");
                 }
