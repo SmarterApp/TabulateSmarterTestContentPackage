@@ -228,6 +228,8 @@ namespace TabulateSmarterTestContentPackage.Utilities
             new ErrorInfo(ErrorId.T0215, "Unreferenced MathML error", ErrorCategory.Item, ErrorSeverity.Tolerable, ErrorReviewArea.Lead),
             new ErrorInfo(ErrorId.T0216, "Student-facing MathML error", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Lead),
             new ErrorInfo(ErrorId.T0217, "Educator-facing MathML error", ErrorCategory.Item, ErrorSeverity.Tolerable, ErrorReviewArea.Lead),
+            new ErrorInfo(ErrorId.T0218, "Failed to parse XML node", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
+            new ErrorInfo(ErrorId.T0219, "Unbolded text in MI table", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
         };
 
         const string c_errIdPrefix = "CTAB-";
@@ -542,6 +544,8 @@ namespace TabulateSmarterTestContentPackage.Utilities
         T0215 = 215,
         T0216 = 216,
         T0217 = 217,
+        T0218 = 218,
+        T0219 = 219,
     }
 
     public enum ErrorReviewArea : int

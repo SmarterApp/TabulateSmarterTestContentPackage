@@ -54,11 +54,24 @@ namespace TabulateSmarterTestContentPackage
                         // For each element in the content section
                         foreach (XmlNode content in contentElement.ChildNodes)
                         {
-                            // Only process elements that are not rubrics or embedded qti
+                            // Skip if it's not an element
                             if (content.NodeType != XmlNodeType.Element) continue;
+
+                            // If it's a QTI node
+                            if (content.Name.Equals("qti", StringComparison.Ordinal))
+                            {
+                                // if Item type is MI, validate it.
+                                if (it.ItemType.Equals("mi", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    MiQtiValidator.Validate(it, language, content.InnerText);
+                                }
+                                continue;
+                            }
+
+                            // Skip anything else in the skip list
                             if (cSkipHtmlValidationElements.Contains(content.Name)) continue;
 
-                            // Validate all CDATA elements (that are not in rubrics)
+                            // Validate CDATA elements (that are not in rubrics or qti)
                             foreach (var node in new XmlSubtreeEnumerable(content))
                             {
                                 if (node.NodeType == XmlNodeType.CDATA)
