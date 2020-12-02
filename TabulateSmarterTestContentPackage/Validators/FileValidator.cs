@@ -95,11 +95,19 @@ namespace TabulateSmarterTestContentPackage.Validators
                 }
 
                 // Extension-specific validation
-                if (Path.GetExtension(file.Name).Equals(".xml", StringComparison.OrdinalIgnoreCase)
-                    && !file.Name.StartsWith(it.FullId, StringComparison.OrdinalIgnoreCase)
-                    && !file.Name.Equals("metadata.xml", StringComparison.OrdinalIgnoreCase))
+                switch (Path.GetExtension(file.Name).ToLowerInvariant())
                 {
-                    ValidateXmlFile(it, file, itemXml);
+                    case ".xml":
+                    case ".eax":
+                    case ".qrx":
+                        // Don't bother testing if the item or metadata file as those are validated separately.
+                        if (Path.GetFileNameWithoutExtension(file.Name).Equals(it.FullId, StringComparison.OrdinalIgnoreCase)
+                            || file.Name.Equals("metadata.xml", StringComparison.OrdinalIgnoreCase))
+                        {
+                            break;
+                        }
+                        ValidateXmlFile(it, file, itemXml);
+                        break;
                 }
             }
         }
@@ -139,6 +147,7 @@ namespace TabulateSmarterTestContentPackage.Validators
             // See if this is MathMl
             var nav = xmlFile.CreateNavigator();
             nav.MoveToFirstChild();
+            //Debug.WriteLine($"Filename: {ff.Name} XML Root: {nav.LocalName}");
             if (nav.LocalName.Equals(c_mathMlRoot, StringComparison.Ordinal)
                 && nav.NamespaceURI.Equals(c_mathMlNamespace, StringComparison.Ordinal))
             {
