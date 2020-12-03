@@ -231,6 +231,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
             new ErrorInfo(ErrorId.T0218, "Failed to parse XML node", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0219, "Unbolded text in MI table", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0220, "Listening stimulus with an unsupported image slideshow", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Content),
+            new ErrorInfo(ErrorId.T0221, "Image referenced in GAX file not found", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Content),
         };
 
         const string c_errIdPrefix = "CTAB-";
@@ -548,6 +549,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
         T0218 = 218,
         T0219 = 219,
         T0220 = 220,
+        T0221 = 221,
     }
 
     public enum ErrorReviewArea : int

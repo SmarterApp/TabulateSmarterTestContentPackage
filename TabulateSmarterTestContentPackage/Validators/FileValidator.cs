@@ -100,6 +100,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                     case ".xml":
                     case ".eax":
                     case ".qrx":
+                    case ".gax":
                         // Don't bother testing if the item or metadata file as those are validated separately.
                         if (Path.GetFileNameWithoutExtension(file.Name).Equals(it.FullId, StringComparison.OrdinalIgnoreCase)
                             || file.Name.Equals("metadata.xml", StringComparison.OrdinalIgnoreCase))
@@ -142,6 +143,12 @@ namespace TabulateSmarterTestContentPackage.Validators
             {
                 ReportingUtility.ReportError(it, ErrorId.T0214, $"filename='{ff.Name}' error='{err.Message}'");
                 return;
+            }
+
+            // Validate gax file
+            if (Path.GetExtension(ff.Name).Equals(".gax", StringComparison.OrdinalIgnoreCase))
+            {
+                GaxValidator.Validate(it, xmlFile, ff.Name);
             }
 
             // See if this is MathMl
