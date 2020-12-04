@@ -11,6 +11,8 @@ namespace TabulateSmarterTestContentPackage.Validators
     public static class AslVideoValidator
     {
         const int c_minVideoFileSize = 128;
+        const long c_maxVideoKbps = 400;
+        const long c_minVideoKbps = 100;
 
         public static void Validate(ItemContext it, IXPathNavigable xml)
         {
@@ -75,6 +77,9 @@ namespace TabulateSmarterTestContentPackage.Validators
             // Validate each of the files
             bool mp4Found = false;
             bool webmFound = false;
+            long duration = 0; // in milliseconds
+            long mp4Size = 0;
+            long webmSize = 0;
             foreach (string currentSource in aslFileNames)
             {
                 // Check the filename
@@ -95,11 +100,44 @@ namespace TabulateSmarterTestContentPackage.Validators
                 {
                      ReportingUtility.ReportError(it, ErrorId.T0197, $"filename='{currentSource}'");
                 }
+                else
+                {
+                    switch (Path.GetExtension(ft.Name).ToLowerInvariant())
+                    {
+                        case ".mp4":
+                            mp4Size = ft.Length;
+                            using (var stream = ft.Open())
+                            {
+                                duration = Mp4VideoUtility.GetDuration(stream);
+                            }
+                            break;
+
+                        case ".webm":
+                            webmSize = ft.Length;
+                            break;
+                    }
+                }
             }
 
             // Report if either type was not found
             if (!mp4Found) ReportingUtility.ReportError(it, ErrorId.T0174, $"type='.mp4' filename='{attachmentFilename}'");
             if (!webmFound) ReportingUtility.ReportError(it, ErrorId.T0174, $"type='.webm' filename='{attachmentFilename}'");
+
+            // Check bitrates
+            ValidateBitrate(it, mp4Size, duration, ".mp4", attachmentFilename);
+            ValidateBitrate(it, webmSize, duration, ".mp4", attachmentFilename);
+        }
+
+        private static void ValidateBitrate(ItemContext it, long size, long duration, string extension, string filename)
+        {
+            if (size <= 0 || duration <= 0) return; // If size or duration is invalid, another error has already been reported
+            long kbps = ((size * 8000L) / duration) / 1024L; // duration is in milliseconds 1024 to get kbps
+            System.Diagnostics.Debug.WriteLine($"{kbps}kbps");
+            if (kbps < c_minVideoKbps || kbps > c_maxVideoKbps)
+            {
+                ReportingUtility.ReportError(it, ErrorId.T0225,
+                    $"filename='{Path.GetFileNameWithoutExtension(filename)}{extension}' duration={duration / 1000}s bitrate={kbps}kbps. Expected bitrate between {c_minVideoKbps}kbps and {c_maxVideoKbps}kbps");
+            }
         }
 
         private static void ValidateFilename(string fileName, ItemContext itemContext)

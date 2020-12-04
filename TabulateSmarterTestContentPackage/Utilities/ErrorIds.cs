@@ -235,6 +235,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
             new ErrorInfo(ErrorId.T0222, "Multiple references to the same attachment", ErrorCategory.Item, ErrorSeverity.Tolerable, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0223, "Invalid DepthOfKnowledge metadata", ErrorCategory.Metadata, ErrorSeverity.Tolerable, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0224, "Attachment filename includes prohibited character", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
+            new ErrorInfo(ErrorId.T0225, "Video encoded at incorrect bitrate", ErrorCategory.Item, ErrorSeverity.Tolerable, ErrorReviewArea.Asl),
         };
 
         const string c_errIdPrefix = "CTAB-";
@@ -556,6 +557,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
         T0222 = 222,
         T0223 = 223,
         T0224 = 224,
+        T0225 = 225,
     }
 
     public enum ErrorReviewArea : int
