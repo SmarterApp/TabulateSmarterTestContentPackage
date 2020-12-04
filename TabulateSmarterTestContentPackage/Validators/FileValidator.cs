@@ -25,91 +25,120 @@ namespace TabulateSmarterTestContentPackage.Validators
         // Checks for empty files, missing files, and for files that differ only in case.
         public static void Validate(ItemContext it, XmlDocument itemXml)
         {
-            var checkedFiles = new Dictionary<string, string>();
 
-            // Enumerate all attachments and do type-specific validation
-            var attachmentSourcePath = !it.IsStimulus
-                ? "itemrelease/item/content/attachmentlist/attachment"
-                : "itemrelease/passage/content/attachmentlist/attachment";
-            foreach(XmlElement ele in itemXml.SelectNodes(attachmentSourcePath))
+            // Enumerate each content language
+            var contentPath = !it.IsStimulus
+                ? "itemrelease/item/content"
+                : "itemrelease/passage/content";
+            foreach(XmlElement content in itemXml.SelectNodes(contentPath))
             {
-                string type = ele.GetAttribute("type");
-                string filename = ele.GetAttribute("file");
+                var checkedFiles = new Dictionary<string, string>();
+                string language = content.GetAttribute("language");
 
-                // Attachments may be repeated across languages (ENU and ESN)
-                // Check whether attachments differ in case
+                // Enumerage each attachment
+                foreach(XmlElement attachment in content.SelectNodes("attachmentlist/attachment"))
                 {
-                    string prevName;
-                    if (checkedFiles.TryGetValue(filename.ToLowerInvariant(), out prevName))
+                    string type = attachment.GetAttribute("type");
+                    string filename = attachment.GetAttribute("file");
+
+                    // Enumerate each source
+                    int sourceCount = 0;
+                    foreach(XmlElement source in attachment.SelectNodes("source"))
                     {
-                        if (!string.Equals(filename, prevName, StringComparison.Ordinal))
-                        {
-                            ReportingUtility.ReportError(it, ErrorId.T0206, $"location='item.xml attachmentlist' filename='{filename}' prevFilename='{prevName}'");
-                        }
-
-                        continue; // Don't do the other tests. They've already been performed on this file
+                        ++sourceCount;
+                        ValidateFile(it, source.GetAttribute("src"), checkedFiles, type, language);
                     }
-                    else
+
+                    // If no sources, validate on the primary node
+                    if (sourceCount == 0)
                     {
-                        checkedFiles.Add(filename.ToLowerInvariant(), filename);
+                        ValidateFile(it, attachment.GetAttribute("file"), checkedFiles, type, language);
                     }
                 }
 
-                FileFile ff;
-                if (!it.FfItem.TryGetFile(filename, out ff))
-                {
-                    ReportingUtility.ReportError(it, ErrorId.T0201, $"filename='{filename}' type='{type}'");
-                    continue;
-                }
-
-                switch (type)
-                {
-                    case "PRN":
-                        ValidateBraillePrn(it, ff);
-                        break;
-                }
             }
 
             // Enumerate all files
-            foreach (FileFile file in it.FfItem.Files)
             {
-                // Ensure file is not empty
-                if (file.Length == 0)
-                {
-                    ReportingUtility.ReportError(it, ErrorId.T0199, $"filename='{file.Name}'");
-                }
+                var checkedFiles = new Dictionary<string, string>();
 
-                // Ensure filename matches attachment name (when present) in upper/lower case and that
-                // there aren't multiple filenames that differ only in case.
-                string prevName;
-                if (checkedFiles.TryGetValue(file.Name.ToLowerInvariant(), out prevName))
+                foreach (FileFile file in it.FfItem.Files)
                 {
-                    if (!string.Equals(file.Name, prevName, StringComparison.Ordinal))
+                    // Ensure file is not empty
+                    if (file.Length == 0)
                     {
-                        ReportingUtility.ReportError(it, ErrorId.T0206, $"filename='{file.Name}' prevFilename='{prevName}'");
+                        ReportingUtility.ReportError(it, ErrorId.T0199, $"filename='{file.Name}'");
                     }
+
+                    // Ensure that there aren't multiple filenames that differ only in case.
+                    string prevName;
+                    if (checkedFiles.TryGetValue(file.Name.ToLowerInvariant(), out prevName))
+                    {
+                        if (!string.Equals(file.Name, prevName, StringComparison.Ordinal))
+                        {
+                            ReportingUtility.ReportError(it, ErrorId.T0206, $"filename='{file.Name}' prevFilename='{prevName}'");
+                        }
+                    }
+                    else
+                    {
+                        checkedFiles.Add(file.Name.ToLowerInvariant(), file.Name);
+                    }
+
+                    // Extension-specific validation
+                    switch (Path.GetExtension(file.Name).ToLowerInvariant())
+                    {
+                        case ".xml":
+                        case ".eax":
+                        case ".qrx":
+                        case ".gax":
+                            // Don't bother testing if the item or metadata file as those are validated separately.
+                            if (Path.GetFileNameWithoutExtension(file.Name).Equals(it.FullId, StringComparison.OrdinalIgnoreCase)
+                                || file.Name.Equals("metadata.xml", StringComparison.OrdinalIgnoreCase))
+                            {
+                                break;
+                            }
+                            ValidateXmlFile(it, file, itemXml);
+                            break;
+                    }
+                }
+            }
+        }
+
+        static void ValidateFile(ItemContext it, string filename, Dictionary<string, string> checkedFiles, string type, string language)
+        {
+            // Check whether a repeat, or differs only in case.
+            string prevName;
+            if (checkedFiles.TryGetValue(filename.ToLowerInvariant(), out prevName))
+            {
+                if (!string.Equals(filename, prevName, StringComparison.Ordinal))
+                {
+                    ReportingUtility.ReportError(it, ErrorId.T0206, $"location='item.xml attachmentlist' filename='{filename}' prevFilename='{prevName}' type='{type}' language='{language}'");
                 }
                 else
                 {
-                    checkedFiles.Add(file.Name.ToLowerInvariant(), file.Name);
+                    ReportingUtility.ReportError(it, ErrorId.T0222, $"location='item.xml attachmentlist' filename='{filename}' type='{type}' language='{language}'");
                 }
+            }
+            else
+            {
+                checkedFiles.Add(filename.ToLowerInvariant(), filename);
+            }
 
-                // Extension-specific validation
-                switch (Path.GetExtension(file.Name).ToLowerInvariant())
-                {
-                    case ".xml":
-                    case ".eax":
-                    case ".qrx":
-                    case ".gax":
-                        // Don't bother testing if the item or metadata file as those are validated separately.
-                        if (Path.GetFileNameWithoutExtension(file.Name).Equals(it.FullId, StringComparison.OrdinalIgnoreCase)
-                            || file.Name.Equals("metadata.xml", StringComparison.OrdinalIgnoreCase))
-                        {
-                            break;
-                        }
-                        ValidateXmlFile(it, file, itemXml);
-                        break;
-                }
+            FileFile ff;
+            if (!it.FfItem.TryGetFile(filename, out ff))
+            {
+                ReportingUtility.ReportError(it, ErrorId.T0201, $"filename='{filename}' type='{type}'");
+            }
+            else if (!filename.Equals(ff.Name, StringComparison.Ordinal))
+            {
+                ReportingUtility.ReportError(it, ErrorId.T0206, $"location='item.xml attachmentlist' attachmentName='{filename}' physicalFile='{ff.Name}' type='{type}' language='{language}'");
+            }
+
+            switch (type)
+            {
+                case "PRN":
+                    ValidateBraillePrn(it, ff);
+                    break;
             }
         }
 
