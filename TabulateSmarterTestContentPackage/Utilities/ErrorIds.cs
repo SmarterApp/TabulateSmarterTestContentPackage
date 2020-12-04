@@ -234,6 +234,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
             new ErrorInfo(ErrorId.T0221, "Image referenced in GAX file not found", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0222, "Multiple references to the same attachment", ErrorCategory.Item, ErrorSeverity.Tolerable, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0223, "Invalid DepthOfKnowledge metadata", ErrorCategory.Metadata, ErrorSeverity.Tolerable, ErrorReviewArea.Content),
+            new ErrorInfo(ErrorId.T0224, "Attachment filename includes prohibited character", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
         };
 
         const string c_errIdPrefix = "CTAB-";
@@ -554,6 +555,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
         T0221 = 221,
         T0222 = 222,
         T0223 = 223,
+        T0224 = 224,
     }
 
     public enum ErrorReviewArea : int

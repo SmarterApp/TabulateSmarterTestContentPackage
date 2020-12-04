@@ -20,6 +20,8 @@ namespace TabulateSmarterTestContentPackage.Validators
         const string c_mathMlRoot = "math";
         const string c_mathMlNamespace = "http://www.w3.org/1998/Math/MathML";
 
+        static readonly char[] s_prohibitedFilenameChars = new char[] { '\'', '<', '>', ':', '"', '/', '\\', '|', '?', '*' };
+
         // TODO: Potential enhancement would be to make sure every file is referenced in the item.
         // TODO: Consolidate attachment checks from braille and video tests
         // Checks for empty files, missing files, and for files that differ only in case.
@@ -64,6 +66,15 @@ namespace TabulateSmarterTestContentPackage.Validators
 
                 foreach (FileFile file in it.FfItem.Files)
                 {
+                    // Check whether any prohibited character is in the filename
+                    {
+                        int n = file.Name.IndexOfAny(s_prohibitedFilenameChars);
+                        if (n >= 0)
+                        {
+                            ReportingUtility.ReportError(it, ErrorId.T0224, $"filename='{file.Name}' prohibitedCharacter='{file.Name[n]}'");
+                        }
+                    }
+
                     // Ensure file is not empty
                     if (file.Length == 0)
                     {
