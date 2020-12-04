@@ -919,8 +919,16 @@ namespace TabulateSmarterTestContentPackage
             // Size
             var size = GetItemSize(it);
 
-            // DepthOfKnowledge
+            // DepthOfKnowledge (for WER must be 4 or higher)
             var depthOfKnowledge = DepthOfKnowledgeFromMetadata(xmlMetadata, sXmlNs);
+            if (it.ItemType.Equals("wer", StringComparison.OrdinalIgnoreCase))
+            {
+                int idok;
+                if (!int.TryParse(depthOfKnowledge, out idok) || idok < 4)
+                {
+                    ReportingUtility.ReportError(it, ErrorId.T0223, $"depthOfKnowledge='{depthOfKnowledge}' for WER expected to be 4 or higher.");
+                }
+            }
 
             if (!string.IsNullOrEmpty(asl))
             {
