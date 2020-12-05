@@ -52,6 +52,8 @@ namespace TabulateSmarterTestContentPackage
         const string cIdReportFn = "IdReport.csv";
         const string cRubricExportFn = "Rubrics";
 
+        const int c_maxWerPoints = 10;
+
         static ItemIdentifier cBlankItemId = new ItemIdentifier(string.Empty, 0, 0);
 
         // Per Package variables
@@ -625,7 +627,7 @@ namespace TabulateSmarterTestContentPackage
                     ReportingUtility.ReportError(it, ErrorId.T0049);
                 }
 
-                else if (it.ItemType.Equals("wer", StringComparison.OrdinalIgnoreCase) && maxPts > 6)
+                else if (it.ItemType.Equals("wer", StringComparison.OrdinalIgnoreCase) && maxPts > c_maxWerPoints)
                 {
                     ReportingUtility.ReportError(it, ErrorId.T0050, $"maxPoints='{maxPts}' subject='{subject}'");
                 }
@@ -917,8 +919,16 @@ namespace TabulateSmarterTestContentPackage
             // Size
             var size = GetItemSize(it);
 
-            // DepthOfKnowledge
+            // DepthOfKnowledge (for WER must be 4 or higher)
             var depthOfKnowledge = DepthOfKnowledgeFromMetadata(xmlMetadata, sXmlNs);
+            if (it.ItemType.Equals("wer", StringComparison.OrdinalIgnoreCase))
+            {
+                int idok;
+                if (!int.TryParse(depthOfKnowledge, out idok) || idok < 4)
+                {
+                    ReportingUtility.ReportError(it, ErrorId.T0223, $"depthOfKnowledge='{depthOfKnowledge}' for WER expected to be 4 or higher.");
+                }
+            }
 
             if (!string.IsNullOrEmpty(asl))
             {

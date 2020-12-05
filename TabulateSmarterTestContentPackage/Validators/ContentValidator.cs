@@ -24,6 +24,8 @@ namespace TabulateSmarterTestContentPackage
             "qti"
         });
 
+        const string c_slideshowNotSupportedXPath = "//*[contains(text(),'Image slideshows are not supported')]";
+
         void ValidateContentAndWordlist(ItemContext it, XmlDocument xml, bool brailleSupported, SmarterApp.ContentSpecId primaryStandard,
             out string rWordlistId, out int rEnglishCharacterCount, out Tabulator.GlossaryTypes rAggregateGlossaryTypes)
         {
@@ -54,17 +56,35 @@ namespace TabulateSmarterTestContentPackage
                         // For each element in the content section
                         foreach (XmlNode content in contentElement.ChildNodes)
                         {
-                            // Only process elements that are not rubrics or embedded qti
+                            // Skip if it's not an element
                             if (content.NodeType != XmlNodeType.Element) continue;
+
+                            // If it's a QTI node
+                            if (content.Name.Equals("qti", StringComparison.Ordinal))
+                            {
+                                // if Item type is MI, validate it.
+                                if (it.ItemType.Equals("mi", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    MiQtiValidator.Validate(it, language, content.InnerText);
+                                }
+                                continue;
+                            }
+
+                            // Skip anything else in the skip list
                             if (cSkipHtmlValidationElements.Contains(content.Name)) continue;
 
-                            // Validate all CDATA elements (that are not in rubrics)
+                            // Validate CDATA elements (that are not in rubrics or qti)
                             foreach (var node in new XmlSubtreeEnumerable(content))
                             {
                                 if (node.NodeType == XmlNodeType.CDATA)
                                 {
                                     var html = ContentValidator.LoadHtml(it, node);
                                     ContentValidator.ValidateGlossaryTags(it, termIndices, terms, html);
+
+                                    if (it.IsStimulus && null != node.SelectSingleNode(c_slideshowNotSupportedXPath))
+                                    {
+                                        ReportingUtility.ReportError(it, ErrorId.T0220, string.Empty);
+                                    }
 
                                     // Tokenize the text in order to check for untagged glossary terms
                                     if (language.Equals("ENU", StringComparison.OrdinalIgnoreCase))

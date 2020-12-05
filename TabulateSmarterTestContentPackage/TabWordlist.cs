@@ -440,7 +440,7 @@ namespace TabulateSmarterTestContentPackage
                 }
 
                 // Report any expected translations that weren't found
-                if (termReferenced
+                if ((termReferenced || Program.gValidationOptions.IsEnabled("mwt"))
                     && (glossariesFound & sExpectedTranslatedGlossaries) != 0 // at least one translated glossary
                     && (glossariesFound & sExpectedTranslatedGlossaries) != sExpectedTranslatedGlossaries) // not all translated glossaries
                 {
