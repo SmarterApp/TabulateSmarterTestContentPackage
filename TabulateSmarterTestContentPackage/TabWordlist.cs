@@ -118,11 +118,6 @@ namespace TabulateSmarterTestContentPackage
                 return;
             }
 
-            // Get the version number
-            string itemVersion = xml.XpEvalE("itemrelease/item/@version");
-            ii.Version = itemVersion; // Make version available to error reporting
-            it.Version = itemVersion;
-
             // Load metadata
             var xmlMetadata = new XmlDocument(sXmlNt);
             if (!TryLoadXml(it.FfItem, "metadata.xml", xmlMetadata))
@@ -130,22 +125,12 @@ namespace TabulateSmarterTestContentPackage
                 ReportingUtility.ReportError(it, ErrorId.T0112, LoadXmlErrorDetail);
             }
 
-            // Get metadata version (which includes the minor version number)
-            var metadataVersion = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:Version", sXmlNs);
-
-            // Check for consistency between the version number in item xml and metadata xml.
-            // The metadata XML stores the version number in "major.minor" format, while 
-            // the item xml stores the version in "major" format. Only the "major" number
-            // is to be compared.
-            var metadataVersionValues = metadataVersion.Split('.');
-            if (!itemVersion.Equals(metadataVersionValues[0]))
+            // Validate Version (Suppress if metadata does not include version)
+            if (null != xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:Version", Tabulator.XmlNsMgr))
             {
-                ReportingUtility.ReportError(it, ErrorId.T0114, "Item version='{0}' Metadata major version='{1}'", itemVersion, metadataVersionValues[0]);
+                VersionValidator.Validate(it, xml, xmlMetadata);
             }
-            else
-            {
-                it.Version = metadataVersion; // Update to include minor version number when present
-            }
+            ii.Version = it.Version;
 
             // Count this wordlist
             ++mWordlistCount;
@@ -191,7 +176,13 @@ namespace TabulateSmarterTestContentPackage
 
             // Tabulation is complete, check for other errors.
 
-            FileValidator.Validate(it);
+            FileValidator.Validate(it, xml);
+
+            // Check case of the folder name
+            if (!it.FfItem.Name.StartsWith("Item-", StringComparison.Ordinal))
+            {
+                ReportingUtility.ReportError(it, ErrorId.T0212, $"folderName='{it.FfItem.Name}' expected='Item-###-####'");
+            }
 
         }
 
