@@ -4,16 +4,19 @@ using System.Xml.XPath;
 using TabulateSmarterTestContentPackage.Models;
 using TabulateSmarterTestContentPackage.Utilities;
 using System.Collections.Generic;
+using System.IO;
 
 namespace TabulateSmarterTestContentPackage.Validators
 {
     public static class AslVideoValidator
     {
         const int c_minVideoFileSize = 128;
+        const long c_maxVideoKbps = 400;
+        const long c_minVideoKbps = 100;
 
-        public static void Validate(ItemContext it, IXPathNavigable xml, int englishCharacterCount, StatAccumulator accumulator)
+        public static void Validate(ItemContext it, IXPathNavigable xml)
         {
-            
+
             var attachmentFilename = FileUtility.GetAttachmentFilename(it, xml, "ASL");
 
             // so far, the attachmentFilename is the value from the <attachment> element. What needs to be checked is the following:
@@ -31,112 +34,142 @@ namespace TabulateSmarterTestContentPackage.Validators
                                         : "itemrelease/passage/content/attachmentlist/attachment[@type='ASL']";
             var xmlEle = xml.CreateNavigator().SelectSingleNode(attachmentSourcePath);
             var aslFileNames = new List<string>();
-            if (xmlEle.HasChildren)
-            {                
-                xmlEle.MoveToFirstChild();
-                aslFileNames.Add(xmlEle.GetAttribute("src", ""));
-                while (xmlEle.MoveToNext())
+            if (xmlEle.MoveToFirstChild())
+            {
+                do
                 {
-                    aslFileNames.Add(xmlEle.GetAttribute("src", ""));
+                    string filename = xmlEle.GetAttribute("src", string.Empty);
+                    string extension = Path.GetExtension(filename).Substring(1);
+                    string type = xmlEle.GetAttribute("type", string.Empty);
+                    int n = type.IndexOf(';');  // Sometimes there's a codec appendix
+                    if (n >= 0) type = type.Substring(0, n).Trim();                      
+                    if (!string.Equals(type, "video/" + extension))
+                    {
+                        ReportingUtility.ReportError(it, ErrorId.T0213, $"filename='{filename}' type-'{type}'");
+                    }
+                    aslFileNames.Add(filename);
                 }
+                while (xmlEle.MoveToNext());
             }
             else
             {
-                ReportingUtility.ReportError(it, ErrorId.T0174, $"Filename: {attachmentFilename}");
+                ReportingUtility.ReportError(it, ErrorId.T0174, $"filename='{attachmentFilename}'");
                 return;
             }
             
             // check if there are two source elements
             if (aslFileNames.Count != 2)
             {
-                ReportingUtility.ReportError(it, ErrorId.T0106, $"expected: 2 found: {aslFileNames.Count}");
+                ReportingUtility.ReportError(it, ErrorId.T0106, $"expected='2' found='{aslFileNames.Count}'");
                 return;
             }
 
-            // check if the MP4 file name in the <attachment> element matches at least one of the <source> elements
             if (!aslFileNames.Contains(attachmentFilename))
-            {            
-                ReportingUtility.ReportError(it, ErrorId.T0175, $"Expected file name: {attachmentFilename}");                                               
+            {
+                System.Diagnostics.Debug.WriteLine(attachmentFilename);
+                foreach(var src in aslFileNames)
+                {
+                    System.Diagnostics.Debug.WriteLine(src);
+                }
+                System.Diagnostics.Debug.WriteLine(string.Empty);
             }
 
-            // check if the file exists
-            foreach(string currentSource in aslFileNames)
+            // Validate each of the files
+            bool mp4Found = false;
+            bool webmFound = false;
+            long duration = 0; // in milliseconds
+            long mp4Size = 0;
+            long webmSize = 0;
+            foreach (string currentSource in aslFileNames)
             {
+                // Check the filename
+                ValidateFilename(currentSource, it);
+
+                if (Path.GetExtension(currentSource).Equals(".mp4", StringComparison.OrdinalIgnoreCase))
+                    mp4Found = true;
+                if (Path.GetExtension(currentSource).Equals(".webm", StringComparison.OrdinalIgnoreCase))
+                    webmFound = true;
+
+                // Make sure it exists
                 FileFile ft;
                 if (!it.FfItem.TryGetFile(currentSource, out ft))
                 {
-                    ReportingUtility.ReportError(it, ErrorId.T0176, $"Filename: {currentSource}");
+                    ReportingUtility.ReportError(it, ErrorId.T0176, $"filename='{currentSource}'");
                 }
                 else if (ft.Length < c_minVideoFileSize)
                 {
-                     ReportingUtility.ReportError(it, ErrorId.T0197, $"Filename: {currentSource}");
+                     ReportingUtility.ReportError(it, ErrorId.T0197, $"filename='{currentSource}'");
+                }
+                else
+                {
+                    switch (Path.GetExtension(ft.Name).ToLowerInvariant())
+                    {
+                        case ".mp4":
+                            mp4Size = ft.Length;
+                            using (var stream = ft.Open())
+                            {
+                                duration = Mp4VideoUtility.GetDuration(stream);
+                            }
+                            break;
+
+                        case ".webm":
+                            webmSize = ft.Length;
+                            break;
+                    }
                 }
             }
-            
-            ValidateFilename(attachmentFilename, it);
 
-            // Check video duration to text length ratio.
-            FileFile file;
-            if (!it.FfItem.TryGetFile(attachmentFilename, out file)) return;
-            if (file.Length < c_minVideoFileSize) return;
+            // Report if either type was not found
+            if (!mp4Found) ReportingUtility.ReportError(it, ErrorId.T0174, $"type='.mp4' filename='{attachmentFilename}'");
+            if (!webmFound) ReportingUtility.ReportError(it, ErrorId.T0174, $"type='.webm' filename='{attachmentFilename}'");
 
-            double videoSeconds;
-            using (var stream = file.Open())
+            // Check bitrates
+            ValidateBitrate(it, mp4Size, duration, ".mp4", attachmentFilename);
+            ValidateBitrate(it, webmSize, duration, ".mp4", attachmentFilename);
+        }
+
+        private static void ValidateBitrate(ItemContext it, long size, long duration, string extension, string filename)
+        {
+            if (size <= 0 || duration <= 0) return; // If size or duration is invalid, another error has already been reported
+            long kbps = ((size * 8000L) / duration) / 1024L; // duration is in milliseconds 1024 to get kbps
+            System.Diagnostics.Debug.WriteLine($"{kbps}kbps");
+            if (kbps < c_minVideoKbps || kbps > c_maxVideoKbps)
             {
-                videoSeconds = Mp4VideoUtility.GetDuration(stream) / 1000.0;
+                ReportingUtility.ReportError(it, ErrorId.T0225,
+                    $"filename='{Path.GetFileNameWithoutExtension(filename)}{extension}' duration={duration / 1000}s bitrate={kbps}kbps. Expected bitrate between {c_minVideoKbps}kbps and {c_maxVideoKbps}kbps");
             }
-            if (videoSeconds <= 0.0) return;
-
-            double secondToCountRatio = videoSeconds / englishCharacterCount;
-
-            var highStandard = TabulatorSettings.AslMean +
-                                TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslToleranceInStdev;
-            var lowStandard = TabulatorSettings.AslMean -
-                                TabulatorSettings.AslStandardDeviation * TabulatorSettings.AslToleranceInStdev;
-
-            if (secondToCountRatio > highStandard
-                || secondToCountRatio < lowStandard)
-            {
-                ReportingUtility.ReportError(it, ErrorId.T0002, $"videoSeconds={videoSeconds:F3} characterCount={englishCharacterCount} ratio={secondToCountRatio:F3} meanRatio={TabulatorSettings.AslMean} tolerance={TabulatorSettings.AslToleranceInStdev*TabulatorSettings.AslStandardDeviation:F3}");
-            }
-
-            accumulator.AddDatum(secondToCountRatio);
         }
 
         private static void ValidateFilename(string fileName, ItemContext itemContext)
         {
-            const string pattern = @"((stim)|(passage)|(item))_(\d+)_ASL.*\.mp4";
+            const string pattern = @"((?:stim)|(?:passage)|(?:item))_(\d+)_ASL_STEM\.((?:mp4)|(?:webm))";
+            const string reportPattern = @"<stim OR item OR passage>_<stim OR item ID>_ASL_STEM.<mp4 OR webm>";
+
             var match = Regex.Match(fileName, pattern, RegexOptions.IgnoreCase);
             if (match.Success)
             {
-                if (itemContext.IsStimulus &&
-                    match.Groups[1].Value.Equals("passage", StringComparison.OrdinalIgnoreCase))
-                {
-                    // Should be stim, but is passage
-                    ReportingUtility.ReportError(itemContext, ErrorId.T0003, $"Filename: {fileName}");
-                }
-                if (!match.Groups[5].Value.Equals(itemContext.ItemId.ToString(), StringComparison.OrdinalIgnoreCase))
+                if (!match.Groups[2].Value.Equals(itemContext.ItemId.ToString(), StringComparison.OrdinalIgnoreCase))
                 {
                     // Incorrect ItemId
-                    ReportingUtility.ReportError(itemContext, ErrorId.T0177, $"Filename: {fileName} Expected ID: {itemContext.ItemId}");
+                    ReportingUtility.ReportError(itemContext, ErrorId.T0177, $"filename='{fileName}' expectedId='{itemContext.ItemId}'");
                 }
                 if (itemContext.IsStimulus &&
                     match.Groups[1].Value.Equals("item", StringComparison.OrdinalIgnoreCase))
                 {
                     // Item video in stim
-                    ReportingUtility.ReportError(itemContext, ErrorId.T0178, $"Filename: {fileName}");
+                    ReportingUtility.ReportError(itemContext, ErrorId.T0178, $"filename='{fileName}'");
                 }
                 else if (!itemContext.IsStimulus &&
                          (match.Groups[1].Value.Equals("stim", StringComparison.OrdinalIgnoreCase)
                           || match.Groups[1].Value.Equals("passage", StringComparison.OrdinalIgnoreCase)))
                 {
                     // Stim video in an item
-                    ReportingUtility.ReportError(itemContext, ErrorId.T0179, $"Filename: {fileName}");
+                    ReportingUtility.ReportError(itemContext, ErrorId.T0179, $"filename='{fileName}'");
                 }
             }
             else
             {
-                ReportingUtility.ReportError(itemContext, ErrorId.T0180, $"Filename: {fileName} Pattern: {pattern}");
+                ReportingUtility.ReportError(itemContext, ErrorId.T0180, $"filename='{fileName}' pattern='{reportPattern}'");
             }
         }
     }

@@ -9,6 +9,8 @@ namespace TabulateSmarterTestContentPackage.Utilities
 {
     public static class ReportingUtility
     {
+        const int c_maxDetailLength = 180; // Per the CDS v16 specification
+
         public static int ErrorCount { get; set; }
         public static string ErrorReportPath { get; set; }
         public static string CurrentPackageName { get; set; }
@@ -129,14 +131,22 @@ namespace TabulateSmarterTestContentPackage.Utilities
             }
             else
             {
+                // Limit detail length
+                if (detail.Length > c_maxDetailLength)
+                {
+                    detail = detail.Substring(0, c_maxDetailLength - 3) + "...";
+                }
+
                 string msgId = Errors.ErrorIdToString(errorInfo.Id);
                 string errKey = GenerateErrorKey(itemId, msgId, detail);
                 // "admin_year,asmt,severity,item_id,item_version,error_message_id,error_message,
                 // detail,notes,review_area,error_category,error_key,tool_id,tool_version,run_date,
                 // error_type,tdf_key"
-                s_ErrorReport.WriteLine(Tabulator.CsvEncode(AdminYear, Asmt, errorInfo.Severity,
+                s_ErrorReport.WriteLine(Tabulator.CsvEncode(AdminYear, Asmt,
+                    errorInfo.Severity.ToString().ToLowerInvariant(),
                     itemId, version, msgId, errorInfo.Message, detail, string.Empty,
-                    errorInfo.ReviewArea.ToString().ToLowerInvariant(), errorInfo.Category,
+                    errorInfo.ReviewArea.ToString().ToLowerInvariant(),
+                    errorInfo.Category.ToString().ToLowerInvariant(),
                     errKey, c_toolId, s_version, s_runDate, c_errType, string.Empty));
             }
         }
@@ -200,7 +210,8 @@ namespace TabulateSmarterTestContentPackage.Utilities
                     if (errInfo.Id != ErrorId.None)
                     {
                         writer.WriteLine(Tabulator.CsvEncode(Errors.ErrorIdToString(errInfo.Id), errInfo.Message,
-                            errInfo.Category, errInfo.Severity,
+                            errInfo.Category.ToString().ToLowerInvariant(),
+                            errInfo.Severity.ToString().ToLowerInvariant(),
                             errInfo.ReviewArea.ToString().ToLowerInvariant()));
                     }
                 }

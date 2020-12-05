@@ -72,8 +72,7 @@ namespace TabulateSmarterTestContentPackage
             | GlossaryTypes.Somali
             | GlossaryTypes.Spanish
             | GlossaryTypes.Ukranian
-            | GlossaryTypes.Vietnamese
-            | GlossaryTypes.Illustration;
+            | GlossaryTypes.Vietnamese;
 
         static GlossaryTypes sAllTranslatedGlossaries =
             GlossaryTypes.Arabic
@@ -118,11 +117,6 @@ namespace TabulateSmarterTestContentPackage
                 return;
             }
 
-            // Get the version number
-            string itemVersion = xml.XpEvalE("itemrelease/item/@version");
-            ii.Version = itemVersion; // Make version available to error reporting
-            it.Version = itemVersion;
-
             // Load metadata
             var xmlMetadata = new XmlDocument(sXmlNt);
             if (!TryLoadXml(it.FfItem, "metadata.xml", xmlMetadata))
@@ -130,22 +124,12 @@ namespace TabulateSmarterTestContentPackage
                 ReportingUtility.ReportError(it, ErrorId.T0112, LoadXmlErrorDetail);
             }
 
-            // Get metadata version (which includes the minor version number)
-            var metadataVersion = xmlMetadata.XpEvalE("metadata/sa:smarterAppMetadata/sa:Version", sXmlNs);
-
-            // Check for consistency between the version number in item xml and metadata xml.
-            // The metadata XML stores the version number in "major.minor" format, while 
-            // the item xml stores the version in "major" format. Only the "major" number
-            // is to be compared.
-            var metadataVersionValues = metadataVersion.Split('.');
-            if (!itemVersion.Equals(metadataVersionValues[0]))
+            // Validate Version (Suppress if metadata does not include version)
+            if (null != xmlMetadata.XpEval("metadata/sa:smarterAppMetadata/sa:Version", Tabulator.XmlNsMgr))
             {
-                ReportingUtility.ReportError(it, ErrorId.T0114, "Item version='{0}' Metadata major version='{1}'", itemVersion, metadataVersionValues[0]);
+                VersionValidator.Validate(it, xml, xmlMetadata);
             }
-            else
-            {
-                it.Version = metadataVersion; // Update to include minor version number when present
-            }
+            ii.Version = it.Version;
 
             // Count this wordlist
             ++mWordlistCount;
@@ -191,7 +175,13 @@ namespace TabulateSmarterTestContentPackage
 
             // Tabulation is complete, check for other errors.
 
-            FileValidator.Validate(it);
+            FileValidator.Validate(it, xml);
+
+            // Check case of the folder name
+            if (!it.FfItem.Name.StartsWith("Item-", StringComparison.Ordinal))
+            {
+                ReportingUtility.ReportError(it, ErrorId.T0212, $"folderName='{it.FfItem.Name}' expected='Item-###-####'");
+            }
 
         }
 
@@ -430,7 +420,7 @@ namespace TabulateSmarterTestContentPackage
                     if (gt != GlossaryTypes.Illustration) { 
                         if ((gt & sAllTranslatedGlossaries) != 0 && string.IsNullOrEmpty(audioType))
                         {
-                            ReportingUtility.ReportWitError(itemIt, ii, ErrorId.T0075, "term='{0}' index='{1}'", term, index);
+                            ReportingUtility.ReportWitError(itemIt, ii, ErrorId.T0075, $"term='{term}' index='{index}' language='{gt}'");
                         }
                     }
 
@@ -450,12 +440,12 @@ namespace TabulateSmarterTestContentPackage
                 }
 
                 // Report any expected translations that weren't found
-                if (termReferenced
+                if ((termReferenced || Program.gValidationOptions.IsEnabled("mwt"))
                     && (glossariesFound & sExpectedTranslatedGlossaries) != 0 // at least one translated glossary
                     && (glossariesFound & sExpectedTranslatedGlossaries) != sExpectedTranslatedGlossaries) // not all translated glossaries
                 {
                     // Make a list of translations that weren't found
-                    string missedTranslations = (sExpectedTranslatedGlossaries & ~glossariesFound).ToString();
+                    string missedTranslations = (sAllTranslatedGlossaries & ~glossariesFound).ToString();
                     ReportingUtility.ReportWitError(itemIt, ii, ErrorId.T0092, "term='{0}' missing='{1}'", term, missedTranslations);
                 }
 
@@ -568,7 +558,13 @@ namespace TabulateSmarterTestContentPackage
             }
             else
             {
-                attachmentToTerm.Add(filename, new TermAttachmentReference(termIndex, listType, filename));
+                var reference = new TermAttachmentReference(termIndex, listType, filename);
+                attachmentToTerm[filename] = reference;
+                string alternateDialect;
+                if (GetAlternateDialect(filename, out alternateDialect))
+                {
+                    attachmentToTerm[alternateDialect] = reference;
+                }
             }
 
             size += fileSize;
@@ -582,6 +578,29 @@ namespace TabulateSmarterTestContentPackage
             {
                 type = string.Concat(type, ";", extension.ToLower());
             }
+        }
+
+        static bool GetAlternateDialect(string filename, out string alternateDialect)
+        {
+            if (TryReplace(filename, "atagalog", "btagalog", out alternateDialect)) return true;
+            if (TryReplace(filename, "btagalog", "atagalog", out alternateDialect)) return true;
+            if (TryReplace(filename, "apunjabi", "bpunjabi", out alternateDialect)) return true;
+            if (TryReplace(filename, "bpunjabi", "apunjabi", out alternateDialect)) return true;
+            if (TryReplace(filename, "punjabieast", "punjabiwest", out alternateDialect)) return true;
+            if (TryReplace(filename, "punjabiwest", "punjabieast", out alternateDialect)) return true;
+            return false;
+        }
+
+        static bool TryReplace(string str, string match, string replace, out string result)
+        {
+            int i = str.IndexOf(match);
+            if (i >= 0)
+            {
+                result = string.Concat(str.Substring(0, i), replace, str.Substring(i + match.Length));
+                return true;
+            }
+            result = null;
+            return false;
         }
 
         static string GlossStringFlags(GlossaryTypes glossaryTypes)

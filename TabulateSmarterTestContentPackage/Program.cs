@@ -212,9 +212,6 @@ Validation Options:
             tutorial references and dependencies. This is valuable when
             tutorials are packaged separately from the balance of the
             content.
-    -v-asl  ASL video: Disables checking for ASL video whose ratio of video
-            length to item stim length falls outside of two standard
-            deviations from mean (adjustible through app.config).
     -v-tss  Text-to-Speech Silencing: Disable check for TTS silencing tags
             that do not belong.
     -v-ugt  Untagged Glossary Terms: Disable check for glossary terms that
@@ -234,7 +231,10 @@ Validation Options:
             term is not referenced by the corresponding item.
     -v+mwa  Missing Wordlist Attachments: Reports errors for missing wordlist
             attachments (audio and images) even when the corresponding term
-            is not referenced by any item.
+            is not referenced by the item.
+    -v+mwt  Missing Wordlist Translations: Reports errors when one or more
+            wordlist translations are missing even if the wordlist term is
+            not referenced by the item.
     -v+ats  Image Alternate Text for Spanish: Enables checking for alternate
             text on images in the stacked Spanish version of an item.
     -v+akv  Answer Key Value: Reports the actual answer key (e.g. ""C"") in the
@@ -312,6 +312,7 @@ Error severity definitions:
             gValidationOptions.DisableByDefault("gtr"); // Disable Glossary Text Report
             gValidationOptions.DisableByDefault("uwt"); // Disable Unreferenced Wordlist Terms
             gValidationOptions.DisableByDefault("mwa"); // Disable checking for attachments on unreferenced wordlist terms
+            gValidationOptions.DisableByDefault("mwt"); // Disable checking for missing wordlist tranlslations on unreferenced terms
             gValidationOptions.DisableByDefault("css"); // Disable reporting css color-contrast interference (temporary fix)
             gValidationOptions.DisableByDefault("ats"); // Disable checking for image alt text in Spanish content.
             gValidationOptions.DisableByDefault("akv"); // Disable reporting answer key values.

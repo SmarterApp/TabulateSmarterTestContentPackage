@@ -409,44 +409,89 @@ namespace TabulateSmarterTestContentPackage
 
         public override bool TryGetFolder(string path, out FileFolder value)
         {
-            value = null;
-            string physicalPath = ToPhysicalPath(path);
-            if (!Directory.Exists(physicalPath)) return false;
-            string rootedName = ToRootedName(path);
-            string name = ToName(path);
+            bool isFile;
+            string name;
+            string rootedName;
+            string physicalPath;
+            if (!ValidatePathAndGetNames(path, out isFile, out name, out rootedName, out physicalPath)
+                || isFile)
+            {
+                value = null;
+                return false;
+            }
             value = new FsFolder(physicalPath, rootedName, name);
             return true;
         }
 
         public override bool TryGetFile(string path, out FileFile value)
         {
-            value = null;
-            string physicalPath = ToPhysicalPath(path);
-            if (!File.Exists(physicalPath)) return false;
-            string rootedName = ToRootedName(path);
-            string name = ToName(path);
+            bool isFile;
+            string name;
+            string rootedName;
+            string physicalPath;
+            if (!ValidatePathAndGetNames(path, out isFile, out name, out rootedName, out physicalPath)
+                || !isFile)
+            {
+                value = null;
+                return false;
+            }
             value = new FsFile(physicalPath, rootedName, name);
             return true;
         }
 
-        private string ToPhysicalPath(string relativePath)
-        {
-            return Path.Combine(m_PhysicalPath, relativePath);
-        }
-
-        private string ToRootedName(string path)
-        {
-            path = path.Replace('\\', '/');
-            if (path[0] == '/') throw new ArgumentException("Absolute paths not supported!");
-            if (RootedName.Length == 1) return string.Concat("/", path);
-            return string.Concat(RootedName, "/", path);
-        }
-
         static readonly char[] sSlashes = new char[] { '/', '\\' };
-        private string ToName(string path)
+        static readonly char[] sWildcards = new char[] { '*', '?' };
+
+        /// <summary>
+        /// Validate a path and return whether it leads to a file or a directory
+        /// </summary>
+        /// <param name="path">The path to validate, must be a subpath of this folder</param>
+        /// <param name="isFile">True if it validates to a file, false if folder/directory</param>
+        /// <param name="name">Actual name, with capitalization, of the target</param>
+        /// <param name="rootedName">Name relative to the root of the test package</param>
+        /// <param name="physicalPath">Physical path to the file or folder.</param>
+        /// <returns>True if a file or directory exists at the specified path. Else false.</returns>
+        private bool ValidatePathAndGetNames(string path, out bool isFile, out string name, out string rootedName, out string physicalPath)
         {
-            int n = path.LastIndexOfAny(sSlashes);
-            return (n >= 0) ? path.Substring(n + 1) : path;
+            if (path.IndexOfAny(sWildcards) >= 0) throw new ArgumentException("Wildcards not supported", "path");
+            if (path[0] == '/' || path[0] == '\\') throw new ArgumentException("Absolute path not supported", "path");
+            string[] parts = path.Split(sSlashes);
+            if (parts.Length == 0) throw new ArgumentException("Empty path", "path");
+
+            // Traverse the path and validate each part.
+            rootedName = RootedName;
+            DirectoryInfo di = new DirectoryInfo(m_PhysicalPath);
+
+            for (int i = 0; i < parts.Length; ++i)
+            {
+                FileSystemInfo[] matches = di.GetFileSystemInfos(parts[i]);
+                if (matches.Length <= 0) break; // Not found
+                //Debug.Assert(matches.Length == 1);
+
+                rootedName = (rootedName.Length == 1)
+                    ? string.Concat("/", matches[0].Name)
+                    : string.Concat(rootedName, "/", matches[0].Name);
+
+                // If last entry in the list
+                if (i >= parts.Length - 1)
+                {
+                    isFile = matches[0] is FileInfo;
+                    name = matches[0].Name;
+                    physicalPath = matches[0].FullName;
+                    return true;
+                }
+
+                // Move to next directory
+                di = matches[0] as DirectoryInfo;
+                if (di == null) break; // not a directory
+            }
+
+            // Fail to find file or directory by this name
+            isFile = false;
+            name = null;
+            rootedName = null;
+            physicalPath = null;
+            return false;
         }
 
         private class FsFile : FileFile
