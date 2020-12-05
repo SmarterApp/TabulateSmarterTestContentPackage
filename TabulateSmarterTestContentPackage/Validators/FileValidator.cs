@@ -4,8 +4,10 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Xml;
+using System.Xml.XPath;
 using TabulateSmarterTestContentPackage.Models;
 using TabulateSmarterTestContentPackage.Utilities;
+using System.IO;
 
 namespace TabulateSmarterTestContentPackage.Validators
 {
@@ -15,10 +17,13 @@ namespace TabulateSmarterTestContentPackage.Validators
     /// </summary>
     static class FileValidator
     {
+        const string c_mathMlRoot = "math";
+        const string c_mathMlNamespace = "http://www.w3.org/1998/Math/MathML";
+
         // TODO: Potential enhancement would be to make sure every file is referenced in the item.
         // TODO: Consolidate attachment checks from braille and video tests
         // Checks for empty files, missing files, and for files that differ only in case.
-        public static void Validate(ItemContext it, XmlDocument xml)
+        public static void Validate(ItemContext it, XmlDocument itemXml)
         {
             var checkedFiles = new Dictionary<string, string>();
 
@@ -26,7 +31,7 @@ namespace TabulateSmarterTestContentPackage.Validators
             var attachmentSourcePath = !it.IsStimulus
                 ? "itemrelease/item/content/attachmentlist/attachment"
                 : "itemrelease/passage/content/attachmentlist/attachment";
-            foreach(XmlElement ele in xml.SelectNodes(attachmentSourcePath))
+            foreach(XmlElement ele in itemXml.SelectNodes(attachmentSourcePath))
             {
                 string type = ele.GetAttribute("type");
                 string filename = ele.GetAttribute("file");
@@ -60,7 +65,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                 switch (type)
                 {
                     case "PRN":
-                        ValidateBraillePrn(it, ff, filename);
+                        ValidateBraillePrn(it, ff);
                         break;
                 }
             }
@@ -74,8 +79,8 @@ namespace TabulateSmarterTestContentPackage.Validators
                     ReportingUtility.ReportError(it, ErrorId.T0199, $"filename='{file.Name}'");
                 }
 
-                // Ensure filename matches attachment name (when present) in case and that
-                // there aren't multiple filenames that differe only in case.
+                // Ensure filename matches attachment name (when present) in upper/lower case and that
+                // there aren't multiple filenames that differ only in case.
                 string prevName;
                 if (checkedFiles.TryGetValue(file.Name.ToLowerInvariant(), out prevName))
                 {
@@ -88,12 +93,20 @@ namespace TabulateSmarterTestContentPackage.Validators
                 {
                     checkedFiles.Add(file.Name.ToLowerInvariant(), file.Name);
                 }
+
+                // Extension-specific validation
+                if (Path.GetExtension(file.Name).Equals(".xml", StringComparison.OrdinalIgnoreCase)
+                    && !file.Name.StartsWith(it.FullId, StringComparison.OrdinalIgnoreCase)
+                    && !file.Name.Equals("metadata.xml", StringComparison.OrdinalIgnoreCase))
+                {
+                    ValidateXmlFile(it, file, itemXml);
+                }
             }
         }
 
         static readonly byte[] s_expectedPrnHeader = { 0x1B, 0x04 };
 
-        static void ValidateBraillePrn(ItemContext it, FileFile ff, string filename)
+        static void ValidateBraillePrn(ItemContext it, FileFile ff)
         {
             byte[] prnHeader;
             using (var stream = ff.Open())
@@ -102,9 +115,36 @@ namespace TabulateSmarterTestContentPackage.Validators
                 if (stream.Read(prnHeader, 0, 2) != s_expectedPrnHeader.Length
                     || !prnHeader.SequenceEqual(s_expectedPrnHeader))
                 {
-                     ReportingUtility.ReportError(it, ErrorId.T0202, $"filename='{filename}' expected='{HashValue.ToHex(s_expectedPrnHeader)}' found='{HashValue.ToHex(prnHeader)}'");
+                     ReportingUtility.ReportError(it, ErrorId.T0202, $"filename='{ff.Name}' expected='{HashValue.ToHex(s_expectedPrnHeader)}' found='{HashValue.ToHex(prnHeader)}'");
                 }
             }
+        }
+
+        static void ValidateXmlFile(ItemContext it, FileFile ff, XmlDocument itemXml)
+        {
+            XPathDocument xmlFile;
+            try
+            {
+                using (Stream stream = ff.Open())
+                {
+                    xmlFile = new XPathDocument(stream);
+                }
+            }
+            catch (Exception err)
+            {
+                ReportingUtility.ReportError(it, ErrorId.T0214, $"filename='{ff.Name}' error='{err.Message}'");
+                return;
+            }
+
+            // See if this is MathMl
+            var nav = xmlFile.CreateNavigator();
+            nav.MoveToFirstChild();
+            if (nav.LocalName.Equals(c_mathMlRoot, StringComparison.Ordinal)
+                && nav.NamespaceURI.Equals(c_mathMlNamespace, StringComparison.Ordinal))
+            {
+                MathMlValidator.Validate(it, xmlFile, ff.Name, itemXml);
+            }
+
         }
 
     }

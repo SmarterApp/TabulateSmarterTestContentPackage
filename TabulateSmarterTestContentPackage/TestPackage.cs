@@ -466,7 +466,7 @@ namespace TabulateSmarterTestContentPackage
             {
                 FileSystemInfo[] matches = di.GetFileSystemInfos(parts[i]);
                 if (matches.Length <= 0) break; // Not found
-                Debug.Assert(matches.Length == 1);
+                //Debug.Assert(matches.Length == 1);
 
                 rootedName = (rootedName.Length == 1)
                     ? string.Concat("/", matches[0].Name)

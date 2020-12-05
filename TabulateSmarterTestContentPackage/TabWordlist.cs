@@ -72,8 +72,7 @@ namespace TabulateSmarterTestContentPackage
             | GlossaryTypes.Somali
             | GlossaryTypes.Spanish
             | GlossaryTypes.Ukranian
-            | GlossaryTypes.Vietnamese
-            | GlossaryTypes.Illustration;
+            | GlossaryTypes.Vietnamese;
 
         static GlossaryTypes sAllTranslatedGlossaries =
             GlossaryTypes.Arabic
@@ -421,7 +420,7 @@ namespace TabulateSmarterTestContentPackage
                     if (gt != GlossaryTypes.Illustration) { 
                         if ((gt & sAllTranslatedGlossaries) != 0 && string.IsNullOrEmpty(audioType))
                         {
-                            ReportingUtility.ReportWitError(itemIt, ii, ErrorId.T0075, "term='{0}' index='{1}'", term, index);
+                            ReportingUtility.ReportWitError(itemIt, ii, ErrorId.T0075, $"term='{term}' index='{index}' language='{gt}'");
                         }
                     }
 
@@ -446,7 +445,7 @@ namespace TabulateSmarterTestContentPackage
                     && (glossariesFound & sExpectedTranslatedGlossaries) != sExpectedTranslatedGlossaries) // not all translated glossaries
                 {
                     // Make a list of translations that weren't found
-                    string missedTranslations = (sExpectedTranslatedGlossaries & ~glossariesFound).ToString();
+                    string missedTranslations = (sAllTranslatedGlossaries & ~glossariesFound).ToString();
                     ReportingUtility.ReportWitError(itemIt, ii, ErrorId.T0092, "term='{0}' missing='{1}'", term, missedTranslations);
                 }
 
@@ -559,7 +558,13 @@ namespace TabulateSmarterTestContentPackage
             }
             else
             {
-                attachmentToTerm.Add(filename, new TermAttachmentReference(termIndex, listType, filename));
+                var reference = new TermAttachmentReference(termIndex, listType, filename);
+                attachmentToTerm[filename] = reference;
+                string alternateDialect;
+                if (GetAlternateDialect(filename, out alternateDialect))
+                {
+                    attachmentToTerm[alternateDialect] = reference;
+                }
             }
 
             size += fileSize;
@@ -573,6 +578,29 @@ namespace TabulateSmarterTestContentPackage
             {
                 type = string.Concat(type, ";", extension.ToLower());
             }
+        }
+
+        static bool GetAlternateDialect(string filename, out string alternateDialect)
+        {
+            if (TryReplace(filename, "atagalog", "btagalog", out alternateDialect)) return true;
+            if (TryReplace(filename, "btagalog", "atagalog", out alternateDialect)) return true;
+            if (TryReplace(filename, "apunjabi", "bpunjabi", out alternateDialect)) return true;
+            if (TryReplace(filename, "bpunjabi", "apunjabi", out alternateDialect)) return true;
+            if (TryReplace(filename, "punjabieast", "punjabiwest", out alternateDialect)) return true;
+            if (TryReplace(filename, "punjabiwest", "punjabieast", out alternateDialect)) return true;
+            return false;
+        }
+
+        static bool TryReplace(string str, string match, string replace, out string result)
+        {
+            int i = str.IndexOf(match);
+            if (i >= 0)
+            {
+                result = string.Concat(str.Substring(0, i), replace, str.Substring(i + match.Length));
+                return true;
+            }
+            result = null;
+            return false;
         }
 
         static string GlossStringFlags(GlossaryTypes glossaryTypes)

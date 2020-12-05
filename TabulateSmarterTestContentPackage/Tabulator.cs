@@ -78,7 +78,6 @@ namespace TabulateSmarterTestContentPackage
         Dictionary<string, int> mTranslationCounts = new Dictionary<string, int>();
         Dictionary<string, int> mAnswerKeyCounts = new Dictionary<string, int>();
 
-        StatAccumulator mAslStat = new StatAccumulator();
         string mReportPathPrefix;
         TextWriter mItemReport;
         TextWriter mStimulusReport;
@@ -100,6 +99,7 @@ namespace TabulateSmarterTestContentPackage
             StaticInitWordlist();
         }
 
+        public static XmlNameTable XmlNt => sXmlNt;
         public static XmlNamespaceManager XmlNsMgr => sXmlNs;
 
         public Tabulator(string reportPathPrefix)
@@ -230,8 +230,6 @@ namespace TabulateSmarterTestContentPackage
             mTermCounts.Clear();
             mTranslationCounts.Clear();
             mAnswerKeyCounts.Clear();
-
-            mAslStat.Clear();
 
             mInitialized = true;
         }
@@ -922,9 +920,9 @@ namespace TabulateSmarterTestContentPackage
             // DepthOfKnowledge
             var depthOfKnowledge = DepthOfKnowledgeFromMetadata(xmlMetadata, sXmlNs);
 
-            if (Program.gValidationOptions.IsEnabled("asl") && !string.IsNullOrEmpty(asl) && englishCharacterCount > 0)
+            if (!string.IsNullOrEmpty(asl))
             {
-                AslVideoValidator.Validate(it, xml, englishCharacterCount, mAslStat);
+                AslVideoValidator.Validate(it, xml);
             }
 
             var scoringSeparation = scoringInformation.GroupBy(
@@ -1289,9 +1287,9 @@ namespace TabulateSmarterTestContentPackage
 
             // ASL
             string asl = GetAslType(it, xml, xmlMetadata);
-            if (Program.gValidationOptions.IsEnabled("asl") && !string.IsNullOrEmpty(asl) && englishCharacterCount > 0)
+            if (!string.IsNullOrEmpty(asl))
             {
-                AslVideoValidator.Validate(it, xml, englishCharacterCount, mAslStat);
+                AslVideoValidator.Validate(it, xml);
             }
 
             // Translation
@@ -1915,10 +1913,6 @@ namespace TabulateSmarterTestContentPackage
                 writer.WriteLine("Word Lists: {0}", mWordlistCount);
                 writer.WriteLine("Glossary Terms: {0}", mGlossaryTermCount);
                 writer.WriteLine("Distinct Glossary Terms: {0}", mTermCounts.Count);
-                writer.WriteLine();
-                writer.WriteLine("ASL Video Length to Text Length: mean={0:F6} stdev={1:F6}", mAslStat.Mean, mAslStat.StandardDeviation);
-                writer.WriteLine("Configured Values: mean={0:F6} stdev={1:F6} tolerance={2:F6} tol/stdev={3:F1}",
-                    TabulatorSettings.AslMean, TabulatorSettings.AslStandardDeviation, TabulatorSettings.AslToleranceInStdev*TabulatorSettings.AslStandardDeviation, TabulatorSettings.AslToleranceInStdev);
                 writer.WriteLine();
 
                 writer.WriteLine("Item Type Counts:");
