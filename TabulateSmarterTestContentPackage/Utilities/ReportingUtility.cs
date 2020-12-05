@@ -9,6 +9,8 @@ namespace TabulateSmarterTestContentPackage.Utilities
 {
     public static class ReportingUtility
     {
+        const int c_maxDetailLength = 180; // Per the CDS v16 specification
+
         public static int ErrorCount { get; set; }
         public static string ErrorReportPath { get; set; }
         public static string CurrentPackageName { get; set; }
@@ -129,6 +131,12 @@ namespace TabulateSmarterTestContentPackage.Utilities
             }
             else
             {
+                // Limit detail length
+                if (detail.Length > c_maxDetailLength)
+                {
+                    detail = detail.Substring(0, c_maxDetailLength - 3) + "...";
+                }
+
                 string msgId = Errors.ErrorIdToString(errorInfo.Id);
                 string errKey = GenerateErrorKey(itemId, msgId, detail);
                 // "admin_year,asmt,severity,item_id,item_version,error_message_id,error_message,
