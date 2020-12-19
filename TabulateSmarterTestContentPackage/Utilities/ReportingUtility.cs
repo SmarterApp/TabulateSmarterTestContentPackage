@@ -10,6 +10,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
     public static class ReportingUtility
     {
         const int c_maxDetailLength = 180; // Per the CDS v16 specification
+        const int c_witPrefix = 600000000;
 
         public static int ErrorCount { get; set; }
         public static string ErrorReportPath { get; set; }
@@ -87,6 +88,15 @@ namespace TabulateSmarterTestContentPackage.Utilities
                 bankKey = null;
                 itemId = null;
                 version = null;
+            }
+            else if (ii.ItemId > c_witPrefix)
+            {
+                folderName = ii.FolderName;
+                itemType = ii.ItemType;
+                bankKey = ii.BankKey.ToString();
+                itemId = (ii.ItemId - c_witPrefix).ToString();
+                version = ii.Version;
+                detail = string.Concat($"wordlistId='{ii.ItemId}' ", detail);
             }
             else
             {
