@@ -437,6 +437,14 @@ namespace TabulateSmarterTestContentPackage
                         mGlossaryReport.WriteLine(string.Join(",", CsvEncode(folderDescription), ii.BankKey.ToString(), ii.ItemId.ToString(), itemIt.ItemId.ToString(), index.ToString(), CsvEncodeExcel(term), CsvEncode(listType), html.Length.ToString(), audioType, audioSize.ToString(), imageType, imageSize.ToString(), CsvEncode(html)));
                     else
                         mGlossaryReport.WriteLine(string.Join(",", CsvEncode(folderDescription), ii.BankKey.ToString(), ii.ItemId.ToString(), itemIt.ItemId.ToString(), index.ToString(), CsvEncodeExcel(term), CsvEncode(listType), html.Length.ToString(), audioType, audioSize.ToString(), imageType, imageSize.ToString()));
+
+                    {
+                        // For reporting errors the way they are expected, this context has the
+                        // ItemId of the calling item but the fileFolder of the WIT.
+                        var frankenIt = new ItemContext(mPackage, ff, itemIt);
+
+                        CDataValidator.ValidateHtmlElements(frankenIt, html, $"wordlistId='{ii.ItemId}' term='{term}' language='{gt}'");
+                    }
                 }
 
                 // Report any expected translations that weren't found

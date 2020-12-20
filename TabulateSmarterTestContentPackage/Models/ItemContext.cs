@@ -174,7 +174,7 @@ namespace TabulateSmarterTestContentPackage.Models
         public ItemContext(TestPackage package, FileFolder folder, ItemIdentifier ii)
             : base(ii.ItemType, ii.BankKey, ii.ItemId, ii.Version)
         {
-            System.Diagnostics.Debug.Assert(folder.Name.Equals(ii.FullId, StringComparison.OrdinalIgnoreCase));
+            // System.Diagnostics.Debug.Assert(folder.Name.Equals(ii.FullId, StringComparison.OrdinalIgnoreCase));
             m_ff = folder;
             m_folderDescription = string.Concat(package.Name, "/", FolderName);
         }

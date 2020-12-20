@@ -84,10 +84,30 @@ namespace TabulateSmarterTestContentPackage.Validators
                 }
             }
 
-            ValidateHtmlElements(it, htmlNav, language);
+            ValidateHtmlElements(it, htmlNav, $"language='{language}'");
         }
 
-        static bool ValidateHtmlElements(ItemContext it, XPathNavigator root, string language)
+        public static bool ValidateHtmlElements(ItemContext it, string html, string contextDetail)
+        {
+            var settings = new Html.HtmlReaderSettings
+            {
+                CloseInput = true,
+                EmitHtmlNamespace = false,
+                IgnoreComments = true,
+                IgnoreProcessingInstructions = true,
+                IgnoreInsignificantWhitespace = true
+            };
+
+            XmlDocument doc;
+            using (var reader = new Html.HtmlReader(new StringReader(html), settings))
+            {
+                doc = new XmlDocument();
+                doc.Load(reader);
+            }
+            return ValidateHtmlElements(it, doc.CreateNavigator(), contextDetail);
+        }
+
+        static bool ValidateHtmlElements(ItemContext it, XPathNavigator root, string contextDetail)
         {
             bool valid = true;
             XPathNavigator ele = root.Clone();
@@ -96,13 +116,13 @@ namespace TabulateSmarterTestContentPackage.Validators
                 ErrorId issueId;
                 if (s_prohibitedElements.TryGetValue(ele.Name.ToLowerInvariant(), out issueId))
                 {
-                    ReportingUtility.ReportError(it, issueId, $"language='{language}' element='{StartTagXml(ele)}'");
+                    ReportingUtility.ReportError(it, issueId, $"{contextDetail} element='{StartTagXml(ele)}'");
                     valid = false;
                 }
 
                 if (!s_acceptableHtmlElements.Contains(ele.Name.ToLowerInvariant()))
                 {
-                    ReportingUtility.ReportError(it, ErrorId.T0210, $"language='{language}' tag='{StartTagXml(ele)}'");
+                    ReportingUtility.ReportError(it, ErrorId.T0210, $"{contextDetail}' tag='{StartTagXml(ele)}'");
                     valid = false;
                 }
 
@@ -114,7 +134,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                         // Check for prohibited attribute
                         if (s_prohibitedAttributes.TryGetValue(attribute.Name.ToLowerInvariant(), out issueId))
                         {
-                            ReportingUtility.ReportError(it, issueId, $"language='{language}' element='{StartTagXml(ele)}' attribute='{attribute.Name}'");
+                            ReportingUtility.ReportError(it, issueId, $"{contextDetail} element='{StartTagXml(ele)}' attribute='{attribute.Name}'");
                             valid = false;
                         }
 
@@ -143,7 +163,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                                 {
                                     if (!value.Equals("transparent", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(value))
                                     {
-                                        ReportingUtility.ReportError(it, eStyle_ColorOrZoom, $"language='{language}' style='{name}' element='{StartTagXml(ele)}'");
+                                        ReportingUtility.ReportError(it, eStyle_ColorOrZoom, $"{contextDetail} style='{name}' element='{StartTagXml(ele)}'");
                                     }
                                 }
 
@@ -154,7 +174,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                                     {
                                         if (HasProhibitedUnitSuffix(part))
                                         {
-                                            ReportingUtility.ReportError(it, eStyle_ColorOrZoom, $"language='{language}' style='{name}' element='{StartTagXml(ele)}'");
+                                            ReportingUtility.ReportError(it, eStyle_ColorOrZoom, $"{contextDetail} style='{name}' element='{StartTagXml(ele)}'");
                                         }
                                     }
                                 }
@@ -162,7 +182,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                                 // Check for prohibited style properties
                                 else if (s_prohibitedStyleProperties.TryGetValue(name, out issueId) && !string.IsNullOrEmpty(value))
                                 {
-                                    ReportingUtility.ReportError(it, issueId, $"language='{language}' style='{name}' element='{StartTagXml(ele)}'");
+                                    ReportingUtility.ReportError(it, issueId, $"{contextDetail} style='{name}' element='{StartTagXml(ele)}'");
                                     valid = false;
                                 }
 
@@ -171,7 +191,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                                 {
                                     if (HasProhibitedUnitSuffix(value))
                                     {
-                                        ReportingUtility.ReportError(it, eStyle_ColorOrZoom, $"language='{language}' style='{name}' element='{StartTagXml(ele)}'");
+                                        ReportingUtility.ReportError(it, eStyle_ColorOrZoom, $"{contextDetail} style='{name}' element='{StartTagXml(ele)}'");
                                     }
                                 }
                             }
@@ -185,7 +205,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                             {
                                 if (s_prohibitedClasses.TryGetValue(c, out issueId))
                                 {
-                                    ReportingUtility.ReportError(it, issueId, $"language='{language}' class='{c}' element='{StartTagXml(ele)}'");
+                                    ReportingUtility.ReportError(it, issueId, $"{contextDetail} class='{c}' element='{StartTagXml(ele)}'");
                                     valid = false;
                                 }
                             }
@@ -198,7 +218,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                         {
                             if (!it.FfItem.FileExists(attribute.Value))
                             {
-                                ReportingUtility.ReportError(it, ErrorId.T0208, $"language='{language}' element='{StartTagXml(ele)}'");
+                                ReportingUtility.ReportError(it, ErrorId.T0208, $"{contextDetail} element='{StartTagXml(ele)}'");
                             }
                         }
                     }
