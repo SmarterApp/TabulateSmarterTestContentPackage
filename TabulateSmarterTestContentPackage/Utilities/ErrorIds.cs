@@ -191,9 +191,9 @@ namespace TabulateSmarterTestContentPackage.Utilities
             new ErrorInfo(ErrorId.T0178, "ASL video filename indicates item, but base folder is a stim", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Asl),
             new ErrorInfo(ErrorId.T0179, "ASL video filename indicates stim, but base folder is an item", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Asl),
             new ErrorInfo(ErrorId.T0180, "ASL video filename does not match expected pattern", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Asl),
-            new ErrorInfo(ErrorId.T0181, "Item content has element that should not be present.", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
-            new ErrorInfo(ErrorId.T0182, "Item content has attribute that should not be present.", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
-            new ErrorInfo(ErrorId.T0183, "Item content has style property that should not be present.", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
+            new ErrorInfo(ErrorId.T0181, "Item content has element that interferes with color contrast or zoom.", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
+            new ErrorInfo(ErrorId.T0182, "Item content has attribute that interferes with color contrast or zoom.", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
+            new ErrorInfo(ErrorId.T0183, "Item content has style property that interferes with color contrast or zoom.", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0184, "Img element for an equation resource has an empty audioShortDesc element.", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0185, "Img element for an equation resource does not have an audioShortDesc child element within the readAloud element.", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0186, "Img element for a graphic resource does not have a textToSpeechPronunciation child element within the readAloud element.", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
@@ -217,7 +217,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
             new ErrorInfo(ErrorId.T0204, "Braille embossing file has a Braille Form Code that is not permitted for this subject.", ErrorCategory.Item, ErrorSeverity.Benign, ErrorReviewArea.Braille),
             new ErrorInfo(ErrorId.T0205, "Missing braille embossing file for a required Braille Form Code for this subject.", ErrorCategory.Item, ErrorSeverity.Benign, ErrorReviewArea.Braille),
             new ErrorInfo(ErrorId.T0206, "Filenames differ only by case.", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
-            new ErrorInfo(ErrorId.T0207, "Item content has CSS class that should not be present.", ErrorCategory.Item, ErrorSeverity.Benign, ErrorReviewArea.Content),
+            new ErrorInfo(ErrorId.T0207, "Item content has CSS class that is an internal TIMS TTS value that shouldn't be exported.", ErrorCategory.Item, ErrorSeverity.Benign, ErrorReviewArea.Tts),
             new ErrorInfo(ErrorId.T0208, "Resource referenced in html content not found in package.", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0209, "Incorrect editor for Short Answer item", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Lead),
             new ErrorInfo(ErrorId.T0210, "Unknown or prohibited HTML tag in content", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
@@ -236,6 +236,8 @@ namespace TabulateSmarterTestContentPackage.Utilities
             new ErrorInfo(ErrorId.T0223, "Invalid DepthOfKnowledge metadata", ErrorCategory.Metadata, ErrorSeverity.Tolerable, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0224, "Attachment filename includes prohibited character", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0225, "Video encoded at incorrect bitrate", ErrorCategory.Item, ErrorSeverity.Tolerable, ErrorReviewArea.Asl),
+            new ErrorInfo(ErrorId.T0226, "Item content has attribute that is an internal TIMS TTS value that shouldn't be exported.", ErrorCategory.Item, ErrorSeverity.Benign, ErrorReviewArea.Tts),
+            new ErrorInfo(ErrorId.T0227, "Item content has an alt text attribute that belongs in the accessibility section.", ErrorCategory.Item, ErrorSeverity.Benign, ErrorReviewArea.Tts),
         };
 
         const string c_errIdPrefix = "CTAB-";
@@ -558,6 +560,8 @@ namespace TabulateSmarterTestContentPackage.Utilities
         T0223 = 223,
         T0224 = 224,
         T0225 = 225,
+        T0226 = 226,
+        T0227 = 227,
     }
 
     public enum ErrorReviewArea : int

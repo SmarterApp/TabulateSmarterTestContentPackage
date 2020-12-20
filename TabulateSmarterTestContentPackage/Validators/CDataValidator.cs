@@ -11,6 +11,13 @@ namespace TabulateSmarterTestContentPackage.Validators
 {
     public static class CDataValidator
     {
+        const ErrorId eElement_ColorOrZoom = ErrorId.T0181;
+        const ErrorId eAttribute_ColorContrast = ErrorId.T0182;
+        const ErrorId eAttribute_TimsTts = ErrorId.T0226;
+        const ErrorId eAttribute_AltText = ErrorId.T0227;
+        const ErrorId eClass_TimsTts = ErrorId.T0207;
+        const ErrorId eStyle_ColorOrZoom = ErrorId.T0183;
+
         const string cColorContrast = "interferes with color contrast";
         const string cZoom = "interferes with zoom";
         const string cColorOrZoom = "interferes with color contrast or zoom";
@@ -18,31 +25,31 @@ namespace TabulateSmarterTestContentPackage.Validators
         const string cAltText = "alt text for images belongs in the accessibility section";
 
         // Dictionaries map from attributes or styles to a description of what they interfere with.
-        static Dictionary<string, string> s_prohibitedElements = new Dictionary<string, string>
+        static Dictionary<string, ErrorId> s_prohibitedElements = new Dictionary<string, ErrorId>
         {
-            { "font", cColorOrZoom }
+            { "font", eElement_ColorOrZoom }
         };
 
-        static Dictionary<string, string> s_prohibitedAttributes = new Dictionary<string, string>
+        static Dictionary<string, ErrorId> s_prohibitedAttributes = new Dictionary<string, ErrorId>
         {
-            { "color", cColorContrast },
-            { "bgcolor", cColorContrast },
-            { "data-iat-tts-vi", cTimsTts },
-            { "data-iat-tts", cTimsTts },
-            { "alt", cAltText }
+            { "color", eAttribute_ColorContrast },
+            { "bgcolor", eAttribute_ColorContrast },
+            { "data-iat-tts-vi", eAttribute_TimsTts },
+            { "data-iat-tts", eAttribute_TimsTts },
+            { "alt", eAttribute_AltText }
         };
 
-        static Dictionary<string, string> s_prohibitedClasses = new Dictionary<string, string>
+        static Dictionary<string, ErrorId> s_prohibitedClasses = new Dictionary<string, ErrorId>
         {
-            { "iat-text2speech", cTimsTts },
+            { "iat-text2speech", eClass_TimsTts },
         };
 
-        static Dictionary<string, string> s_prohibitedStyleProperties = new Dictionary<string, string>
+        static Dictionary<string, ErrorId> s_prohibitedStyleProperties = new Dictionary<string, ErrorId>
         {
-            { "font", cColorOrZoom },
-            { "background", cColorContrast },
-            { "background-color", cColorContrast },
-            { "color", cColorContrast }
+            { "font", eStyle_ColorOrZoom },
+            { "background", eStyle_ColorOrZoom },
+            { "background-color", eStyle_ColorOrZoom },
+            { "color", eStyle_ColorOrZoom }
         };
 
         static HashSet<string> s_styleSizeProperties = new HashSet<string>
@@ -86,9 +93,10 @@ namespace TabulateSmarterTestContentPackage.Validators
             XPathNavigator ele = root.Clone();
             while (ele.MoveToFollowing(XPathNodeType.Element))
             {
-                if (s_prohibitedElements.TryGetValue(ele.Name.ToLowerInvariant(), out string issueDescription))
+                ErrorId issueId;
+                if (s_prohibitedElements.TryGetValue(ele.Name.ToLowerInvariant(), out issueId))
                 {
-                    ReportingUtility.ReportError(it, ErrorId.T0181, $"language='{language}' issue='{issueDescription}' element='{StartTagXml(ele)}'");
+                    ReportingUtility.ReportError(it, issueId, $"language='{language}' element='{StartTagXml(ele)}'");
                     valid = false;
                 }
 
@@ -104,9 +112,9 @@ namespace TabulateSmarterTestContentPackage.Validators
                     do
                     {
                         // Check for prohibited attribute
-                        if (s_prohibitedAttributes.TryGetValue(attribute.Name.ToLowerInvariant(), out issueDescription))
+                        if (s_prohibitedAttributes.TryGetValue(attribute.Name.ToLowerInvariant(), out issueId))
                         {
-                            ReportingUtility.ReportError(it, ErrorId.T0182, $"language='{language}' element='{StartTagXml(ele)}' attribute='{attribute.Name}' issue='{issueDescription}'");
+                            ReportingUtility.ReportError(it, issueId, $"language='{language}' element='{StartTagXml(ele)}' attribute='{attribute.Name}'");
                             valid = false;
                         }
 
@@ -135,7 +143,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                                 {
                                     if (!value.Equals("transparent", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(value))
                                     {
-                                        ReportingUtility.ReportError(it, ErrorId.T0183, $"language='{language}' style='{name}' issue='{cColorContrast}' element='{StartTagXml(ele)}'");
+                                        ReportingUtility.ReportError(it, eStyle_ColorOrZoom, $"language='{language}' style='{name}' element='{StartTagXml(ele)}'");
                                     }
                                 }
 
@@ -146,15 +154,15 @@ namespace TabulateSmarterTestContentPackage.Validators
                                     {
                                         if (HasProhibitedUnitSuffix(part))
                                         {
-                                            ReportingUtility.ReportError(it, ErrorId.T0183, $"language='{language}' style='{name}' issue='{cZoom}' element='{StartTagXml(ele)}'");
+                                            ReportingUtility.ReportError(it, eStyle_ColorOrZoom, $"language='{language}' style='{name}' element='{StartTagXml(ele)}'");
                                         }
                                     }
                                 }
 
                                 // Check for prohibited style properties
-                                else if (s_prohibitedStyleProperties.TryGetValue(name, out issueDescription) && !string.IsNullOrEmpty(value))
+                                else if (s_prohibitedStyleProperties.TryGetValue(name, out issueId) && !string.IsNullOrEmpty(value))
                                 {
-                                    ReportingUtility.ReportError(it, ErrorId.T0183, $"language='{language}' style='{name}' issue='{issueDescription}' element='{StartTagXml(ele)}'");
+                                    ReportingUtility.ReportError(it, issueId, $"language='{language}' style='{name}' element='{StartTagXml(ele)}'");
                                     valid = false;
                                 }
 
@@ -163,7 +171,7 @@ namespace TabulateSmarterTestContentPackage.Validators
                                 {
                                     if (HasProhibitedUnitSuffix(value))
                                     {
-                                        ReportingUtility.ReportError(it, ErrorId.T0183, $"language='{language}' style='{name}' issue='{cZoom}' element='{StartTagXml(ele)}'");
+                                        ReportingUtility.ReportError(it, eStyle_ColorOrZoom, $"language='{language}' style='{name}' element='{StartTagXml(ele)}'");
                                     }
                                 }
                             }
@@ -175,9 +183,9 @@ namespace TabulateSmarterTestContentPackage.Validators
                             string[] classes = attribute.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
                             foreach(var c in classes)
                             {
-                                if (s_prohibitedClasses.TryGetValue(c, out issueDescription))
+                                if (s_prohibitedClasses.TryGetValue(c, out issueId))
                                 {
-                                    ReportingUtility.ReportError(it, ErrorId.T0207, $"language='{language}' class='{c}' issue='{issueDescription}' element='{StartTagXml(ele)}'");
+                                    ReportingUtility.ReportError(it, issueId, $"language='{language}' class='{c}' element='{StartTagXml(ele)}'");
                                     valid = false;
                                 }
                             }
