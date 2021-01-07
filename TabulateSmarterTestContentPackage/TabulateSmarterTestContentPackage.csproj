@@ -6,13 +6,13 @@
     <StartupObject>TabulateSmarterTestContentPackage.Program</StartupObject>
     <RuntimeIdentifiers>win-x64;win-x86</RuntimeIdentifiers>
     <NeutralLanguage />
-    <Version>3.4.5.9</Version>
-    <AssemblyVersion>3.4.5.9</AssemblyVersion>
-    <FileVersion>3.4.5.9</FileVersion>
+    <Version>3.6.0</Version>
+    <AssemblyVersion>3.6.0.0</AssemblyVersion>
+    <FileVersion>3.6.0.0</FileVersion>
     <Authors>Smarter Balanced Assessment Consortium</Authors>
     <Company>Smarter Balanced Assessment Consortium</Company>
-    <Description>Validates and tabulates the contents of a Smarter Balanced Test Content Package</Description>
-    <Copyright>Copyright 2016-2019 Regents of the University of California</Copyright>
+    <Description>Validates and tabulates the contents of a Smarter Balanced Test Content Package in SAAIF (SmarterApp Assessment Item Format) format.</Description>
+    <Copyright>Copyright 2016-2020 Regents of the University of California</Copyright>
     <PackageLicenseUrl>https://opensource.org/licenses/ECL-2.0</PackageLicenseUrl>
     <PackageProjectUrl>https://github.com/SmarterApp/TabulateSmarterTestContentPackage</PackageProjectUrl>
     <RepositoryUrl>https://github.com/SmarterApp/TabulateSmarterTestContentPackage</RepositoryUrl>
@@ -21,6 +21,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.NETCore.App" Version="2.0.0" />
     <PackageReference Include="NETStandard.Library" Version="2.0.1" />
   </ItemGroup>
 
