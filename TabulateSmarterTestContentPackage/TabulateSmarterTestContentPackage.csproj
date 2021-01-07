@@ -2,16 +2,16 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp2.0</TargetFramework>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
     <StartupObject>TabulateSmarterTestContentPackage.Program</StartupObject>
     <RuntimeIdentifiers>win-x64;win-x86</RuntimeIdentifiers>
     <NeutralLanguage />
-    <Version>3.5.0</Version>
-    <AssemblyVersion>3.5.0.0</AssemblyVersion>
-    <FileVersion>3.5.0.0</FileVersion>
+    <Version>3.6.0</Version>
+    <AssemblyVersion>3.6.0.0</AssemblyVersion>
+    <FileVersion>3.6.0.0</FileVersion>
     <Authors>Smarter Balanced Assessment Consortium</Authors>
     <Company>Smarter Balanced Assessment Consortium</Company>
-    <Description>Validates and tabulates the contents of a Smarter Balanced Test Content Package</Description>
+    <Description>Validates and tabulates the contents of a Smarter Balanced Test Content Package in SAAIF (SmarterApp Assessment Item Format) format.</Description>
     <Copyright>Copyright 2016-2020 Regents of the University of California</Copyright>
     <PackageLicenseUrl>https://opensource.org/licenses/ECL-2.0</PackageLicenseUrl>
     <PackageProjectUrl>https://github.com/SmarterApp/TabulateSmarterTestContentPackage</PackageProjectUrl>
