@@ -16,7 +16,7 @@ namespace TabulateSmarterTestContentPackage
     {
         static HashSet<string> cSkipHtmlValidationElements = new HashSet<string>(new string[]
         {
-            "rubriclist",
+            "rubriclist", // TODO: Remove this element to validate HTML on rubrics. See notes under TAB-13 in JIRA
             "rationaleoptlist",
             "concept",
             "es",

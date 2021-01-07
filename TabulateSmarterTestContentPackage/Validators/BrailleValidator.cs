@@ -234,7 +234,7 @@ namespace TabulateSmarterTestContentPackage.Validators
             else
             {
                 result = $"{brailleFileType}_{brailleSupport}";
-                if (!brailleTypeMeta.StartsWith($"{brailleFileType}_", StringComparison.OrdinalIgnoreCase))
+                if (!brailleTypeMeta.StartsWith($"{brailleFileType}", StringComparison.OrdinalIgnoreCase))
                 {
                     ReportingUtility.ReportError(it, ErrorId.T0203, $"metadata='{brailleTypeMeta}' content='{result}'");
                 }
