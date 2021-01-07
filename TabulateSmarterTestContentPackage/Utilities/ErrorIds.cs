@@ -221,7 +221,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
             new ErrorInfo(ErrorId.T0208, "Resource referenced in html content not found in package.", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0209, "Incorrect editor for Short Answer item", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Lead),
             new ErrorInfo(ErrorId.T0210, "Unknown or prohibited HTML tag in content", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
-            new ErrorInfo(ErrorId.T0211, "SA item lacks a valid RendererSpec (GAX)", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Content),
+            new ErrorInfo(ErrorId.T0211, "GI item lacks a valid RendererSpec (GAX)", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Content),
             new ErrorInfo(ErrorId.T0212, "Folder name contains incorrect letter case", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Lead),
             new ErrorInfo(ErrorId.T0213, "ASL video file type mismatch", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Asl),
             new ErrorInfo(ErrorId.T0214, "Failed to parse XML file", ErrorCategory.Item, ErrorSeverity.Degraded, ErrorReviewArea.Content),
