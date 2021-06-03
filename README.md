@@ -1,3 +1,12 @@
+# GI_Types Branch
+This is a special build that distinguishes between the three GI item type variants:
+
+* GI-DD - Drag and Drop
+* GI-HS - Hotspot
+* GI-PL - Graphing points and lines
+
+Certain items include more than one of these variants in the same item.
+
 # TabulateSmarterTestContentPackage
 Tabulates the contents of a test content package in SmarterApp format and checks for certain errors.
 
