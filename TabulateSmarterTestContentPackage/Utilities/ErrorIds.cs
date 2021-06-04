@@ -238,6 +238,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
             new ErrorInfo(ErrorId.T0225, "Video encoded at incorrect bitrate", ErrorCategory.Item, ErrorSeverity.Tolerable, ErrorReviewArea.Asl),
             new ErrorInfo(ErrorId.T0226, "Item content has attribute that is an internal TIMS TTS value that shouldn't be exported.", ErrorCategory.Item, ErrorSeverity.Benign, ErrorReviewArea.Tts),
             new ErrorInfo(ErrorId.T0227, "Item content has an alt text attribute that belongs in the accessibility section.", ErrorCategory.Item, ErrorSeverity.Benign, ErrorReviewArea.Tts),
+            new ErrorInfo(ErrorId.T0228, "Problem with gi item GAX", ErrorCategory.Item, ErrorSeverity.Severe, ErrorReviewArea.Content),
         };
 
         const string c_errIdPrefix = "CTAB-";
@@ -562,6 +563,7 @@ namespace TabulateSmarterTestContentPackage.Utilities
         T0225 = 225,
         T0226 = 226,
         T0227 = 227,
+        T0228 = 228,
     }
 
     public enum ErrorReviewArea : int

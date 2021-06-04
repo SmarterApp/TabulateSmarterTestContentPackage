@@ -829,6 +829,14 @@ namespace TabulateSmarterTestContentPackage
 
             } // Answer key
 
+            // GI_Types - get the GI subtype
+
+            string giSubtype = null;
+            if (string.Equals(it.ItemType, "gi", StringComparison.OrdinalIgnoreCase))
+            {
+               giSubtype = GiAnalyzer.GetGiSubtype(it, xml);
+            }
+
             // See how many answer options there are
             var answerOptions = string.Empty;
             if (scoringType == ScoringType.Basic)
