@@ -43,9 +43,31 @@ namespace TabulateSmarterTestContentPackage
                 }
             }
 
+            // Hotspot
             bool hasHotspot = null != gax.SelectSingleNode("/Question/QuestionPart/HotSpots/Regions/Region/Event");
 
-            if (hasHotspot) Console.WriteLine($"{it}: HotSpot");
+            // Graphing
+            bool hasGraph = false;
+            foreach(var button in gax.XpEvalE(" /Question/QuestionPart/Options/ShowButtons")
+                .Split(',', StringSplitOptions.RemoveEmptyEntries))
+            {
+                switch (button.Trim().ToLowerInvariant())
+                {
+                    case "arrow":
+                    case "arrw2":
+                    case "circle":
+                    case "connect":
+                    case "dash":
+                    case "point":
+                        hasGraph = true;
+                        break;
+                }
+            }
+
+            // DragAndDrop
+            bool hasDragAndDrop = null != gax.SelectSingleNode("/Question/QuestionPart/ObjectMenuIcons/IconSpec");
+
+            Console.WriteLine($"{it}: {(hasHotspot ? "HS" : "  ")} {(hasGraph ? "GR" : "  ")} {(hasDragAndDrop ? "DD" : "  ")}");
 
             return null;
         }
