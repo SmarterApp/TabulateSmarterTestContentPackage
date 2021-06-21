@@ -13,34 +13,29 @@ namespace TabulateSmarterTestContentPackage
     {
         public static string GetGiSubtype(ItemContext it, XmlDocument xml)
         {
+            XmlDocument gax;
+
             // Find the .gax filename
             var filename = xml.XpEval("/itemrelease/item/RendererSpec/@filename");
-            if (string.IsNullOrEmpty(filename))
+            if (!string.IsNullOrEmpty(filename))
             {
-                ReportingUtility.ReportError(it, ErrorId.T0228, $"<RendererSpec> not found.");
-                return null;
+                gax = LoadFromFile(it, filename);
+                if (gax == null) return null;
             }
 
-            // Read the GAX
-            FileFile ffGax;
-            if (!it.FfItem.TryGetFile(filename, out ffGax))
+            // If not a filename, look for embedded CDATA
+            else
             {
-                ReportingUtility.ReportError(it, ErrorId.T0228, $"GAX file not found '{filename}'");
-                return null;
-            }
-
-            var gax = new XmlDocument();
-            using (StreamReader reader = new StreamReader(ffGax.Open(), Encoding.UTF8, true, 1024, false))
-            {
-                try
+                var gaxString = xml.XpEval("/itemrelease/item/gridanswerspace");
+                if (string.IsNullOrEmpty(gaxString))
                 {
-                    gax.Load(reader);
-                }
-                catch (Exception err)
-                {
-                    ReportingUtility.ReportError(it, ErrorId.T0228, $"GAX file invalid XML '{err.Message}'");
+                    ReportingUtility.ReportError(it, ErrorId.T0228, $"<RendererSpec> and <gridanswerspace> not found.");
                     return null;
                 }
+
+                gax = new XmlDocument();
+                gax.LoadXml(gaxString);
+                Console.WriteLine($"Direct load: {it}");
             }
 
             // Hotspot
@@ -67,9 +62,38 @@ namespace TabulateSmarterTestContentPackage
             // DragAndDrop
             bool hasDragAndDrop = null != gax.SelectSingleNode("/Question/QuestionPart/ObjectMenuIcons/IconSpec");
 
-            Console.WriteLine($"{it}: {(hasHotspot ? "HS" : "  ")} {(hasGraph ? "GR" : "  ")} {(hasDragAndDrop ? "DD" : "  ")}");
+            // Generate the result
+            string value = "gi";
+            if (hasHotspot) value += "-HS";
+            if (hasGraph) value += "-GR";
+            if (hasDragAndDrop) value += "-DD";
+            return value;
+        }
 
-            return null;
+        private static XmlDocument LoadFromFile(ItemContext it, string filename)
+        {
+            FileFile ffGax;
+            if (!it.FfItem.TryGetFile(filename, out ffGax))
+            {
+                ReportingUtility.ReportError(it, ErrorId.T0228, $"GAX file not found '{filename}'");
+                return null;
+            }
+
+            var gax = new XmlDocument();
+            using (StreamReader reader = new StreamReader(ffGax.Open(), Encoding.UTF8, true, 1024, false))
+            {
+                try
+                {
+                    gax.Load(reader);
+                }
+                catch (Exception err)
+                {
+                    ReportingUtility.ReportError(it, ErrorId.T0228, $"GAX file invalid XML '{err.Message}'");
+                    return null;
+                }
+            }
+
+            return gax;
         }
 
     }
